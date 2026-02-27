@@ -1,6 +1,6 @@
 import { IpcMain } from 'electron';
 import { IPC_CHANNELS } from '@shared/constants';
-import { ClaudeResponse, Frame } from '@shared/types';
+import { ClaudeResponse, Frame, ChatRequest } from '@shared/types';
 import { ClaudeService } from './claudeService';
 import { getMainWindow } from '../index';
 import { getConfigValue } from '../config/store';
@@ -13,6 +13,11 @@ export function setupAIHandlers(ipcMain: IpcMain) {
   // 提取代码
   ipcMain.handle(IPC_CHANNELS.AI_EXTRACT, async (_event, frames: Frame[]): Promise<ClaudeResponse> => {
     return extractCode(frames);
+  });
+
+  // 聊天
+  ipcMain.handle(IPC_CHANNELS.AI_CHAT, async (_event, request: ChatRequest): Promise<{ content: string }> => {
+    return chat(request);
   });
 }
 
@@ -118,4 +123,48 @@ async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
 export function resetService(): void {
   console.log('[AI] Resetting Claude service');
   claudeService = null;
+}
+
+/**
+ * 聊天
+ */
+async function chat(request: ChatRequest): Promise<{ content: string }> {
+  const mainWindow = getMainWindow();
+
+  try {
+    // 获取 API Key
+    const apiKey = getConfigValue('claudeApiKey');
+
+    if (!apiKey) {
+      mainWindow?.webContents.send(IPC_CHANNELS.AI_ERROR, {
+        code: 'API_ERROR',
+        message: '请先配置 API Key',
+        timestamp: Date.now(),
+      });
+      throw new Error('API Key 未配置');
+    }
+
+    // 获取 Claude 服务
+    const service = getClaudeService();
+
+    console.log(`[AI] Chat request with ${request.messages.length} messages`);
+
+    // 调用 API
+    const result = await service.chat(request);
+
+    console.log(`[AI] Chat response length: ${result.content.length}`);
+
+    return result;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    console.error('[AI] Chat failed:', errorMessage);
+
+    mainWindow?.webContents.send(IPC_CHANNELS.AI_ERROR, {
+      code: 'API_ERROR',
+      message: `对话失败: ${errorMessage}`,
+      timestamp: Date.now(),
+    });
+
+    throw error;
+  }
 }

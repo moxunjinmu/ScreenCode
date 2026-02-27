@@ -15,6 +15,9 @@ export const IPC_CHANNELS = {
   AI_EXTRACT: 'ai:extract',
   AI_RESULT: 'ai:result',
   AI_ERROR: 'ai:error',
+  AI_CHAT: 'ai:chat',
+  AI_CHAT_RESPONSE: 'ai:chat:response',
+  AI_CHAT_STREAM: 'ai:chat:stream',
 
   // 设备相关
   DEVICE_ENUM: 'device:enum',

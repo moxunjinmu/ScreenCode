@@ -103,3 +103,18 @@ export const DEFAULT_CONFIG: AppConfig = {
   compressionWidth: 768,
   compressionQuality: 85,
 };
+
+// 聊天消息类型
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  images?: string[];  // base64 图片数组
+  timestamp: number;
+}
+
+// 聊天请求
+export interface ChatRequest {
+  messages: { role: 'user' | 'assistant'; content: string; images?: string[] }[];
+  systemPrompt?: string;
+}

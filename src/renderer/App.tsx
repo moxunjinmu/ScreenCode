@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Layout from './components/Layout';
 import Preview from './components/Preview';
 import ThumbnailQueue from './components/ThumbnailQueue';
 import CodeDisplay from './components/CodeDisplay';
+import ChatPanel from './components/ChatPanel';
 import Toast from './components/Toast';
 import { useCaptureStore } from './store/captureStore';
 import { useFrameStore } from './store/frameStore';
@@ -12,7 +13,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 const App: React.FC = () => {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  
+  const [chatWidth, setChatWidth] = useState(350);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const { loadDevices, captureFrame, stream } = useCaptureStore();
   const { addFrame, frames } = useFrameStore();
   const { setCodeResult, setError, setProcessing } = useAppStore();
@@ -44,7 +48,7 @@ const App: React.FC = () => {
 
       // 添加到队列
       addFrame(frame);
-      
+
       setToast({ message: `截图已入队 (${frames.length + 1}/8)`, type: 'success' });
       setTimeout(() => setToast(null), 1500);
     } catch (error) {
@@ -86,23 +90,76 @@ const App: React.FC = () => {
     };
   }, [loadDevices, setCodeResult, setError, setProcessing, handleCaptureFrame]);
 
+  // 拖拽处理
+  const handleMouseDown = () => {
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !containerRef.current) return;
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const newWidth = containerRect.right - e.clientX;
+    const minWidth = 280;
+    const maxWidth = containerRect.width * 0.6;
+
+    setChatWidth(Math.min(Math.max(newWidth, minWidth), maxWidth));
+  }, [isDragging]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
   return (
     <Layout>
-      <div className="flex flex-col h-full gap-4 p-4">
-        {/* 实时预览 */}
-        <section className="flex-1 min-h-[200px]">
-          <Preview />
-        </section>
+      <div ref={containerRef} className="flex h-full">
+        {/* 左侧主区域 */}
+        <div className="flex-1 flex flex-col gap-4 p-4 min-w-0">
+          {/* 实时预览 */}
+          <section className="flex-1 min-h-[200px]">
+            <Preview />
+          </section>
 
-        {/* 缩略图队列 */}
-        <section className="h-24">
-          <ThumbnailQueue onCaptureFrame={handleCaptureFrame} />
-        </section>
+          {/* 缩略图队列 */}
+          <section className="h-24">
+            <ThumbnailQueue onCaptureFrame={handleCaptureFrame} />
+          </section>
 
-        {/* 代码展示 */}
-        <section className="flex-1 min-h-[200px]">
-          <CodeDisplay />
-        </section>
+          {/* 代码展示 */}
+          <section className="flex-1 min-h-[200px]">
+            <CodeDisplay />
+          </section>
+        </div>
+
+        {/* 拖拽分隔条 */}
+        <div
+          onMouseDown={handleMouseDown}
+          className={`w-1 bg-gray-700 hover:bg-primary-500 cursor-col-resize transition-colors ${
+            isDragging ? 'bg-primary-500' : ''
+          }`}
+        />
+
+        {/* 右侧聊天面板 */}
+        <ChatPanel width={chatWidth} />
       </div>
 
       {/* Toast 通知 */}
