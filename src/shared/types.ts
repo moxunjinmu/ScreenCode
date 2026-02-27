@@ -47,19 +47,25 @@ export interface AppError {
 }
 
 // Claude 模型类型
-export type ClaudeModel = 'claude-opus-4-6' | 'claude-sonnet-4-6' | 'claude-3-5-sonnet-20241022';
+export type ClaudeModel = 'claude-opus-4-6' | 'claude-sonnet-4-6' | 'claude-3-5-sonnet-20241022' | 'custom';
 
 // 模型显示名称
 export const CLAUDE_MODEL_NAMES: Record<ClaudeModel, string> = {
   'claude-opus-4-6': 'Claude Opus 4.6 (最强)',
   'claude-sonnet-4-6': 'Claude Sonnet 4.6 (推荐)',
   'claude-3-5-sonnet-20241022': 'Claude 3.5 Sonnet (稳定)',
+  'custom': '自定义模型',
 };
+
+// 默认 API Base URL
+export const DEFAULT_API_BASE_URL = 'https://api.anthropic.com';
 
 // 配置
 export interface AppConfig {
   claudeApiKey: string;
+  claudeApiBaseUrl: string;  // 支持第三方中转
   claudeModel: ClaudeModel;
+  claudeCustomModel?: string;  // 自定义模型名称
   lastDeviceId: string | null;
   toastDuration: number;
   frameDiffThreshold: number;
@@ -71,7 +77,9 @@ export interface AppConfig {
 // 默认配置
 export const DEFAULT_CONFIG: AppConfig = {
   claudeApiKey: '',
+  claudeApiBaseUrl: DEFAULT_API_BASE_URL,
   claudeModel: 'claude-sonnet-4-6',
+  claudeCustomModel: '',
   lastDeviceId: null,
   toastDuration: 1500,
   frameDiffThreshold: 0.05,

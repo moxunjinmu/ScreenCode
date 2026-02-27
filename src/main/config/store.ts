@@ -29,7 +29,9 @@ export function setupConfigHandlers(ipcMain: IpcMain) {
 export function getConfig(): AppConfig {
   return {
     claudeApiKey: store.get('claudeApiKey', ''),
+    claudeApiBaseUrl: store.get('claudeApiBaseUrl', 'https://api.anthropic.com'),
     claudeModel: store.get('claudeModel', 'claude-sonnet-4-6'),
+    claudeCustomModel: store.get('claudeCustomModel', ''),
     lastDeviceId: store.get('lastDeviceId', null),
     toastDuration: store.get('toastDuration', 1500),
     frameDiffThreshold: store.get('frameDiffThreshold', 0.05),

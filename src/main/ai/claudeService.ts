@@ -1,23 +1,35 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { ClaudeResponse, Frame, ClaudeModel } from '@shared/types';
+import { ClaudeResponse, Frame, ClaudeModel, DEFAULT_API_BASE_URL } from '@shared/types';
 import { buildMultiFramePrompt } from './promptBuilder';
 
 /**
  * Claude API 服务
  * 支持最新的 Claude Opus 4.6 和 Sonnet 4.6 模型
+ * 支持第三方中转 API
  */
 export class ClaudeService {
   private client: Anthropic;
-  private model: ClaudeModel = 'claude-sonnet-4-6';
+  private model: ClaudeModel | string = 'claude-sonnet-4-6';
   private maxTokens: number = 8192;
+  private baseUrl: string;
 
-  constructor(apiKey: string, model?: ClaudeModel) {
+  constructor(
+    apiKey: string,
+    model?: ClaudeModel | string,
+    baseUrl?: string
+  ) {
+    this.baseUrl = baseUrl || DEFAULT_API_BASE_URL;
+
     this.client = new Anthropic({
       apiKey: apiKey,
+      baseURL: this.baseUrl,
     });
+
     if (model) {
       this.model = model;
     }
+
+    console.log(`[ClaudeService] Initialized with baseUrl: ${this.baseUrl}, model: ${this.model}`);
   }
 
   /**
@@ -110,7 +122,7 @@ export class ClaudeService {
   /**
    * 设置模型
    */
-  setModel(model: ClaudeModel): void {
+  setModel(model: ClaudeModel | string): void {
     this.model = model;
     console.log(`[ClaudeService] Model set to: ${model}`);
   }
@@ -118,7 +130,14 @@ export class ClaudeService {
   /**
    * 获取当前模型
    */
-  getModel(): ClaudeModel {
+  getModel(): string {
     return this.model;
+  }
+
+  /**
+   * 获取当前 Base URL
+   */
+  getBaseUrl(): string {
+    return this.baseUrl;
   }
 }

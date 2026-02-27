@@ -17,16 +17,34 @@ export function setupAIHandlers(ipcMain: IpcMain) {
 }
 
 /**
+ * 获取实际使用的模型名称
+ */
+function getActualModel(): string {
+  const model = getConfigValue('claudeModel');
+  const customModel = getConfigValue('claudeCustomModel');
+
+  // 如果选择自定义模型且有自定义模型名称，使用自定义名称
+  if (model === 'custom' && customModel) {
+    return customModel;
+  }
+
+  return model || 'claude-sonnet-4-6';
+}
+
+/**
  * 获取或创建 Claude 服务实例
  */
 function getClaudeService(): ClaudeService {
   const apiKey = getConfigValue('claudeApiKey');
-  const model = getConfigValue('claudeModel') || 'claude-sonnet-4-6';
+  const baseUrl = getConfigValue('claudeApiBaseUrl');
+  const actualModel = getActualModel();
 
-  // 如果服务不存在或模型变了，重新创建
-  if (!claudeService || claudeService.getModel() !== model) {
-    console.log(`[AI] Creating Claude service with model: ${model}`);
-    claudeService = new ClaudeService(apiKey, model);
+  // 如果服务不存在或配置变了，重新创建
+  if (!claudeService ||
+      claudeService.getModel() !== actualModel ||
+      claudeService.getBaseUrl() !== baseUrl) {
+    console.log(`[AI] Creating Claude service with baseUrl: ${baseUrl}, model: ${actualModel}`);
+    claudeService = new ClaudeService(apiKey, actualModel, baseUrl);
   }
 
   return claudeService;
@@ -63,8 +81,9 @@ async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
     // 获取 Claude 服务
     const service = getClaudeService();
     const model = service.getModel();
+    const baseUrl = service.getBaseUrl();
 
-    console.log(`[AI] Extracting code from ${frames.length} frames using ${model}...`);
+    console.log(`[AI] Extracting code from ${frames.length} frames using ${model} at ${baseUrl}...`);
 
     // 调用 Claude API
     const result = await service.extractCode(frames);
@@ -94,7 +113,7 @@ async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
 }
 
 /**
- * 重置服务（用于更新 API Key 或模型）
+ * 重置服务（用于更新 API Key、模型或 Base URL）
  */
 export function resetService(): void {
   console.log('[AI] Resetting Claude service');
