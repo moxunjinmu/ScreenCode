@@ -29,6 +29,7 @@ export function setupConfigHandlers(ipcMain: IpcMain) {
 export function getConfig(): AppConfig {
   return {
     claudeApiKey: store.get('claudeApiKey', ''),
+    claudeModel: store.get('claudeModel', 'claude-sonnet-4-6'),
     lastDeviceId: store.get('lastDeviceId', null),
     toastDuration: store.get('toastDuration', 1500),
     frameDiffThreshold: store.get('frameDiffThreshold', 0.05),

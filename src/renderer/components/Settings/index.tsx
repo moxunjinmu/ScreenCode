@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ClaudeModel, CLAUDE_MODEL_NAMES } from '@shared/types';
 
 interface SettingsProps {
   isOpen: boolean;
@@ -7,6 +8,7 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const [apiKey, setApiKey] = useState('');
+  const [model, setModel] = useState<ClaudeModel>('claude-sonnet-4-6');
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
@@ -20,6 +22,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     try {
       const config = await window.electronAPI.getConfig();
       setApiKey(config.claudeApiKey || '');
+      setModel(config.claudeModel || 'claude-sonnet-4-6');
     } catch (error) {
       console.error('Failed to load settings:', error);
     }
@@ -28,7 +31,10 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await window.electronAPI.setConfig({ claudeApiKey: apiKey });
+      await window.electronAPI.setConfig({
+        claudeApiKey: apiKey,
+        claudeModel: model
+      });
       setIsSaved(true);
       setTimeout(() => {
         setIsSaved(false);
@@ -55,7 +61,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
             ✕
           </button>
         </div>
-        
+
         {/* Content */}
         <div className="p-4 space-y-4">
           {/* API Key */}
@@ -74,8 +80,39 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
               从 <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="text-primary-400 hover:underline">Anthropic Console</a> 获取 API Key
             </p>
           </div>
-          
-          {/* 提示信息 */}
+
+          {/* Model Selection */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">
+              AI 模型
+            </label>
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value as ClaudeModel)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+            >
+              {Object.entries(CLAUDE_MODEL_NAMES).map(([value, name]) => (
+                <option key={value} value={value}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Sonnet 4.6 推荐 - 平衡速度与效果；Opus 4.6 最强但较慢
+            </p>
+          </div>
+
+          {/* Model Info */}
+          <div className="bg-gray-700/50 rounded p-3">
+            <h4 className="text-sm font-medium mb-2">模型说明</h4>
+            <ul className="text-xs text-gray-400 space-y-1">
+              <li>• <span className="text-primary-400">Opus 4.6</span> - 最强推理能力，复杂代码识别</li>
+              <li>• <span className="text-green-400">Sonnet 4.6</span> - 推荐，平衡速度与质量</li>
+              <li>• <span className="text-gray-300">3.5 Sonnet</span> - 稳定版本，兼容性好</li>
+            </ul>
+          </div>
+
+          {/* Tips */}
           <div className="bg-gray-700/50 rounded p-3">
             <h4 className="text-sm font-medium mb-2">使用说明</h4>
             <ul className="text-xs text-gray-400 space-y-1">
@@ -85,7 +122,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
             </ul>
           </div>
         </div>
-        
+
         {/* Footer */}
         <div className="flex justify-end gap-2 p-4 border-t border-gray-700">
           <button

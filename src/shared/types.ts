@@ -23,6 +23,7 @@ export interface ClaudeResponse {
   language: string;
   code: string;
   confidence: number;
+  explanation?: string;  // 可选的识别说明
 }
 
 // 应用状态
@@ -45,9 +46,20 @@ export interface AppError {
   timestamp: number;
 }
 
+// Claude 模型类型
+export type ClaudeModel = 'claude-opus-4-6' | 'claude-sonnet-4-6' | 'claude-3-5-sonnet-20241022';
+
+// 模型显示名称
+export const CLAUDE_MODEL_NAMES: Record<ClaudeModel, string> = {
+  'claude-opus-4-6': 'Claude Opus 4.6 (最强)',
+  'claude-sonnet-4-6': 'Claude Sonnet 4.6 (推荐)',
+  'claude-3-5-sonnet-20241022': 'Claude 3.5 Sonnet (稳定)',
+};
+
 // 配置
 export interface AppConfig {
   claudeApiKey: string;
+  claudeModel: ClaudeModel;
   lastDeviceId: string | null;
   toastDuration: number;
   frameDiffThreshold: number;
@@ -59,6 +71,7 @@ export interface AppConfig {
 // 默认配置
 export const DEFAULT_CONFIG: AppConfig = {
   claudeApiKey: '',
+  claudeModel: 'claude-sonnet-4-6',
   lastDeviceId: null,
   toastDuration: 1500,
   frameDiffThreshold: 0.05,

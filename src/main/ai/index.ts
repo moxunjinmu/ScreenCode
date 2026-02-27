@@ -17,11 +17,27 @@ export function setupAIHandlers(ipcMain: IpcMain) {
 }
 
 /**
+ * 获取或创建 Claude 服务实例
+ */
+function getClaudeService(): ClaudeService {
+  const apiKey = getConfigValue('claudeApiKey');
+  const model = getConfigValue('claudeModel') || 'claude-sonnet-4-6';
+
+  // 如果服务不存在或模型变了，重新创建
+  if (!claudeService || claudeService.getModel() !== model) {
+    console.log(`[AI] Creating Claude service with model: ${model}`);
+    claudeService = new ClaudeService(apiKey, model);
+  }
+
+  return claudeService;
+}
+
+/**
  * 提取代码
  */
 async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
   const mainWindow = getMainWindow();
-  
+
   if (!frames || frames.length === 0) {
     mainWindow?.webContents.send(IPC_CHANNELS.AI_ERROR, {
       code: 'FRAME_QUEUE_EMPTY',
@@ -34,7 +50,7 @@ async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
   try {
     // 获取 API Key
     const apiKey = getConfigValue('claudeApiKey');
-    
+
     if (!apiKey) {
       mainWindow?.webContents.send(IPC_CHANNELS.AI_ERROR, {
         code: 'API_ERROR',
@@ -44,17 +60,16 @@ async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
       throw new Error('API Key 未配置');
     }
 
-    // 初始化 Claude 服务
-    if (!claudeService) {
-      claudeService = new ClaudeService(apiKey);
-    }
+    // 获取 Claude 服务
+    const service = getClaudeService();
+    const model = service.getModel();
 
-    console.log(`Extracting code from ${frames.length} frames...`);
+    console.log(`[AI] Extracting code from ${frames.length} frames using ${model}...`);
 
     // 调用 Claude API
-    const result = await claudeService.extractCode(frames);
+    const result = await service.extractCode(frames);
 
-    console.log('Code extraction completed:', {
+    console.log('[AI] Code extraction completed:', {
       language: result.language,
       confidence: result.confidence,
       codeLength: result.code.length
@@ -66,8 +81,8 @@ async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
     return result;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '未知错误';
-    console.error('Code extraction failed:', errorMessage);
-    
+    console.error('[AI] Code extraction failed:', errorMessage);
+
     mainWindow?.webContents.send(IPC_CHANNELS.AI_ERROR, {
       code: 'API_ERROR',
       message: `代码提取失败: ${errorMessage}`,
@@ -79,8 +94,9 @@ async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
 }
 
 /**
- * 重置服务（用于更新 API Key）
+ * 重置服务（用于更新 API Key 或模型）
  */
 export function resetService(): void {
+  console.log('[AI] Resetting Claude service');
   claudeService = null;
 }
