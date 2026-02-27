@@ -60,12 +60,27 @@ export const CLAUDE_MODEL_NAMES: Record<ClaudeModel, string> = {
 // 默认 API Base URL
 export const DEFAULT_API_BASE_URL = 'https://api.anthropic.com';
 
+// API 供应商
+export interface ApiProvider {
+  id: string;
+  name: string;
+  baseUrl: string;
+}
+
+// 默认供应商列表
+export const DEFAULT_PROVIDERS: ApiProvider[] = [
+  { id: 'anthropic', name: 'Anthropic 官方', baseUrl: 'https://api.anthropic.com' },
+  { id: 'zhipu', name: '智谱 AI', baseUrl: 'https://open.bigmodel.cn/api/anthropic' },
+  { id: 'openrouter', name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1' },
+];
+
 // 配置
 export interface AppConfig {
   claudeApiKey: string;
   claudeApiBaseUrl: string;  // 支持第三方中转
   claudeModel: ClaudeModel;
   claudeCustomModel?: string;  // 自定义模型名称
+  apiProviders?: ApiProvider[];  // 自定义供应商列表
   lastDeviceId: string | null;
   toastDuration: number;
   frameDiffThreshold: number;
@@ -80,6 +95,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   claudeApiBaseUrl: DEFAULT_API_BASE_URL,
   claudeModel: 'claude-sonnet-4-6',
   claudeCustomModel: '',
+  apiProviders: DEFAULT_PROVIDERS,
   lastDeviceId: null,
   toastDuration: 1500,
   frameDiffThreshold: 0.05,

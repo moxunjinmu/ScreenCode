@@ -1,7 +1,7 @@
 import { IpcMain } from 'electron';
 import Store from 'electron-store';
 import { IPC_CHANNELS } from '@shared/constants';
-import { AppConfig, DEFAULT_CONFIG } from '@shared/types';
+import { AppConfig, DEFAULT_CONFIG, DEFAULT_PROVIDERS } from '@shared/types';
 
 // 配置存储
 const store = new Store<AppConfig>({
@@ -32,6 +32,7 @@ export function getConfig(): AppConfig {
     claudeApiBaseUrl: store.get('claudeApiBaseUrl', 'https://api.anthropic.com'),
     claudeModel: store.get('claudeModel', 'claude-sonnet-4-6'),
     claudeCustomModel: store.get('claudeCustomModel', ''),
+    apiProviders: store.get('apiProviders', DEFAULT_PROVIDERS),
     lastDeviceId: store.get('lastDeviceId', null),
     toastDuration: store.get('toastDuration', 1500),
     frameDiffThreshold: store.get('frameDiffThreshold', 0.05),
