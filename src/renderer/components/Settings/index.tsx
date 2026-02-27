@@ -1,25 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { ClaudeModel, CLAUDE_MODEL_NAMES, DEFAULT_API_BASE_URL, ApiProvider, DEFAULT_PROVIDERS } from '@shared/types';
+import { ApiProvider, ProviderConfig, DEFAULT_PROVIDERS } from '@shared/types';
 
 interface SettingsProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+interface AppConfig {
+  activeProvider: string;
+  providerConfigs: {
+    [providerId: string]: ProviderConfig;
+  };
+  apiProviders?: ApiProvider[];
+  lastDeviceId: string | null;
+  toastDuration: number;
+  frameDiffThreshold: number;
+  maxFrames: number;
+  compressionWidth: number;
+  compressionQuality: number;
+}
+
 const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
-  const [apiKey, setApiKey] = useState('');
-  const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_API_BASE_URL);
-  const [model, setModel] = useState<ClaudeModel>('claude-sonnet-4-6');
-  const [customModel, setCustomModel] = useState('');
+  const [config, setConfig] = useState<AppConfig | null>(null);
+  const [activeProviderId, setActiveProviderId] = useState('zhipu');
+  const [activeProviderConfig, setActiveProviderConfig] = useState<ProviderConfig | null>(null);
   const [providers, setProviders] = useState<ApiProvider[]>(DEFAULT_PROVIDERS);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // 新供应商表单
-  const [newProviderName, setNewProviderName] = useState('');
-  const [newProviderUrl, setNewProviderUrl] = useState('');
-  const [showAddProvider, setShowAddProvider] = useState(false);
+  const [showJsonEditor, setShowJsonEditor] = useState(false);
+  const [jsonText, setJsonText] = useState('');
+  const [jsonError, setJsonError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -27,74 +37,127 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
+  // 同步 JSON 文本
+  useEffect(() => {
+    if (config) {
+      setJsonText(JSON.stringify(config, null, 2));
+    }
+  }, [config]);
+
   const loadSettings = async () => {
     try {
-      const config = await window.electronAPI.getConfig();
-      setApiKey(config.claudeApiKey || '');
-      setApiBaseUrl(config.claudeApiBaseUrl || DEFAULT_API_BASE_URL);
-      setModel(config.claudeModel || 'claude-sonnet-4-6');
-      setCustomModel(config.claudeCustomModel || '');
-      setProviders(config.apiProviders || DEFAULT_PROVIDERS);
+      const loadedConfig = await window.electronAPI.getConfig();
+      setConfig(loadedConfig);
+      setActiveProviderId(loadedConfig.activeProvider || 'zhipu');
+      setProviders(loadedConfig.apiProviders || DEFAULT_PROVIDERS);
+      
+      if (loadedConfig.providerConfigs && loadedConfig.activeProvider) {
+        setActiveProviderConfig(loadedConfig.providerConfigs[loadedConfig.activeProvider]);
+      }
     } catch (error) {
       console.error('Failed to load settings:', error);
     }
   };
 
+  const handleSelectProvider = async (providerId: string) => {
+    if (!config) return;
+
+    setActiveProviderId(providerId);
+    const newConfig = config.providerConfigs[providerId] || {
+      apiKey: '',
+      baseUrl: providers.find(p => p.id === providerId)?.baseUrl || '',
+      model: providers.find(p => p.id === providerId)?.models?.[0] || '',
+    };
+    setActiveProviderConfig(newConfig);
+
+    // 更新 config 状态
+    const updatedConfig = {
+      ...config,
+      activeProvider: providerId,
+    };
+    setConfig(updatedConfig);
+
+    // 保存激活的供应商
+    await window.electronAPI.setConfig(updatedConfig);
+  };
+
+  // 当输入框改变时，同步更新 config 和 JSON
+  const handleConfigChange = (field: keyof ProviderConfig, value: string | number) => {
+    if (!activeProviderConfig || !config) return;
+
+    const updatedProviderConfig = {
+      ...activeProviderConfig,
+      [field]: value,
+    };
+    setActiveProviderConfig(updatedProviderConfig);
+
+    // 同步更新 config
+    const updatedConfig = {
+      ...config,
+      providerConfigs: {
+        ...config.providerConfigs,
+        [activeProviderId]: updatedProviderConfig,
+      },
+    };
+    setConfig(updatedConfig);
+  };
+
+  // 当 JSON 改变时，同步更新输入框
+  const handleJsonChange = (json: string) => {
+    setJsonText(json);
+    setJsonError('');
+
+    try {
+      const parsed = JSON.parse(json);
+      
+      // 更新 config
+      setConfig(parsed);
+      
+      // 更新激活供应商
+      if (parsed.activeProvider) {
+        setActiveProviderId(parsed.activeProvider);
+      }
+      
+      // 更新激活供应商配置
+      if (parsed.providerConfigs && parsed.activeProvider) {
+        setActiveProviderConfig(parsed.providerConfigs[parsed.activeProvider]);
+      }
+      
+      // 更新供应商列表
+      if (parsed.apiProviders) {
+        setProviders(parsed.apiProviders);
+      }
+    } catch (error) {
+      setJsonError(error instanceof Error ? error.message : 'Invalid JSON');
+    }
+  };
+
   const handleSave = async () => {
+    if (!config) return;
+
     setIsSaving(true);
     try {
-      await window.electronAPI.setConfig({
-        claudeApiKey: apiKey,
-        claudeApiBaseUrl: apiBaseUrl,
-        claudeModel: model,
-        claudeCustomModel: customModel,
-        apiProviders: providers,
-      });
+      await window.electronAPI.setConfig(config);
       setIsSaved(true);
       setTimeout(() => {
         setIsSaved(false);
-        onClose();
       }, 1000);
     } catch (error) {
-      console.error('Failed to save settings:', error);
+      console.error('Failed to save config:', error);
     }
     setIsSaving(false);
   };
 
-  // 添加供应商
-  const handleAddProvider = () => {
-    if (!newProviderName.trim() || !newProviderUrl.trim()) return;
+  if (!isOpen || !config) return null;
 
-    const newProvider: ApiProvider = {
-      id: `custom_${Date.now()}`,
-      name: newProviderName.trim(),
-      baseUrl: newProviderUrl.trim(),
-    };
-
-    setProviders([...providers, newProvider]);
-    setNewProviderName('');
-    setNewProviderUrl('');
-    setShowAddProvider(false);
-  };
-
-  // 删除供应商
-  const handleDeleteProvider = (id: string) => {
-    setProviders(providers.filter(p => p.id !== id));
-  };
-
-  // 选择供应商
-  const handleSelectProvider = (baseUrl: string) => {
-    setApiBaseUrl(baseUrl);
-  };
-
-  if (!isOpen) return null;
+  const currentProvider = providers.find(p => p.id === activeProviderId);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
-          <h2 className="text-lg font-semibold">设置</h2>
+          <h2 className="text-lg font-semibold">Settings</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"
@@ -105,167 +168,147 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
         {/* Content */}
         <div className="p-4 space-y-4">
-          {/* API Key */}
+          {/* Provider Selection */}
           <div>
             <label className="block text-sm text-gray-400 mb-2">
-              API Key
+              API Provider
             </label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="输入 API Key..."
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
-            />
-          </div>
-
-          {/* API Provider */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">
-              API 供应商
-            </label>
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
               {providers.map((provider) => (
                 <div
                   key={provider.id}
-                  className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${
-                    apiBaseUrl === provider.baseUrl
-                      ? 'bg-primary-600/30 border border-primary-500'
-                      : 'bg-gray-700 hover:bg-gray-600'
+                  onClick={() => handleSelectProvider(provider.id)}
+                  className={`p-3 rounded cursor-pointer transition-colors border ${
+                    activeProviderId === provider.id
+                      ? 'bg-primary-600/30 border-primary-500'
+                      : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
                   }`}
-                  onClick={() => handleSelectProvider(provider.baseUrl)}
                 >
-                  <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${
-                      apiBaseUrl === provider.baseUrl ? 'bg-primary-400' : 'bg-gray-500'
-                    }`} />
-                    <div>
-                      <div className="text-sm">{provider.name}</div>
-                      <div className="text-xs text-gray-400 truncate max-w-[200px]">{provider.baseUrl}</div>
-                    </div>
-                  </div>
-                  {/* 删除按钮 - 只对自定义供应商显示 */}
-                  {provider.id.startsWith('custom_') && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteProvider(provider.id);
-                      }}
-                      className="text-gray-400 hover:text-red-400 px-2"
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <div className="text-sm font-medium">{provider.name}</div>
+                  <div className="text-xs text-gray-400 truncate mt-1">{provider.baseUrl}</div>
                 </div>
               ))}
             </div>
+          </div>
 
-            {/* 添加供应商 */}
-            {showAddProvider ? (
-              <div className="mt-2 p-3 bg-gray-700 rounded space-y-2">
-                <input
-                  type="text"
-                  value={newProviderName}
-                  onChange={(e) => setNewProviderName(e.target.value)}
-                  placeholder="供应商名称"
-                  className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded text-sm focus:outline-none focus:border-primary-500"
-                />
-                <input
-                  type="text"
-                  value={newProviderUrl}
-                  onChange={(e) => setNewProviderUrl(e.target.value)}
-                  placeholder="API Base URL"
-                  className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded text-sm focus:outline-none focus:border-primary-500"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowAddProvider(false)}
-                    className="flex-1 px-3 py-1.5 text-sm bg-gray-600 rounded hover:bg-gray-500"
+          {/* Active Provider Config */}
+          {activeProviderConfig && currentProvider && (
+            <div className="border-t border-gray-700 pt-4">
+              <h3 className="text-sm font-medium text-gray-300 mb-3">
+                {currentProvider.name} Configuration
+              </h3>
+              
+              <div className="space-y-3">
+                {/* API Key */}
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">API Key</label>
+                  <input
+                    type="password"
+                    value={activeProviderConfig.apiKey || ''}
+                    onChange={(e) => handleConfigChange('apiKey', e.target.value)}
+                    placeholder="Enter API Key..."
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+
+                {/* Base URL */}
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Base URL</label>
+                  <input
+                    type="text"
+                    value={activeProviderConfig.baseUrl || ''}
+                    onChange={(e) => handleConfigChange('baseUrl', e.target.value)}
+                    placeholder="https://api.example.com"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+
+                {/* Model Selection */}
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Model</label>
+                  <select
+                    value={activeProviderConfig.model || ''}
+                    onChange={(e) => handleConfigChange('model', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
                   >
-                    取消
-                  </button>
-                  <button
-                    onClick={handleAddProvider}
-                    disabled={!newProviderName.trim() || !newProviderUrl.trim()}
-                    className="flex-1 px-3 py-1.5 text-sm bg-primary-600 rounded hover:bg-primary-500 disabled:opacity-50"
-                  >
-                    添加
-                  </button>
+                    {currentProvider.models?.map((model) => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                    <option value="custom">Custom Model</option>
+                  </select>
+                </div>
+
+                {/* Custom Model */}
+                {activeProviderConfig.model === 'custom' && (
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Custom Model Name</label>
+                    <input
+                      type="text"
+                      value={activeProviderConfig.customModel || ''}
+                      onChange={(e) => handleConfigChange('customModel', e.target.value)}
+                      placeholder="e.g., glm-5, gpt-4o..."
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+                    />
+                  </div>
+                )}
+
+                {/* Advanced Settings */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Max Tokens</label>
+                    <input
+                      type="number"
+                      value={activeProviderConfig.maxTokens || 8192}
+                      onChange={(e) => handleConfigChange('maxTokens', parseInt(e.target.value))}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Temperature</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="2"
+                      value={activeProviderConfig.temperature || 0.7}
+                      onChange={(e) => handleConfigChange('temperature', parseFloat(e.target.value))}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+                    />
+                  </div>
                 </div>
               </div>
-            ) : (
-              <button
-                onClick={() => setShowAddProvider(true)}
-                className="mt-2 w-full px-3 py-2 text-sm bg-gray-700 rounded hover:bg-gray-600 flex items-center justify-center gap-1"
-              >
-                <span>+</span> 添加供应商
-              </button>
-            )}
-          </div>
-
-          {/* Model Selection */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">
-              AI 模型
-            </label>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value as ClaudeModel)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
-            >
-              {Object.entries(CLAUDE_MODEL_NAMES).map(([value, name]) => (
-                <option key={value} value={value}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Custom Model Name */}
-          {model === 'custom' && (
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                自定义模型名称
-              </label>
-              <input
-                type="text"
-                value={customModel}
-                onChange={(e) => setCustomModel(e.target.value)}
-                placeholder="例如: GLM-5, gpt-4o..."
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
-              />
             </div>
           )}
 
-          {/* Advanced Settings Toggle */}
-          <div>
+          {/* JSON Editor Toggle */}
+          <div className="border-t border-gray-700 pt-4">
             <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-primary-400 hover:text-primary-300 flex items-center gap-1"
+              onClick={() => setShowJsonEditor(!showJsonEditor)}
+              className="text-sm text-yellow-400 hover:text-yellow-300 flex items-center gap-1"
             >
-              <span className={`transform transition-transform ${showAdvanced ? 'rotate-90' : ''}`}>▶</span>
-              高级设置
+              <span className={`transform transition-transform ${showJsonEditor ? 'rotate-90' : ''}`}>▶</span>
+              Advanced: Edit Full JSON Config
             </button>
           </div>
 
-          {/* Advanced Settings */}
-          {showAdvanced && (
-            <div className="space-y-4 pl-2 border-l-2 border-gray-700">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">
-                  自定义 Base URL
-                </label>
-                <input
-                  type="text"
-                  value={apiBaseUrl}
-                  onChange={(e) => setApiBaseUrl(e.target.value)}
-                  placeholder={DEFAULT_API_BASE_URL}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  手动输入或从上方供应商列表选择
-                </p>
+          {/* JSON Editor */}
+          {showJsonEditor && (
+            <div className="space-y-2">
+              <div className="text-xs text-gray-500 mb-1">
+                Edit full configuration JSON (changes sync automatically)
               </div>
+              <textarea
+                value={jsonText}
+                onChange={(e) => handleJsonChange(e.target.value)}
+                className="w-full h-96 px-3 py-2 bg-gray-900 border border-gray-600 rounded text-xs font-mono text-green-400 focus:outline-none focus:border-primary-500 resize-none"
+                spellCheck={false}
+              />
+              
+              {jsonError && (
+                <div className="text-xs text-red-400 bg-red-900/20 p-2 rounded border border-red-800">
+                  ⚠️ {jsonError}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -276,7 +319,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
           >
-            取消
+            Cancel
           </button>
           <button
             onClick={handleSave}
@@ -287,7 +330,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                 : 'bg-primary-600 hover:bg-primary-700 text-white'
             }`}
           >
-            {isSaving ? '保存中...' : isSaved ? '已保存 ✓' : '保存'}
+            {isSaving ? 'Saving...' : isSaved ? 'Saved ✓' : 'Save All'}
           </button>
         </div>
       </div>

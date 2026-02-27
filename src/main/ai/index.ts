@@ -2,11 +2,21 @@ import { IpcMain } from 'electron';
 import { IPC_CHANNELS } from '@shared/constants';
 import { ClaudeResponse, Frame, ChatRequest } from '@shared/types';
 import { ClaudeService } from './claudeService';
+import { OpenAIService } from './openAIService';
 import { getMainWindow } from '../index';
-import { getConfigValue } from '../config/store';
+import { getActiveProviderConfig } from '../config/store';
 
-// Claude 服务实例
+// 服务实例
 let claudeService: ClaudeService | null = null;
+let openAIService: OpenAIService | null = null;
+
+// 统一的服务接口
+interface AIService {
+  extractCode(frames: Frame[]): Promise<ClaudeResponse>;
+  chat(request: ChatRequest): Promise<{ content: string }>;
+  getModel(): string;
+  getBaseUrl(): string;
+}
 
 // 设置 AI 相关的 IPC 处理器
 export function setupAIHandlers(ipcMain: IpcMain) {
@@ -22,37 +32,44 @@ export function setupAIHandlers(ipcMain: IpcMain) {
 }
 
 /**
- * 获取实际使用的模型名称
+ * 判断是否使用 OpenAI 格式的 API
  */
-function getActualModel(): string {
-  const model = getConfigValue('claudeModel');
-  const customModel = getConfigValue('claudeCustomModel');
-
-  // 如果选择自定义模型且有自定义模型名称，使用自定义名称
-  if (model === 'custom' && customModel) {
-    return customModel;
-  }
-
-  return model || 'claude-sonnet-4-6';
+function isOpenAICompatible(baseUrl: string): boolean {
+  // 智谱 AI Coding Plan 使用 OpenAI 格式
+  return baseUrl.includes('bigmodel.cn') || 
+         baseUrl.includes('coding/paas') ||
+         baseUrl.includes('openrouter.ai');
 }
 
 /**
- * 获取或创建 Claude 服务实例
+ * 获取或创建 AI 服务实例（根据 API 类型自动选择）
  */
-function getClaudeService(): ClaudeService {
-  const apiKey = getConfigValue('claudeApiKey');
-  const baseUrl = getConfigValue('claudeApiBaseUrl');
-  const actualModel = getActualModel();
+function getAIService(): AIService {
+  const providerConfig = getActiveProviderConfig();
+  const apiKey = providerConfig.apiKey;
+  const baseUrl = providerConfig.baseUrl;
+  const model = providerConfig.customModel || providerConfig.model;
 
-  // 如果服务不存在或配置变了，重新创建
-  if (!claudeService ||
-      claudeService.getModel() !== actualModel ||
-      claudeService.getBaseUrl() !== baseUrl) {
-    console.log(`[AI] Creating Claude service with baseUrl: ${baseUrl}, model: ${actualModel}`);
-    claudeService = new ClaudeService(apiKey, actualModel, baseUrl);
+  // 判断是否使用 OpenAI 格式
+  if (isOpenAICompatible(baseUrl)) {
+    // 使用 OpenAI 服务
+    if (!openAIService ||
+        openAIService.getModel() !== model ||
+        openAIService.getBaseUrl() !== baseUrl) {
+      console.log(`[AI] Creating OpenAI service with baseUrl: ${baseUrl}, model: ${model}`);
+      openAIService = new OpenAIService(apiKey, model, baseUrl);
+    }
+    return openAIService;
+  } else {
+    // 使用 Anthropic 服务
+    if (!claudeService ||
+        claudeService.getModel() !== model ||
+        claudeService.getBaseUrl() !== baseUrl) {
+      console.log(`[AI] Creating Claude service with baseUrl: ${baseUrl}, model: ${model}`);
+      claudeService = new ClaudeService(apiKey, model, baseUrl);
+    }
+    return claudeService;
   }
-
-  return claudeService;
 }
 
 /**
@@ -71,26 +88,26 @@ async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
   }
 
   try {
-    // 获取 API Key
-    const apiKey = getConfigValue('claudeApiKey');
-
-    if (!apiKey) {
+    // 获取当前激活供应商的配置
+    const providerConfig = getActiveProviderConfig();
+    
+    if (!providerConfig.apiKey) {
       mainWindow?.webContents.send(IPC_CHANNELS.AI_ERROR, {
         code: 'API_ERROR',
-        message: '请先配置 Claude API Key',
+        message: '请先配置 API Key',
         timestamp: Date.now(),
       });
       throw new Error('API Key 未配置');
     }
 
-    // 获取 Claude 服务
-    const service = getClaudeService();
+    // 获取 AI 服务
+    const service = getAIService();
     const model = service.getModel();
     const baseUrl = service.getBaseUrl();
 
     console.log(`[AI] Extracting code from ${frames.length} frames using ${model} at ${baseUrl}...`);
 
-    // 调用 Claude API
+    // 调用 API
     const result = await service.extractCode(frames);
 
     console.log('[AI] Code extraction completed:', {
@@ -121,8 +138,9 @@ async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
  * 重置服务（用于更新 API Key、模型或 Base URL）
  */
 export function resetService(): void {
-  console.log('[AI] Resetting Claude service');
+  console.log('[AI] Resetting AI services');
   claudeService = null;
+  openAIService = null;
 }
 
 /**
@@ -132,10 +150,10 @@ async function chat(request: ChatRequest): Promise<{ content: string }> {
   const mainWindow = getMainWindow();
 
   try {
-    // 获取 API Key
-    const apiKey = getConfigValue('claudeApiKey');
-
-    if (!apiKey) {
+    // 获取当前激活供应商的配置
+    const providerConfig = getActiveProviderConfig();
+    
+    if (!providerConfig.apiKey) {
       mainWindow?.webContents.send(IPC_CHANNELS.AI_ERROR, {
         code: 'API_ERROR',
         message: '请先配置 API Key',
@@ -144,8 +162,8 @@ async function chat(request: ChatRequest): Promise<{ content: string }> {
       throw new Error('API Key 未配置');
     }
 
-    // 获取 Claude 服务
-    const service = getClaudeService();
+    // 获取 AI 服务
+    const service = getAIService();
 
     console.log(`[AI] Chat request with ${request.messages.length} messages`);
 

@@ -3,6 +3,58 @@
 > 交接日期: 2026-02-27
 > 当前版本: dev/claude 分支
 > 远程仓库: https://github.com/moxunjinmu/ScreenCode
+> 最后更新: 2026-02-27 22:30
+
+---
+
+## 📅 最新更新 (2026-02-27)
+
+### 重构配置系统
+
+**背景**: 原配置系统将所有供应商的配置混在一起，无法为每个供应商独立配置。
+
+**改进**:
+1. 每个供应商独立配置 (API Key, Base URL, Model, Max Tokens, Temperature)
+2. `activeProvider` 标识当前激活的供应商
+3. `providerConfigs` 按供应商 ID 分组存储配置
+4. 向后兼容旧配置格式，自动迁移
+
+**新配置结构**:
+```typescript
+interface AppConfig {
+  activeProvider: string;  // 当前激活供应商 ID
+  providerConfigs: {
+    [providerId: string]: ProviderConfig;
+  };
+  apiProviders: ApiProvider[];
+  // ...
+}
+
+interface ProviderConfig {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  customModel?: string;
+  maxTokens?: number;
+  temperature?: number;
+}
+```
+
+### 支持 GLM-5 模型
+
+**配置要点**:
+- 模型 ID: `glm-5` (小写)
+- 端点: `https://open.bigmodel.cn/api/coding/paas/v4`
+- API 格式: OpenAI 兼容格式
+- 自动检测并使用 OpenAI SDK
+
+### 双向同步设置界面
+
+**功能**:
+- 输入框修改 → 自动更新 JSON
+- JSON 编辑器修改 → 自动更新输入框
+- 实时验证 JSON 格式
+- 统一保存机制
 
 ---
 
@@ -19,7 +71,7 @@ ScreenCode 是一个 Electron 桌面应用，用于隔离网络环境下的屏�
 | 状态管理 | Zustand |
 | 样式 | TailwindCSS |
 | 图像处理 | Sharp |
-| AI SDK | @anthropic-ai/sdk |
+| AI SDK | @anthropic-ai/sdk, openai |
 | 配置存储 | electron-store |
 
 ---
@@ -42,10 +94,13 @@ ScreenCode 是一个 Electron 桌面应用，用于隔离网络环境下的屏�
 |------|------|------|
 | 多模型支持 | ✅ 完成 | Opus 4.6 / Sonnet 4.6 / 3.5 Sonnet |
 | 自定义模型 | ✅ 完成 | 支持 GLM-5 等第三方模型 |
+| **GLM-5 支持** | ✅ 完成 | 智谱 AI Coding Plan 端点 |
 | 第三方中转 | ✅ 完成 | 智谱 AI / OpenRouter / 自定义 |
 | 供应商管理 | ✅ 完成 | 可添加/删除供应商 |
+| **供应商独立配置** | ✅ 完成 | 每个供应商独立 API Key/Model |
 | 聊天对话 | ✅ 完成 | 右侧可拖拽宽度面板 |
 | 多图 OCR | ✅ 完成 | 最多 4 张图片同时发送 |
+| **双 SDK 支持** | ✅ 完成 | 自动检测 API 格式并选择 SDK |
 
 ### ✅ UI/UX
 
@@ -74,7 +129,8 @@ ScreenCode/
 │   │   │   └── imageCompressor.ts # ✅ 图像压缩
 │   │   ├── ai/
 │   │   │   ├── index.ts           # ✅ AI IPC 处理器
-│   │   │   ├── claudeService.ts   # ✅ API 服务
+│   │   │   ├── claudeService.ts   # ✅ Anthropic API 服务
+│   │   │   ├── openAIService.ts   # ✅ OpenAI 兼容 API 服务
 │   │   │   └── promptBuilder.ts   # ✅ Prompt 构建
 │   │   ├── tray/
 │   │   │   └── trayManager.ts     # 🟡 托盘 (待完善)
@@ -146,8 +202,26 @@ interface ApiProvider {
   id: string;        // 'anthropic' | 'zhipu' | 'openrouter' | 'custom_xxx'
   name: string;      // 显示名称
   baseUrl: string;   // API 地址
+  models?: string[]; // 支持的模型列表
+}
+
+interface ProviderConfig {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  customModel?: string;
+  maxTokens?: number;
+  temperature?: number;
 }
 ```
+
+**功能**:
+- 供应商网格布局展示
+- 点击切换激活供应商
+- 每个供应商独立配置面板
+- 输入框 ↔ JSON 双向同步
+- Base URL 可手动修改
+- 支持 Max Tokens 和 Temperature 配置
 
 ---
 
@@ -200,23 +274,66 @@ npm run package
 
 ## 七、配置说明
 
-### 智谱 AI 配置示例
+### 新配置结构
 
+```json
+{
+  "activeProvider": "zhipu",
+  "providerConfigs": {
+    "anthropic": {
+      "apiKey": "",
+      "baseUrl": "https://api.anthropic.com",
+      "model": "claude-sonnet-4-6",
+      "maxTokens": 8192,
+      "temperature": 0.7
+    },
+    "zhipu": {
+      "apiKey": "your-api-key",
+      "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+      "model": "glm-5",
+      "maxTokens": 8192,
+      "temperature": 0.7
+    }
+  },
+  "apiProviders": [
+    {
+      "id": "zhipu",
+      "name": "Zhipu AI (Coding Plan)",
+      "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+      "models": ["glm-5", "glm-4.7", "glm-4.6"]
+    }
+  ]
+}
 ```
-API 供应商: 智谱 AI
-Base URL: https://open.bigmodel.cn/api/anthropic
-模型: 自定义模型
-自定义模型名称: GLM-5
+
+### 智谱 AI GLM-5 配置
+
+**Coding Plan 端点** (推荐):
+```
+API 供应商: Zhipu AI (Coding Plan)
+Base URL: https://open.bigmodel.cn/api/coding/paas/v4
+模型: glm-5
 API Key: [从智谱控制台获取]
+API 格式: OpenAI 兼容
+```
+
+**Anthropic 兼容端点** (备选):
+```
+API 供应商: Zhipu AI (Anthropic Compatible)
+Base URL: https://open.bigmodel.cn/api/anthropic
+模型: glm-5
+API Key: [从智谱控制台获取]
+API 格式: Anthropic 兼容
 ```
 
 ### Anthropic 配置示例
 
 ```
-API 供应商: Anthropic 官方
+API 供应商: Anthropic Official
 Base URL: https://api.anthropic.com
-模型: Claude Sonnet 4.6
+模型: claude-sonnet-4-6
 API Key: [从 Anthropic Console 获取]
+API 格式: Anthropic 原生
 ```
 
 ---
