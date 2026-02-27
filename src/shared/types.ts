@@ -65,36 +65,101 @@ export interface ApiProvider {
   id: string;
   name: string;
   baseUrl: string;
+  models?: string[];  // 该供应商支持的模型列表
+}
+
+// 单个供应商的配置
+export interface ProviderConfig {
+  apiKey: string;
+  baseUrl: string;
+  model: ClaudeModel | string;
+  customModel?: string;
+  maxTokens?: number;
+  temperature?: number;
 }
 
 // 默认供应商列表
 export const DEFAULT_PROVIDERS: ApiProvider[] = [
-  { id: 'anthropic', name: 'Anthropic 官方', baseUrl: 'https://api.anthropic.com' },
-  { id: 'zhipu', name: '智谱 AI', baseUrl: 'https://open.bigmodel.cn/api/anthropic' },
-  { id: 'openrouter', name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1' },
+  { 
+    id: 'anthropic', 
+    name: 'Anthropic Official', 
+    baseUrl: 'https://api.anthropic.com',
+    models: ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-3-5-sonnet-20241022']
+  },
+  { 
+    id: 'zhipu', 
+    name: 'Zhipu AI (Coding Plan)', 
+    baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
+    models: ['glm-4.7', 'glm-4.6', 'glm-4.6v', 'glm-4.5', 'glm-4.5v']
+  },
+  { 
+    id: 'zhipu-anthropic', 
+    name: 'Zhipu AI (Anthropic Compatible)', 
+    baseUrl: 'https://open.bigmodel.cn/api/anthropic',
+    models: ['glm-5', 'glm-4.7', 'glm-4.6']
+  },
+  { 
+    id: 'openrouter', 
+    name: 'OpenRouter', 
+    baseUrl: 'https://openrouter.ai/api/v1',
+    models: ['auto', 'anthropic/claude-opus-4.6', 'anthropic/claude-sonnet-4.6']
+  },
 ];
 
 // 配置
 export interface AppConfig {
-  claudeApiKey: string;
-  claudeApiBaseUrl: string;  // 支持第三方中转
-  claudeModel: ClaudeModel;
-  claudeCustomModel?: string;  // 自定义模型名称
-  apiProviders?: ApiProvider[];  // 自定义供应商列表
+  activeProvider: string;  // 当前激活的供应商 ID
+  providerConfigs: {
+    [providerId: string]: ProviderConfig;
+  };
+  apiProviders?: ApiProvider[];  // 供应商列表
   lastDeviceId: string | null;
   toastDuration: number;
   frameDiffThreshold: number;
   maxFrames: number;
   compressionWidth: number;
   compressionQuality: number;
+  
+  // 向后兼容旧配置
+  claudeApiKey?: string;
+  claudeApiBaseUrl?: string;
+  claudeModel?: ClaudeModel;
+  claudeCustomModel?: string;
 }
 
 // 默认配置
 export const DEFAULT_CONFIG: AppConfig = {
-  claudeApiKey: '',
-  claudeApiBaseUrl: DEFAULT_API_BASE_URL,
-  claudeModel: 'claude-sonnet-4-6',
-  claudeCustomModel: '',
+  activeProvider: 'zhipu',  // 默认使用智谱 AI
+  providerConfigs: {
+    'anthropic': {
+      apiKey: '',
+      baseUrl: 'https://api.anthropic.com',
+      model: 'claude-sonnet-4-6',
+      maxTokens: 8192,
+      temperature: 0.7,
+    },
+    'zhipu': {
+      apiKey: '',
+      baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
+      model: 'glm-4.7',
+      maxTokens: 8192,
+      temperature: 0.7,
+    },
+    'zhipu-anthropic': {
+      apiKey: '',
+      baseUrl: 'https://open.bigmodel.cn/api/anthropic',
+      model: 'glm-4.7',
+      maxTokens: 8192,
+      temperature: 0.7,
+    },
+    'openrouter': {
+      apiKey: '',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      model: 'anthropic/claude-sonnet-4.6',
+      maxTokens: 8192,
+      temperature: 0.7,
+    },
+  },
   apiProviders: DEFAULT_PROVIDERS,
   lastDeviceId: null,
   toastDuration: 1500,

@@ -98,7 +98,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width }) => {
       {/* 头部 */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
         <h3 className="text-sm font-medium">AI 对话</h3>
-        <span className="text-xs text-gray-500">GLM-5</span>
+        <span className="text-xs text-gray-500">GLM-4.7</span>
       </div>
 
       {/* 消息列表 */}
