@@ -1,10 +1,11 @@
 # ScreenCode 开发待办清单
 
 > 最后更新: 2026-02-27
+> 当前分支: dev/claude
 
 ## 项目概述
 
-ScreenCode 是一个 Electron 桌面应用，用于隔离网络环境下的屏幕捕获和代码提取。通过采集卡捕获内网机器屏幕，使用 Claude 3.5 Sonnet API 进行代码识别和提取。
+ScreenCode 是一个 Electron 桌面应用，用于隔离网络环境下的屏幕捕获和 AI 代码识别。支持摄像头/采集卡捕获屏幕，使用大模型 API（智谱 AI、Anthropic 等）进行 OCR 和代码提取。
 
 ---
 
@@ -17,12 +18,17 @@ ScreenCode 是一个 Electron 桌面应用，用于隔离网络环境下的屏�
 | IPC 通信 | ✅ 完成 | 100% |
 | 帧队列管理 | ✅ 完成 | 100% |
 | 图像压缩 | ✅ 完成 | 100% |
-| Claude API 集成 | ✅ 完成 | 100% |
+| 多模型支持 | ✅ 完成 | 100% |
+| 第三方中转 | ✅ 完成 | 100% |
+| 供应商管理 | ✅ 完成 | 100% |
 | 设置界面 | ✅ 完成 | 100% |
 | Toast 通知 | ✅ 完成 | 100% |
-| 视频采集 | 🔶 待完善 | 20% |
-| 帧差分算法 | 🔶 待完善 | 30% |
-| 系统托盘 | 🔶 待完善 | 50% |
+| 全屏预览 | ✅ 完成 | 100% |
+| **聊天对话面板** | ✅ 完成 | 100% |
+| **多图 OCR** | ✅ 完成 | 100% |
+| 视频采集 | 🔴 待完善 | 20% |
+| 帧差分算法 | 🔴 待完善 | 30% |
+| 系统托盘 | 🟡 待完善 | 50% |
 | 测试覆盖 | ❌ 未开始 | 0% |
 
 ---
@@ -90,30 +96,6 @@ async function enumerateDevices(): Promise<Device[]> {
   - `continuation`: 差异 5%-60%（连续帧）
   - `new_scene`: 差异 > 60%（新场景）
 
-**技术方案**:
-```typescript
-import sharp from 'sharp';
-
-async compare(currentFrame: string, previousFrame: string): Promise<...> {
-  // 解码 base64 图像
-  const current = sharp(Buffer.from(currentFrame, 'base64'));
-  const previous = sharp(Buffer.from(previousFrame, 'base64'));
-
-  // 缩小到 64x64 进行快速对比
-  const currentSmall = await current.resize(64, 64).raw().toBuffer();
-  const previousSmall = await previous.resize(64, 64).raw().toBuffer();
-
-  // 计算像素差异
-  let diff = 0;
-  for (let i = 0; i < currentSmall.length; i++) {
-    diff += Math.abs(currentSmall[i] - previousSmall[i]);
-  }
-  const percentage = diff / (currentSmall.length * 255);
-
-  return { percentage, type: this.classifyDiff(percentage) };
-}
-```
-
 ---
 
 ## 🟡 中优先级 - 用户体验
@@ -151,42 +133,57 @@ async compare(currentFrame: string, previousFrame: string): Promise<...> {
 
 ## 🟢 低优先级 - 增强功能
 
-### 5. 测试覆盖
+### 5. 聊天面板增强
+
+**当前状态**: 基础功能完成
+
+**待实现**:
+- [ ] 流式输出 (SSE)
+- [ ] 消息复制/删除
+- [ ] 对话历史持久化
+- [ ] 快捷提示词模板
+
+---
+
+### 6. 测试覆盖
 
 **当前状态**: 无测试文件
 
 **待实现**:
 - [ ] 单元测试
-  - 帧差分算法测试
-  - Ring Buffer 测试
-  - Prompt 构建器测试
 - [ ] 集成测试
-  - IPC 通信测试
-  - 端到端流程测试
 - [ ] 测试覆盖率目标: 80%+
 
-**技术栈**: Vitest + Playwright
-
 ---
 
-### 6. 性能优化
+### 7. 其他增强
 
-**待实现**:
-- [ ] 图像压缩质量自适应
-- [ ] 帧队列内存管理
-- [ ] API 响应缓存
-- [ ] 冷启动优化
-
----
-
-### 7. 功能增强
-
-**待实现**:
 - [ ] 截图历史记录
 - [ ] 多语言支持
 - [ ] 自定义热键配置
 - [ ] 代码高亮主题切换
 - [ ] 导出功能（PDF/图片）
+
+---
+
+## 已完成功能详情
+
+### ✅ AI 服务 (2026-02-27)
+
+| 功能 | 说明 |
+|------|------|
+| 多模型支持 | Opus 4.6 / Sonnet 4.6 / 3.5 Sonnet / 自定义 |
+| 第三方中转 | 智谱 AI / OpenRouter / 自定义 Base URL |
+| 供应商管理 | 添加/删除/选择供应商 |
+| 聊天对话 | 右侧可拖拽面板，支持多图 OCR |
+
+### ✅ UI/UX (2026-02-27)
+
+| 功能 | 说明 |
+|------|------|
+| 全屏预览 | 点击缩略图放大查看 |
+| 可拖拽面板 | 聊天面板宽度可调 (280px ~ 60%) |
+| 设置界面 | API Key / 模型 / 供应商配置 |
 
 ---
 
@@ -205,8 +202,8 @@ ScreenCode/
 │   │   │   ├── frameDiff.ts     # 🔴 帧差分 (待完善)
 │   │   │   └── imageCompressor.ts # ✅ 图像压缩
 │   │   ├── ai/
-│   │   │   ├── index.ts         # AI 模块入口
-│   │   │   ├── claudeService.ts # ✅ Claude API
+│   │   │   ├── index.ts         # ✅ AI IPC 处理器
+│   │   │   ├── claudeService.ts # ✅ API 服务
 │   │   │   └── promptBuilder.ts # ✅ Prompt 构建
 │   │   ├── tray/
 │   │   │   └── trayManager.ts   # 🟡 系统托盘 (待完善)
@@ -215,14 +212,27 @@ ScreenCode/
 │   ├── preload/
 │   │   └── index.ts             # ✅ Preload 脚本
 │   ├── renderer/                # 渲染进程
-│   │   ├── App.tsx              # ✅ 主应用
-│   │   ├── store/               # ✅ Zustand 状态
-│   │   └── components/          # ✅ React 组件
+│   │   ├── App.tsx              # ✅ 主应用 + 布局
+│   │   ├── store/
+│   │   │   ├── appStore.ts      # ✅ 应用状态
+│   │   │   ├── captureStore.ts  # ✅ 采集状态
+│   │   │   ├── frameStore.ts    # ✅ 帧队列状态
+│   │   │   └── chatStore.ts     # ✅ 聊天状态
+│   │   └── components/
+│   │       ├── Layout/          # ✅ 布局
+│   │       ├── Preview/         # ✅ 视频预览
+│   │       ├── ThumbnailQueue/  # ✅ 帧队列 + 全屏预览
+│   │       ├── CodeDisplay/     # ✅ 代码展示
+│   │       ├── ChatPanel/       # ✅ 聊天面板
+│   │       ├── Settings/        # ✅ 设置界面
+│   │       └── Toast/           # ✅ 通知
 │   └── shared/
-│       ├── constants.ts         # ✅ 常量定义
+│       ├── constants.ts         # ✅ IPC 通道/常量
 │       └── types.ts             # ✅ 类型定义
 ├── docs/
-│   └── TODO.md                  # 本文件
+│   ├── TODO.md                  # 本文件
+│   └── HANDOVER.md              # 交接文档
+├── CLAUDE.md                    # 项目架构说明
 └── package.json
 ```
 
@@ -262,4 +272,5 @@ npm run package
 ## 相关文档
 
 - [CLAUDE.md](../CLAUDE.md) - 项目架构说明
+- [HANDOVER.md](./HANDOVER.md) - 交接文档
 - [开发进度1.md](./开发进度1.md) - 历史开发记录
