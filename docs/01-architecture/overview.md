@@ -1,11 +1,8 @@
-# ScreenCode 架构设计
+# 架构概览
 
 > 最后更新: 2026-02-28
-> 仅记录设计决策和模块接口，不重复 CLAUDE.md 中的内容
 
----
-
-## 一、系统架构
+## 系统架构图
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -31,102 +28,17 @@
 └─────────────────────────────────────────────────────────┘
 ```
 
-## 二、关键设计决策
+## 进程模型
 
-### 2.1 AI 服务路由
+项目采用 Electron 多进程架构：
 
-`src/main/ai/index.ts` 中 `isOpenAICompatible()` 根据 baseUrl 自动选择 SDK：
-
-| 匹配规则 | SDK | 供应商 |
-|----------|-----|--------|
-| `/api/anthropic` | Anthropic SDK | zhipu-anthropic |
-| `bigmodel.cn` | OpenAI SDK | zhipu (标准端点) |
-| `openrouter.ai` | OpenAI SDK | openrouter |
-| 其他 | Anthropic SDK | anthropic (默认) |
-
-注意：`/api/anthropic` 检查优先于 `bigmodel.cn`，避免 zhipu-anthropic 被错误路由。
-
-### 2.2 配置实时推送
-
-```
-Settings 保存 → CONFIG_SET (invoke)
-  → main: setConfig() + event.sender.send(CONFIG_CHANGED, fullConfig)
-    → renderer: onConfigChanged 回调 → 更新 UI
-```
-
-### 2.3 会话管理
-
-- 数据存于 Zustand 内存，不持久化
-- 会话标题自动取首条用户消息前 20 字符
-- 删除当前会话时自动切换到最后一个会话
-
-### 2.4 帧处理流水线
-
-```
-视频流 → 帧差分(5%阈值) → Sharp压缩(768px) → RingBuffer(8帧) → AI API
-```
-
-## 三、模块接口
-
-### 3.1 AI Service 接口
-
-```typescript
-interface AIService {
-  extractCode(frames: Frame[]): Promise<ClaudeResponse>;
-  chat(request: ChatRequest): Promise<{ content: string }>;
-}
-```
-
-### 3.2 配置结构
-
-```typescript
-interface AppConfig {
-  activeProvider: string;
-  providerConfigs: { [providerId: string]: ProviderConfig };
-  apiProviders: ApiProvider[];
-  lastDeviceId: string | null;
-  frameDiffThreshold: number;  // 0.05
-  maxFrames: number;           // 8
-  compressionWidth: number;    // 768
-  compressionQuality: number;  // 85
-}
-
-interface ProviderConfig {
-  apiKey: string;
-  baseUrl: string;
-  model: string;
-  customModel?: string;
-  maxTokens?: number;
-  temperature?: number;
-}
-```
-
-### 3.3 IPC 通道
-
-定义在 `src/shared/constants.ts`，完整列表见代码。关键通道：
-
-| 通道 | 方向 | 模式 |
+| 进程 | 目录 | 职责 |
 |------|------|------|
-| `config:get/set` | renderer → main | invoke (request-response) |
-| `config:changed` | main → renderer | event (push) |
-| `ai:chat/extract` | renderer → main | invoke |
-| `ai:result/error` | main → renderer | event |
-| `capture:frame` | main → renderer | event |
+| Main Process | `src/main/` | 系统级操作、全局热键、视频采集、图像处理、AI 服务调用、配置管理 |
+| Renderer Process | `src/renderer/` | React UI，用户交互和状态展示 |
+| Preload | `src/preload/` | 安全桥接层，通过 `contextBridge` 暴露受限 API |
 
-## 四、技术栈
-
-| 层次 | 技术 | 用途 |
-|------|------|------|
-| 运行时 | Electron ^28 | 桌面应用框架 |
-| 构建 | Electron Forge + Vite | 开发与打包 |
-| 前端 | React 18 + TypeScript | UI |
-| 状态 | Zustand | 状态管理 |
-| 样式 | TailwindCSS | 原子化 CSS |
-| 图像 | Sharp | 高性能压缩 |
-| AI | @anthropic-ai/sdk + openai | 双 SDK |
-| 存储 | electron-store | 配置持久化 |
-
-## 五、目录结构
+## 目录结构
 
 ```
 src/
@@ -144,11 +56,29 @@ src/
 └── shared/         # types.ts, constants.ts
 ```
 
-## 六、Phase 2 规划
+## 技术栈
 
-1. Obsidian 归档
-2. 本地 VLM (GLM-4V / Qwen-VL via Ollama)
-3. Mini 悬浮窗 (320px 半透明置顶)
-4. 脱敏层 (NER + 正则掩码)
-5. 合规路由
-6. 审计日志 (better-sqlite3)
+| 层次 | 技术 | 用途 |
+|------|------|------|
+| 运行时 | Electron ^28 | 桌面应用框架 |
+| 构建 | Electron Forge + Vite | 开发与打包 |
+| 前端 | React 18 + TypeScript | UI |
+| 状态 | Zustand | 状态管理 |
+| 样式 | TailwindCSS | 原子化 CSS |
+| 图像 | Sharp | 高性能压缩 |
+| AI | @anthropic-ai/sdk + openai | 双 SDK 自动路由 |
+| 存储 | electron-store | 配置持久化 |
+
+## 关键设计决策
+
+详见 ADR 文档：
+- [ADR-0001: 初始 Electron 架构](../07-adrs/ADR-0001-initial-electron-architecture.md)
+- [ADR-0002: AI 供应商抽象层](../07-adrs/ADR-0002-ai-provider-abstraction.md)
+- [ADR-0003: 配置存储与迁移](../07-adrs/ADR-0003-config-store-and-migration.md)
+
+## 相关文档
+
+- [运行时序](runtime-views.md)
+- [Tauri 备选架构](tauri-alternative.md)
+- [模块文档](../02-modules/)
+- [接口契约](../03-interfaces/)

@@ -138,13 +138,51 @@ Main 和 Renderer 进程通过 IPC 通道通信,通道定义在 `src/shared/cons
 
 ## 项目文档
 
-- `docs/architecture.md`: 架构设计 (设计决策、模块接口)
-- `docs/backlog.md`: 活跃待办 (仅未完成任务)
-- `docs/changelog.md`: 变更日志 (按日期追加)
-- `docs/archive/`: 归档目录 (已完成任务、已解决问题，日常无需读取)
-- `PRD.md`: 产品需求文档
+```
+docs/
+├── 00-intro/           # 项目概览、路线图、PRD
+│   ├── overview.md
+│   ├── roadmap.md
+│   └── prd.md
+├── 01-architecture/    # 架构设计、时序、Tauri 备选
+│   ├── overview.md
+│   ├── runtime-views.md
+│   └── tauri-alternative.md
+├── 02-modules/         # 模块文档
+│   ├── electron-main.md
+│   ├── renderer-ui.md
+│   ├── capture-engine.md
+│   ├── ai-integration.md
+│   └── config-system.md
+├── 03-interfaces/      # 接口契约
+│   ├── ipc-channels.md
+│   ├── config-schema.md
+│   └── ai-service-contracts.md
+├── 04-data-and-state/  # 状态与持久化
+│   ├── state-stores.md
+│   └── persistence.md
+├── 05-dev-and-ops/     # 开发运维
+│   ├── build-and-packaging.md
+│   ├── testing-strategy.md
+│   ├── backlog.md
+│   └── environment.md
+├── 06-process-and-guides/ # 流程指南
+│   ├── contribution-guide.md
+│   └── coding-standards.md
+├── 07-adrs/            # 架构决策记录
+│   ├── ADR-template.md
+│   ├── ADR-0001-initial-electron-architecture.md
+│   ├── ADR-0002-ai-provider-abstraction.md
+│   └── ADR-0003-config-store-and-migration.md
+└── 08-history/         # 历史归档（日常无需读取）
+    ├── changelog.md
+    ├── completed-tasks.md
+    └── resolved-issues.md
+```
 
 更新规则:
-- 完成功能后: 更新 backlog.md (标记完成移到 archive/completed-tasks.md) + changelog.md (追加记录)
-- 架构变更时: 额外更新 architecture.md
-- archive/ 目录下的文件日常不读取，仅归档用途
+- 完成功能后: 更新 `05-dev-and-ops/backlog.md` (标记完成移到 `08-history/completed-tasks.md`) + `08-history/changelog.md` (追加记录)
+- 架构变更时: 额外更新 `01-architecture/` 相关文件
+- 接口变更时: 更新 `03-interfaces/` 对应文件
+- 设计决策时: 在 `07-adrs/` 新增 ADR
+- `08-history/` 目录下的文件日常不读取，仅归档用途
