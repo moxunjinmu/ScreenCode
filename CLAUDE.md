@@ -2,6 +2,29 @@
 
 此文件为 Claude Code (claude.ai/code) 在此代码库中工作时提供指导。
 
+## 工作流程（必读）
+
+在回答任何问题或执行任何任务之前，**必须先查阅 `docs/` 中的相关文档**：
+
+1. **执行前查阅文档**：根据任务涉及的领域，先读取对应文档：
+   - 架构/设计问题 → `docs/01-architecture/`
+   - 具体模块问题 → `docs/02-modules/` 中对应文件
+   - IPC/接口问题 → `docs/03-interfaces/`
+   - 状态管理问题 → `docs/04-data-and-state/`
+   - 构建/测试/环境问题 → `docs/05-dev-and-ops/`
+   - 开发规范问题 → `docs/06-process-and-guides/`
+   - 历史决策问题 → `docs/07-adrs/`
+2. **确认约束后再动手**：确认文档中的设计约束和现有实现后，再读取相关源码，基于文档 + 源码的完整上下文给出回答或执行修改
+3. **修改代码后同步更新文档**：任何代码变更完成后，必须同步更新受影响的文档：
+   - 新增/修改模块 → 更新 `docs/02-modules/` 对应文件
+   - 新增/修改 IPC 通道或接口 → 更新 `docs/03-interfaces/` 对应文件
+   - 新增/修改 Store 或持久化 → 更新 `docs/04-data-and-state/` 对应文件
+   - 新增/修改配置字段 → 更新 `docs/03-interfaces/config-schema.md`
+   - 架构级变更 → 更新 `docs/01-architecture/` + 新增 ADR
+   - 完成功能 → 更新 `docs/05-dev-and-ops/backlog.md` + `docs/08-history/changelog.md`
+
+这样做的目的是避免与现有设计冲突，确保文档与代码始终保持一致。
+
 ## 项目概述
 
 ScreenCode 是一个 Electron 桌面应用,用于隔离网络环境下的屏幕捕获和代码提取。通过采集卡捕获内网机器屏幕,使用多供应商 AI API（智谱 GLM-5、Claude Sonnet 等）进行代码识别和提取,支持多轮 AI 对话和会话管理。
