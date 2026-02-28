@@ -35,8 +35,12 @@ export function setupAIHandlers(ipcMain: IpcMain) {
  * 判断是否使用 OpenAI 格式的 API
  */
 function isOpenAICompatible(baseUrl: string): boolean {
-  // 智谱 AI Coding Plan 使用 OpenAI 格式
-  return baseUrl.includes('bigmodel.cn') || 
+  // 智谱 Anthropic 兼容端点使用 Anthropic SDK 格式
+  if (baseUrl.includes('/api/anthropic')) {
+    return false;
+  }
+  // 智谱标准端点和 OpenRouter 使用 OpenAI 格式
+  return baseUrl.includes('bigmodel.cn') ||
          baseUrl.includes('coding/paas') ||
          baseUrl.includes('openrouter.ai');
 }

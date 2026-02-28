@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import { useFrameStore } from '../../store/frameStore';
 import { ChatMessage } from '@shared/types';
@@ -23,6 +23,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width }) => {
   const { frames } = useFrameStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [currentModel, setCurrentModel] = useState('');
+
+  // 获取当前模型名称
+  useEffect(() => {
+    window.electronAPI.getConfig().then((config) => {
+      const providerConfig = config.providerConfigs?.[config.activeProvider];
+      setCurrentModel(providerConfig?.customModel || providerConfig?.model || '');
+    });
+  }, []);
 
   // 滚动到底部
   useEffect(() => {
@@ -98,7 +107,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width }) => {
       {/* 头部 */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
         <h3 className="text-sm font-medium">AI 对话</h3>
-        <span className="text-xs text-gray-500">GLM-4.7</span>
+        <span className="text-xs text-gray-500">{currentModel || 'AI'}</span>
       </div>
 
       {/* 消息列表 */}

@@ -8,6 +8,7 @@ import Toast from './components/Toast';
 import { useCaptureStore } from './store/captureStore';
 import { useFrameStore } from './store/frameStore';
 import { useAppStore } from './store/appStore';
+import { useUIStore } from './store/uiStore';
 import { Frame } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const { loadDevices, captureFrame, stream } = useCaptureStore();
   const { addFrame, frames } = useFrameStore();
   const { setCodeResult, setError, setProcessing } = useAppStore();
+  const { isFullscreenPreview, toggleFullscreenPreview } = useUIStore();
 
   // 截图处理函数
   const handleCaptureFrame = useCallback(async () => {
@@ -129,6 +131,29 @@ const App: React.FC = () => {
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
+  // 全屏预览模式布局
+  if (isFullscreenPreview) {
+    return (
+      <div className="h-screen flex bg-gray-900 text-white">
+        {/* 全屏视频预览 */}
+        <div className="flex-1 relative">
+          <Preview isFullscreen={true} onToggleFullscreen={toggleFullscreenPreview} />
+        </div>
+
+        {/* 右侧聊天面板 */}
+        <div
+          onMouseDown={handleMouseDown}
+          className={`w-1 bg-gray-700 hover:bg-primary-500 cursor-col-resize transition-colors ${isDragging ? 'bg-primary-500' : ''}`}
+        />
+        <ChatPanel width={chatWidth} />
+
+        {/* Toast 通知 */}
+        {toast && <Toast message={toast.message} type={toast.type} />}
+      </div>
+    );
+  }
+
+  // 正常布局
   return (
     <Layout>
       <div ref={containerRef} className="flex h-full">
@@ -153,9 +178,7 @@ const App: React.FC = () => {
         {/* 拖拽分隔条 */}
         <div
           onMouseDown={handleMouseDown}
-          className={`w-1 bg-gray-700 hover:bg-primary-500 cursor-col-resize transition-colors ${
-            isDragging ? 'bg-primary-500' : ''
-          }`}
+          className={`w-1 bg-gray-700 hover:bg-primary-500 cursor-col-resize transition-colors ${isDragging ? 'bg-primary-500' : ''}`}
         />
 
         {/* 右侧聊天面板 */}

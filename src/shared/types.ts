@@ -86,11 +86,11 @@ export const DEFAULT_PROVIDERS: ApiProvider[] = [
     baseUrl: 'https://api.anthropic.com',
     models: ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-3-5-sonnet-20241022']
   },
-  { 
-    id: 'zhipu', 
-    name: 'Zhipu AI (Coding Plan)', 
-    baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
-    models: ['glm-4.7', 'glm-4.6', 'glm-4.6v', 'glm-4.5', 'glm-4.5v']
+  {
+    id: 'zhipu',
+    name: 'Zhipu AI (Standard)',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    models: ['glm-5', 'glm-4.7', 'glm-4.6', 'glm-4.6v', 'glm-4.5', 'glm-4.5v']
   },
   { 
     id: 'zhipu-anthropic', 
@@ -140,8 +140,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     },
     'zhipu': {
       apiKey: '',
-      baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
-      model: 'glm-4.7',
+      baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+      model: 'glm-5',
       maxTokens: 8192,
       temperature: 0.7,
     },
