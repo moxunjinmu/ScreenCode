@@ -135,3 +135,16 @@ Main 和 Renderer 进程通过 IPC 通道通信,通道定义在 `src/shared/cons
 - IPC 通道名称必须与 `src/shared/constants.ts` 中定义保持一致
 - 所有异步操作应有适当的错误处理和超时机制
 - 智谱 GLM-5 需使用标准端点 `/api/paas/v4`,Coding Plan 端点不支持 glm-5
+
+## 项目文档
+
+- `docs/architecture.md`: 架构设计 (设计决策、模块接口)
+- `docs/backlog.md`: 活跃待办 (仅未完成任务)
+- `docs/changelog.md`: 变更日志 (按日期追加)
+- `docs/archive/`: 归档目录 (已完成任务、已解决问题，日常无需读取)
+- `PRD.md`: 产品需求文档
+
+更新规则:
+- 完成功能后: 更新 backlog.md (标记完成移到 archive/completed-tasks.md) + changelog.md (追加记录)
+- 架构变更时: 额外更新 architecture.md
+- archive/ 目录下的文件日常不读取，仅归档用途
