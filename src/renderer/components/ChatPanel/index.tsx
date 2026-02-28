@@ -14,29 +14,55 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width }) => {
     isLoading,
     selectedImages,
     inputText,
+    currentModel,
+    sessions,
+    activeSessionId,
     addMessage,
     setLoading,
     clearSelectedImages,
     setInputText,
+    setCurrentModel,
+    createSession,
+    switchSession,
+    deleteSession,
   } = useChatStore();
 
   const { frames } = useFrameStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [currentModel, setCurrentModel] = useState('');
+  const [showSessionList, setShowSessionList] = useState(false);
 
-  // 获取当前模型名称
+  // 获取当前模型名称 + 监听配置变更
   useEffect(() => {
     window.electronAPI.getConfig().then((config) => {
       const providerConfig = config.providerConfigs?.[config.activeProvider];
       setCurrentModel(providerConfig?.customModel || providerConfig?.model || '');
     });
+
+    const cleanup = window.electronAPI.onConfigChanged((config) => {
+      const providerConfig = config.providerConfigs?.[config.activeProvider];
+      setCurrentModel(providerConfig?.customModel || providerConfig?.model || '');
+    });
+
+    return cleanup;
   }, []);
 
   // 滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // 点击外部关闭会话列表
+  useEffect(() => {
+    if (!showSessionList) return;
+    const handleClick = () => setShowSessionList(false);
+    // 延迟注册，避免当前点击立即触发
+    const timer = setTimeout(() => document.addEventListener('click', handleClick), 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', handleClick);
+    };
+  }, [showSessionList]);
 
   // 发送消息
   const handleSend = async () => {
@@ -56,7 +82,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width }) => {
     setLoading(true);
 
     try {
-      // 调用 API
       const response = await window.electronAPI.chat({
         messages: messages.concat(userMessage).map(m => ({
           role: m.role,
@@ -105,9 +130,63 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width }) => {
   return (
     <div className="h-full flex flex-col bg-gray-800" style={{ width }}>
       {/* 头部 */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
-        <h3 className="text-sm font-medium">AI 对话</h3>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 relative">
+        {/* 左侧：会话列表触发 */}
+        <div className="relative">
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowSessionList(!showSessionList); }}
+            className="text-sm font-medium hover:text-primary-400 flex items-center gap-1"
+          >
+            <span>AI 对话</span>
+            <span className="text-xs text-gray-500">▼</span>
+          </button>
+
+          {/* 会话列表下拉 */}
+          {showSessionList && (
+            <div
+              className="absolute top-full left-0 mt-1 w-56 bg-gray-700 rounded-lg shadow-xl z-20 max-h-60 overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer group ${
+                    session.id === activeSessionId
+                      ? 'bg-primary-600/30 text-white'
+                      : 'text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className="truncate flex-1"
+                    onClick={() => { switchSession(session.id); setShowSessionList(false); }}
+                  >
+                    {session.title}
+                  </span>
+                  {sessions.length > 1 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteSession(session.id); }}
+                      className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 ml-2 text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 中间：模型名 */}
         <span className="text-xs text-gray-500">{currentModel || 'AI'}</span>
+
+        {/* 右侧：新建会话 */}
+        <button
+          onClick={() => { createSession(); setShowSessionList(false); }}
+          className="text-gray-400 hover:text-white text-lg"
+          title="新建会话"
+        >
+          +
+        </button>
       </div>
 
       {/* 消息列表 */}

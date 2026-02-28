@@ -31,6 +31,7 @@ export const IPC_CHANNELS = {
   // 配置相关
   CONFIG_GET: 'config:get',
   CONFIG_SET: 'config:set',
+  CONFIG_CHANGED: 'config:changed',
 } as const;
 
 // 全局热键

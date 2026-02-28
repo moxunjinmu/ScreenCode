@@ -58,6 +58,12 @@ const electronAPI = {
     ipcRenderer.on(IPC_CHANNELS.CAPTURE_FRAME, listener);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.CAPTURE_FRAME, listener);
   },
+
+  onConfigChanged: (callback: (config: AppConfig) => void) => {
+    const listener = (_event: unknown, config: AppConfig) => callback(config);
+    ipcRenderer.on(IPC_CHANNELS.CONFIG_CHANGED, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.CONFIG_CHANGED, listener);
+  },
 };
 
 console.log('[Preload] electronAPI created:', Object.keys(electronAPI));

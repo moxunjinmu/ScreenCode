@@ -169,6 +169,14 @@ export const DEFAULT_CONFIG: AppConfig = {
   compressionQuality: 85,
 };
 
+// 聊天会话
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: number;
+}
+
 // 聊天消息类型
 export interface ChatMessage {
   id: string;

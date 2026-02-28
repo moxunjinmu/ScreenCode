@@ -62,8 +62,17 @@ export function setupConfigHandlers(ipcMain: IpcMain) {
   });
 
   // 设置配置
-  ipcMain.handle(IPC_CHANNELS.CONFIG_SET, async (_event, config: Partial<AppConfig>) => {
-    return setConfig(config);
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SET, async (event, config: Partial<AppConfig>) => {
+    setConfig(config);
+    // 配置变更后推送完整配置给渲染进程
+    try {
+      if (!event.sender.isDestroyed()) {
+        const fullConfig = getConfig();
+        event.sender.send(IPC_CHANNELS.CONFIG_CHANGED, fullConfig);
+      }
+    } catch (error) {
+      console.error('[Config] Failed to send config changed event:', error);
+    }
   });
 }
 
