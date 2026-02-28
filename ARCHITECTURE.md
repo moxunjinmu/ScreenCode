@@ -64,7 +64,7 @@
 | 样式 | Tailwind CSS | ^3.4.0 | 原子化 CSS |
 | 视频采集 | getUserMedia / desktopCapturer | Native API | 采集卡枚举与预览 |
 | 图像处理 | Sharp | ^0.33.0 | 高性能图像压缩 |
-| API 调用 | @anthropic-ai/sdk | Latest | Claude 3.5 Sonnet |
+| API 调用 | @anthropic-ai/sdk, openai | Latest | Claude / GLM 双 SDK |
 | 本地存储 | electron-store | ^8.1.0 | 配置持久化 |
 | 打包 | electron-builder | ^24.0.0 | Windows 安装包 |
 
@@ -88,9 +88,10 @@ ScreenCode/
 │   │   │   ├── frameDiff.ts           # 帧差分算法
 │   │   │   └── imageCompressor.ts     # Sharp 压缩
 │   │   ├── ai/                   # AI 服务模块
-│   │   │   ├── claudeService.ts       # Claude API 封装
-│   │   │   ├── promptBuilder.ts       # Prompt 构建
-│   │   │   └── responseParser.ts      # JSON 解析
+│   │   │   ├── index.ts              # AI 服务调度层 (路由)
+│   │   │   ├── claudeService.ts       # Anthropic SDK 封装
+│   │   │   ├── openAIService.ts       # OpenAI SDK 封装
+│   │   │   └── promptBuilder.ts       # Prompt 构建
 │   │   ├── shortcuts/            # 全局热键模块
 │   │   │   └── globalShortcut.ts      # 热键注册
 │   │   ├── tray/                 # 系统托盘模块
@@ -106,15 +107,19 @@ ScreenCode/
 │   │   ├── main.tsx              # React 入口
 │   │   ├── App.tsx               # 根组件
 │   │   ├── components/           # UI 组件
-│   │   │   ├── Preview/               # 实时预览
+│   │   │   ├── Preview/               # 实时预览 + 区域截图
 │   │   │   ├── CodeDisplay/           # 代码展示
 │   │   │   ├── Toast/                 # Toast 通知
-│   │   │   ├── Thumbnail/             # 缩略图
+│   │   │   ├── ThumbnailQueue/        # 缩略图队列
+│   │   │   ├── ChatPanel/             # 聊天面板 + 会话管理
+│   │   │   ├── Settings/              # 设置界面
 │   │   │   └── Layout/                # 布局组件
 │   │   ├── store/                # Zustand Store
 │   │   │   ├── captureStore.ts        # 采集状态
 │   │   │   ├── frameStore.ts          # 帧队列状态
-│   │   │   └── appStore.ts            # 应用状态
+│   │   │   ├── appStore.ts            # 应用状态
+│   │   │   ├── chatStore.ts           # 聊天状态 + 会话管理
+│   │   │   └── uiStore.ts            # UI 状态
 │   │   ├── hooks/                # 自定义 Hooks
 │   │   │   ├── useCapture.ts          # 采集 Hook
 │   │   │   └── useIPC.ts              # IPC Hook
@@ -316,26 +321,45 @@ class ImageCompressor {
 }
 ```
 
-### 4.4 Claude Service（AI 服务）
+### 4.4 AI Service（AI 服务调度）
+
+**文件**: `src/main/ai/index.ts`
+
+```typescript
+// 根据 baseUrl 自动路由到对应 SDK
+function isOpenAICompatible(baseUrl: string): boolean;
+
+// 统一服务接口
+interface AIService {
+  extractCode(frames: Frame[]): Promise<ClaudeResponse>;
+  chat(request: ChatRequest): Promise<{ content: string }>;
+  getModel(): string;
+  getBaseUrl(): string;
+}
+```
+
+路由规则:
+- `/api/anthropic` → ClaudeService (Anthropic SDK)
+- `bigmodel.cn` / `openrouter.ai` → OpenAIService (OpenAI SDK)
+- 其他 → ClaudeService (默认)
 
 **文件**: `src/main/ai/claudeService.ts`
 
 ```typescript
-interface ClaudeResponse {
-  language: string;
-  code: string;
-  confidence: number;
-}
-
-class ClaudeService {
-  private apiKey: string;
-  private model: string = 'claude-3-5-sonnet-20241022';
-  private timeout: number = 25000;  // 25s
-
+class ClaudeService implements AIService {
+  // Anthropic SDK 封装
   async extractCode(frames: Frame[]): Promise<ClaudeResponse>;
+  async chat(request: ChatRequest): Promise<{ content: string }>;
+}
+```
 
-  // 错误处理
-  private handleError(error: Error): void;
+**文件**: `src/main/ai/openAIService.ts`
+
+```typescript
+class OpenAIService implements AIService {
+  // OpenAI SDK 封装 (智谱标准端点 / OpenRouter)
+  async extractCode(frames: Frame[]): Promise<ClaudeResponse>;
+  async chat(request: ChatRequest): Promise<{ content: string }>;
 }
 ```
 
@@ -442,6 +466,7 @@ export const IPC_CHANNELS = {
   AI_EXTRACT: 'ai:extract',
   AI_RESULT: 'ai:result',
   AI_ERROR: 'ai:error',
+  AI_CHAT: 'ai:chat',
 
   // 设备相关
   DEVICE_ENUM: 'device:enum',
@@ -451,6 +476,11 @@ export const IPC_CHANNELS = {
   // 托盘相关
   TRAY_SHOW_WINDOW: 'tray:show-window',
   TRAY_UPDATE: 'tray:update',
+
+  // 配置相关
+  CONFIG_GET: 'config:get',
+  CONFIG_SET: 'config:set',
+  CONFIG_CHANGED: 'config:changed',
 } as const;
 ```
 
@@ -551,6 +581,43 @@ interface AppState {
 }
 ```
 
+### 6.4 Chat Store
+
+**文件**: `src/renderer/store/chatStore.ts`
+
+```typescript
+interface ChatState {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  selectedImages: string[];
+  inputText: string;
+  currentModel: string;
+
+  // 会话管理
+  sessions: ChatSession[];
+  activeSessionId: string;
+
+  // 操作
+  addMessage: (message: ChatMessage) => void;
+  createSession: () => void;
+  switchSession: (sessionId: string) => void;
+  deleteSession: (sessionId: string) => void;
+  setCurrentModel: (model: string) => void;
+}
+```
+
+### 6.5 UI Store
+
+**文件**: `src/renderer/store/uiStore.ts`
+
+```typescript
+interface UIState {
+  isFullscreenPreview: boolean;
+  isRegionCapture: boolean;
+  selectionRect: { x: number; y: number; width: number; height: number } | null;
+}
+```
+
 ---
 
 ## 七、UI 组件设计
@@ -599,12 +666,19 @@ App
 │   ├── Header
 │   │   └── DeviceSelector
 │   ├── Preview
-│   │   └── VideoPlayer
+│   │   ├── VideoPlayer
+│   │   └── RegionCaptureOverlay
 │   ├── ThumbnailQueue
 │   │   └── ThumbnailItem[]
-│   └── CodeDisplay
-│       ├── CodeBlock (<pre>)
-│       └── CopyButton
+│   ├── CodeDisplay
+│   │   ├── CodeBlock (<pre>)
+│   │   └── CopyButton
+│   └── ChatPanel
+│       ├── SessionList (下拉)
+│       ├── MessageList
+│       ├── ImageSelector
+│       └── InputArea
+├── Settings (Modal)
 └── Toast
 ```
 
@@ -618,8 +692,12 @@ App
 
 ```typescript
 interface AppConfig {
-  // API 配置
-  claudeApiKey: string;
+  // 多供应商配置
+  activeProvider: string;  // 当前激活供应商 ID
+  providerConfigs: {
+    [providerId: string]: ProviderConfig;
+  };
+  apiProviders: ApiProvider[];
 
   // 设备配置
   lastDeviceId: string | null;
@@ -634,8 +712,27 @@ interface AppConfig {
   compressionQuality: number;  // 默认 85
 }
 
+interface ProviderConfig {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  customModel?: string;
+  maxTokens?: number;
+  temperature?: number;
+}
+
 const defaultConfig: AppConfig = {
-  claudeApiKey: '',
+  activeProvider: 'zhipu',
+  providerConfigs: {
+    'zhipu': {
+      apiKey: '',
+      baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+      model: 'glm-5',
+      maxTokens: 8192,
+      temperature: 0.7,
+    },
+    // anthropic, zhipu-anthropic, openrouter...
+  },
   lastDeviceId: null,
   toastDuration: 1500,
   frameDiffThreshold: 0.05,
@@ -761,7 +858,7 @@ publish:
 ## 十三、Phase 2 规划（MVP 后）
 
 1. **Obsidian 归档**: Markdown 写入 + 元数据管理
-2. **多轮 AI 对话**: 对话历史管理
+2. ~~**多轮 AI 对话**: 对话历史管理~~ ✅ 已完成
 3. **本地 VLM**: GLM-4V / Qwen-VL via Ollama
 4. **Mini 悬浮窗**: 320px 半透明置顶窗口
 5. **脱敏层**: NER + 正则掩码

@@ -1,13 +1,45 @@
 # ScreenCode 项目交接文档
 
-> 交接日期: 2026-02-27
+> 交接日期: 2026-02-28
 > 当前版本: dev/claude 分支
 > 远程仓库: https://github.com/moxunjinmu/ScreenCode
-> 最后更新: 2026-02-27 22:30
+> 最后更新: 2026-02-28
 
 ---
 
-## 📅 最新更新 (2026-02-27)
+## 最新更新 (2026-02-28)
+
+### GLM-5 模型支持修复
+
+**问题**: 智谱 Coding Plan 端点 (`/api/coding/paas/v4`) 不支持 glm-5,传入 glm-5 会被服务端静默降级为 glm-4-plus。
+
+**修复**:
+1. zhipu 供应商 baseUrl 从 `/api/coding/paas/v4` 改为标准端点 `/api/paas/v4`
+2. 标准端点支持 glm-5,Coding Plan API Key 通用
+3. 修复 zhipu-anthropic 路由 bug — 之前被 `bigmodel.cn` 匹配错误路由到 OpenAIService
+
+### 配置变更实时推送
+
+**新增**: `CONFIG_CHANGED` IPC 事件
+- Settings 保存配置后,main 进程通过 `event.sender.send` 推送完整配置
+- ChatPanel 监听配置变更,模型名实时更新
+
+### 会话管理
+
+**新增**: 多会话支持
+- 新建会话、切换会话、删除会话
+- 会话标题自动取首条用户消息前 20 字符
+- 会话数据存于内存,不持久化
+
+### 区域截图和预览增强
+
+- 新增区域截图覆盖层组件 (`RegionCaptureOverlay`)
+- 增强预览组件功能
+- 新增 UI 状态管理 store (`uiStore`)
+
+---
+
+## 更新记录 (2026-02-27)
 
 ### 重构配置系统
 
@@ -44,9 +76,10 @@ interface ProviderConfig {
 
 **配置要点**:
 - 模型 ID: `glm-5` (小写)
-- 端点: `https://open.bigmodel.cn/api/coding/paas/v4`
+- 端点: `https://open.bigmodel.cn/api/paas/v4` (标准端点)
 - API 格式: OpenAI 兼容格式
 - 自动检测并使用 OpenAI SDK
+- 注意: Coding Plan 端点 `/api/coding/paas/v4` 不支持 glm-5
 
 ### 双向同步设置界面
 
@@ -94,11 +127,13 @@ ScreenCode 是一个 Electron 桌面应用，用于隔离网络环境下的屏�
 |------|------|------|
 | 多模型支持 | ✅ 完成 | Opus 4.6 / Sonnet 4.6 / 3.5 Sonnet |
 | 自定义模型 | ✅ 完成 | 支持 GLM-5 等第三方模型 |
-| **GLM-5 支持** | ✅ 完成 | 智谱 AI Coding Plan 端点 |
+| **GLM-5 支持** | ✅ 完成 | 智谱 AI 标准端点 `/api/paas/v4` |
 | 第三方中转 | ✅ 完成 | 智谱 AI / OpenRouter / 自定义 |
 | 供应商管理 | ✅ 完成 | 可添加/删除供应商 |
 | **供应商独立配置** | ✅ 完成 | 每个供应商独立 API Key/Model |
 | 聊天对话 | ✅ 完成 | 右侧可拖拽宽度面板 |
+| **会话管理** | ✅ 完成 | 新建/切换/删除会话 |
+| **配置实时推送** | ✅ 完成 | 模型名实时响应配置变更 |
 | 多图 OCR | ✅ 完成 | 最多 4 张图片同时发送 |
 | **双 SDK 支持** | ✅ 完成 | 自动检测 API 格式并选择 SDK |
 
@@ -144,7 +179,8 @@ ScreenCode/
 │   │   │   ├── appStore.ts        # ✅ 应用状态
 │   │   │   ├── captureStore.ts    # ✅ 采集状态
 │   │   │   ├── frameStore.ts      # ✅ 帧队列状态
-│   │   │   └── chatStore.ts       # ✅ 聊天状态
+│   │   │   ├── chatStore.ts       # ✅ 聊天状态 + 会话管理
+│   │   │   └── uiStore.ts         # ✅ UI 状态 (全屏预览/区域截图)
 │   │   └── components/
 │   │       ├── Layout/            # ✅ 布局
 │   │       ├── Preview/           # ✅ 视频预览
@@ -289,7 +325,7 @@ npm run package
     },
     "zhipu": {
       "apiKey": "your-api-key",
-      "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
       "model": "glm-5",
       "maxTokens": 8192,
       "temperature": 0.7
@@ -298,9 +334,9 @@ npm run package
   "apiProviders": [
     {
       "id": "zhipu",
-      "name": "Zhipu AI (Coding Plan)",
-      "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
-      "models": ["glm-5", "glm-4.7", "glm-4.6"]
+      "name": "Zhipu AI (Standard)",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+      "models": ["glm-5", "glm-4.7", "glm-4.6", "glm-4.6v", "glm-4.5", "glm-4.5v"]
     }
   ]
 }
@@ -308,14 +344,16 @@ npm run package
 
 ### 智谱 AI GLM-5 配置
 
-**Coding Plan 端点** (推荐):
+**标准端点** (推荐):
 ```
-API 供应商: Zhipu AI (Coding Plan)
-Base URL: https://open.bigmodel.cn/api/coding/paas/v4
+API 供应商: Zhipu AI (Standard)
+Base URL: https://open.bigmodel.cn/api/paas/v4
 模型: glm-5
 API Key: [从智谱控制台获取]
 API 格式: OpenAI 兼容
 ```
+
+注意: Coding Plan 端点 `/api/coding/paas/v4` 不支持 glm-5,会被降级为 glm-4-plus。
 
 **Anthropic 兼容端点** (备选):
 ```
@@ -349,6 +387,7 @@ API 格式: Anthropic 原生
 | `capture:frame` | 截图事件 |
 | `config:get` | 获取配置 |
 | `config:set` | 设置配置 |
+| `config:changed` | 配置变更推送 (main → renderer) |
 | `device:enum` | 枚举设备 |
 
 ---
@@ -399,4 +438,4 @@ API 格式: Anthropic 原生
 
 ---
 
-*文档最后更新: 2026-02-27*
+*文档最后更新: 2026-02-28*
