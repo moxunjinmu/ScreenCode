@@ -176,7 +176,7 @@ const App: React.FC = () => {
             className={`w-1 h-full bg-gray-700 hover:bg-primary-500 cursor-col-resize transition-colors float-left ${isDragging ? 'bg-primary-500' : ''}`}
           />
           <div className="h-full float-right" style={{ width: chatWidth - 4 }}>
-            <ChatPanel width={chatWidth - 4} />
+            <ChatPanel width={chatWidth - 4} onClose={toggleChatPanel} />
           </div>
         </div>
 
