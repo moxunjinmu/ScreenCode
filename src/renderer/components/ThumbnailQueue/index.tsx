@@ -42,13 +42,23 @@ const FullscreenPreview: React.FC<{
 };
 
 const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
-  const { frames, clearFrames, isFull, isEmpty } = useFrameStore();
+  const { frames, clearFrames, isFull, isEmpty, selectedFrameIds, toggleFrameSelection, removeFrame } = useFrameStore();
   const { stream } = useCaptureStore();
   const [previewFrame, setPreviewFrame] = useState<{ data: string; index: number } | null>(null);
 
-  const handlePreview = (frame: { data: string }, index: number, e: React.MouseEvent) => {
+  const handlePreview = (frame: { data: string; id: string }, index: number, e: React.MouseEvent) => {
     e.stopPropagation();
     setPreviewFrame({ data: frame.data, index });
+  };
+
+  const handleToggleSelect = (frameId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleFrameSelection(frameId);
+  };
+
+  const handleRemove = (frameId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeFrame(frameId);
   };
 
   const closePreview = () => {
@@ -72,6 +82,9 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm text-gray-400">
             帧队列 ({frames.length}/8)
+            {selectedFrameIds.length > 0 && (
+              <span className="ml-2 text-primary-400">已选 {selectedFrameIds.length}</span>
+            )}
           </h3>
           <div className="flex items-center gap-2">
             {!isEmpty() && (
@@ -107,29 +120,57 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
             </div>
           ) : (
             <>
-              {frames.map((frame, index) => (
-                <div
-                  key={frame.id}
-                  onClick={(e) => handlePreview(frame, index, e)}
-                  className="relative flex-shrink-0 w-20 h-full bg-gray-800 rounded overflow-hidden border border-gray-700 hover:border-primary-500 transition-colors cursor-pointer group"
-                >
-                  <img
-                    src={`data:image/jpeg;base64,${frame.data}`}
-                    alt={`帧 ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-xs text-center py-0.5">
-                    {index + 1}
+              {frames.map((frame, index) => {
+                const isSelected = selectedFrameIds.includes(frame.id);
+                return (
+                  <div
+                    key={frame.id}
+                    onClick={(e) => handleToggleSelect(frame.id, e)}
+                    className={`relative flex-shrink-0 w-20 h-full bg-gray-800 rounded overflow-hidden border-2 transition-colors cursor-pointer group ${
+                      isSelected
+                        ? 'border-primary-500 ring-2 ring-primary-500'
+                        : 'border-gray-700 hover:border-primary-500'
+                    }`}
+                  >
+                    <img
+                      src={`data:image/jpeg;base64,${frame.data}`}
+                      alt={`帧 ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+
+                    {/* 选中指示器 */}
+                    {isSelected && (
+                      <div className="absolute top-1 left-1 w-4 h-4 bg-primary-500 rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+
+                    {/* 序号 */}
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-xs text-center py-0.5">
+                      {index + 1}
+                    </div>
+
+                    {/* 删除按钮 */}
+                    <button
+                      onClick={(e) => handleRemove(frame.id, e)}
+                      className="absolute top-0 right-0 w-5 h-5 bg-red-500 hover:bg-red-400 rounded-bl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                      title="删除帧"
+                    >
+                      ✕
+                    </button>
+
+                    {/* 放大图标 */}
+                    <div
+                      onClick={(e) => handlePreview(frame, index, e)}
+                      className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <span className="text-2xl">🔍</span>
+                    </div>
                   </div>
-                  <div className="absolute top-0 right-0 bg-black/60 text-xs px-1 rounded-bl">
-                    {frame.type === 'new_scene' ? '🆕' : '↪️'}
-                  </div>
-                  {/* 放大图标 */}
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-2xl">🔍</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* 空占位符 */}
               {!isFull() && (

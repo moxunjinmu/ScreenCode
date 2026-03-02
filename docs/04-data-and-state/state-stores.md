@@ -34,12 +34,17 @@
 |------|------|------|
 | `frames` | `Frame[]` | 帧队列 |
 | `maxFrames` | `number` | 最大帧数（默认 8） |
+| `selectedFrameIds` | `string[]` | 已选中的帧 ID 列表 |
 
 | 方法 | 说明 |
 |------|------|
 | `addFrame(frame)` | 添加帧，超限移除最早帧 |
 | `removeFrame(frameId)` | 按 ID 移除 |
 | `clearFrames()` | 清空（同步 IPC 清空主进程） |
+| `setFrames(frames)` | 设置帧队列 |
+| `toggleFrameSelection(frameId)` | 切换帧选中状态 |
+| `selectFrame(frameId)` | 选中单个帧 |
+| `deselectAllFrames()` | 取消所有选中 |
 | `isFull()` / `isEmpty()` | 状态查询 |
 
 ## appStore — 应用全局状态
