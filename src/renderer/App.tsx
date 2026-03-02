@@ -21,7 +21,14 @@ const App: React.FC = () => {
   const { loadDevices, captureFrame, stream } = useCaptureStore();
   const { addFrame, frames } = useFrameStore();
   const { setCodeResult, setError, setProcessing } = useAppStore();
-  const { isFullscreenPreview, toggleFullscreenPreview } = useUIStore();
+  const { isFullscreenPreview, toggleFullscreenPreview, isChatPanelOpen, toggleChatPanel, setChatPanelOpen } = useUIStore();
+
+  // 关闭阈值宽度
+  const CLOSE_THRESHOLD = 200;
+  // 最小宽度
+  const MIN_WIDTH = 280;
+  // 最大宽度比例
+  const MAX_WIDTH_RATIO = 0.6;
 
   // 截图处理函数
   const handleCaptureFrame = useCallback(async () => {
@@ -102,11 +109,18 @@ const App: React.FC = () => {
 
     const containerRect = containerRef.current.getBoundingClientRect();
     const newWidth = containerRect.right - e.clientX;
-    const minWidth = 280;
-    const maxWidth = containerRect.width * 0.6;
+    const maxWidth = containerRect.width * MAX_WIDTH_RATIO;
 
-    setChatWidth(Math.min(Math.max(newWidth, minWidth), maxWidth));
-  }, [isDragging]);
+    // 如果宽度小于阈值，关闭面板
+    if (newWidth < CLOSE_THRESHOLD) {
+      setChatPanelOpen(false);
+      setChatWidth(MIN_WIDTH); // 重置为最小宽度，下次打开时使用
+      setIsDragging(false);
+      return;
+    }
+
+    setChatWidth(Math.min(Math.max(newWidth, MIN_WIDTH), maxWidth));
+  }, [isDragging, setChatPanelOpen]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -140,12 +154,31 @@ const App: React.FC = () => {
           <Preview isFullscreen={true} onToggleFullscreen={toggleFullscreenPreview} />
         </div>
 
-        {/* 右侧聊天面板 */}
+        {/* 打开聊天面板按钮 */}
+        {!isChatPanelOpen && (
+          <button
+            onClick={toggleChatPanel}
+            className="absolute right-0 top-1/2 -translate-y-1/2 bg-primary-600 hover:bg-primary-500 text-white px-2 py-4 rounded-l-lg shadow-lg transition-all duration-300 z-10"
+            title="打开聊天面板"
+          >
+            ◀
+          </button>
+        )}
+
+        {/* 聊天面板容器（带动画） */}
         <div
-          onMouseDown={handleMouseDown}
-          className={`w-1 bg-gray-700 hover:bg-primary-500 cursor-col-resize transition-colors ${isDragging ? 'bg-primary-500' : ''}`}
-        />
-        <ChatPanel width={chatWidth} />
+          className={`transition-all duration-300 ease-in-out overflow-hidden ${isChatPanelOpen ? 'opacity-100' : 'opacity-0 w-0'}`}
+          style={{ width: isChatPanelOpen ? chatWidth : 0 }}
+        >
+          {/* 拖拽分隔条 */}
+          <div
+            onMouseDown={handleMouseDown}
+            className={`w-1 h-full bg-gray-700 hover:bg-primary-500 cursor-col-resize transition-colors float-left ${isDragging ? 'bg-primary-500' : ''}`}
+          />
+          <div className="h-full float-right" style={{ width: chatWidth - 4 }}>
+            <ChatPanel width={chatWidth - 4} />
+          </div>
+        </div>
 
         {/* Toast 通知 */}
         {toast && <Toast message={toast.message} type={toast.type} />}
@@ -158,7 +191,7 @@ const App: React.FC = () => {
     <Layout>
       <div ref={containerRef} className="flex h-full">
         {/* 左侧主区域 */}
-        <div className="flex-1 flex flex-col gap-4 p-4 min-w-0">
+        <div className="flex-1 flex flex-col gap-4 p-4 min-w-0 relative">
           {/* 实时预览 */}
           <section className="flex-1 min-h-[200px]">
             <Preview />
@@ -173,16 +206,35 @@ const App: React.FC = () => {
           <section className="flex-1 min-h-[200px]">
             <CodeDisplay />
           </section>
+
+          {/* 打开聊天面板按钮 */}
+          {!isChatPanelOpen && (
+            <button
+              onClick={toggleChatPanel}
+              className="absolute right-0 top-1/2 -translate-y-1/2 bg-primary-600 hover:bg-primary-500 text-white px-2 py-4 rounded-l-lg shadow-lg transition-all duration-300 z-10"
+              title="打开聊天面板"
+            >
+              ◀
+            </button>
+          )}
         </div>
 
-        {/* 拖拽分隔条 */}
+        {/* 聊天面板容器（带动画） */}
         <div
-          onMouseDown={handleMouseDown}
-          className={`w-1 bg-gray-700 hover:bg-primary-500 cursor-col-resize transition-colors ${isDragging ? 'bg-primary-500' : ''}`}
-        />
+          className={`transition-all duration-300 ease-in-out overflow-hidden flex ${isChatPanelOpen ? 'opacity-100' : 'opacity-0 w-0'}`}
+          style={{ width: isChatPanelOpen ? chatWidth : 0 }}
+        >
+          {/* 拖拽分隔条 */}
+          <div
+            onMouseDown={handleMouseDown}
+            className={`w-1 h-full bg-gray-700 hover:bg-primary-500 cursor-col-resize transition-colors shrink-0 ${isDragging ? 'bg-primary-500' : ''}`}
+          />
 
-        {/* 右侧聊天面板 */}
-        <ChatPanel width={chatWidth} />
+          {/* 聊天面板内容 */}
+          <div className="h-full shrink-0" style={{ width: chatWidth - 4 }}>
+            <ChatPanel width={chatWidth - 4} onClose={toggleChatPanel} />
+          </div>
+        </div>
       </div>
 
       {/* Toast 通知 */}

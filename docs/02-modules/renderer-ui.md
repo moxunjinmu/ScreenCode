@@ -14,7 +14,7 @@
 | 组件 | 目录 | 功能 |
 |------|------|------|
 | Preview | `components/Preview/` | 视频实时预览 |
-| ChatPanel | `components/ChatPanel/` | 多轮对话面板（可拖拽宽度、多图 OCR） |
+| ChatPanel | `components/ChatPanel/` | 多轮对话面板（可拖拽宽度、可关闭、多图 OCR） |
 | Settings | `components/Settings/` | 供应商网格布局配置、JSON 双向同步 |
 | CodeDisplay | `components/CodeDisplay/` | 代码只读展示 + 一键复制 |
 | Toast | `components/Toast/` | 右下角通知（1.5s 自动消失） |

@@ -6,9 +6,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 interface ChatPanelProps {
   width: number;
+  onClose?: () => void;
 }
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ width }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
   const {
     messages,
     isLoading,
@@ -131,8 +132,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width }) => {
     <div className="h-full flex flex-col bg-gray-800" style={{ width }}>
       {/* 头部 */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 relative">
-        {/* 左侧：会话列表触发 */}
-        <div className="relative">
+        {/* 左侧：关闭按钮 */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white mr-2 transition-colors"
+            title="关闭聊天面板"
+          >
+            ▶
+          </button>
+        )}
+
+        {/* 会话列表触发 */}
+        <div className="relative flex-1">
           <button
             onClick={(e) => { e.stopPropagation(); setShowSessionList(!showSessionList); }}
             className="text-sm font-medium hover:text-primary-400 flex items-center gap-1"

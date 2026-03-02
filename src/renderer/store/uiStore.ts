@@ -24,6 +24,11 @@ interface UIState {
   updateSelection: (x: number, y: number) => void;
   endSelection: () => void;
   clearSelection: () => void;
+
+  // 聊天面板开关
+  isChatPanelOpen: boolean;
+  toggleChatPanel: () => void;
+  setChatPanelOpen: (value: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -71,5 +76,10 @@ export const useUIStore = create<UIState>((set, get) => ({
     selectionRect: null,
     isSelecting: false,
     selectionStart: null
-  })
+  }),
+
+  // 聊天面板开关
+  isChatPanelOpen: true,
+  toggleChatPanel: () => set((state) => ({ isChatPanelOpen: !state.isChatPanelOpen })),
+  setChatPanelOpen: (value) => set({ isChatPanelOpen: value }),
 }));

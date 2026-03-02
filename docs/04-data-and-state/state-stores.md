@@ -92,6 +92,7 @@
 | `selectionRect` | `SelectionRect \| null` | 选区矩形 |
 | `isSelecting` | `boolean` | 正在选择中 |
 | `selectionStart` | `{x, y} \| null` | 选区起点 |
+| `isChatPanelOpen` | `boolean` | 聊天面板开关（默认 true） |
 
 | 方法 | 说明 |
 |------|------|
@@ -100,6 +101,8 @@
 | `startSelection(x, y)` | 开始选区 |
 | `updateSelection(x, y)` | 更新选区 |
 | `endSelection()` | 结束选区 |
+| `toggleChatPanel()` | 切换聊天面板开关 |
+| `setChatPanelOpen(value)` | 设置聊天面板开关 |
 
 ## 设计原则
 
