@@ -11,9 +11,13 @@ interface PreviewProps {
   onToggleFullscreen?: () => void;
 }
 
+// 防抖延迟（ms），低于此时间内的双击会取消之前的单击截图
+const CAPTURE_DEBOUNCE_MS = 300;
+
 const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscreen }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const captureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -138,26 +142,37 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     }
   };
 
-  // 单击截图
+  // 单击截图（带防抖，避免双击时误触发）
   const handleCaptureFrame = useCallback(async () => {
     if (!stream) return;
 
-    try {
-      const base64Frame = await captureFrame();
-      if (!base64Frame) return;
-
-      const frame: Frame = {
-        id: uuidv4(),
-        timestamp: Date.now(),
-        data: base64Frame,
-        type: 'new_scene',
-        overlap: undefined
-      };
-
-      addFrame(frame);
-    } catch (error) {
-      console.error('Capture frame error:', error);
+    // 清除之前的防抖定时器
+    if (captureTimerRef.current) {
+      clearTimeout(captureTimerRef.current);
+      captureTimerRef.current = null;
+      return; // 双击时直接取消之前的单击截图
     }
+
+    // 设置防抖定时器，如果在 CAPTURE_DEBOUNCE_MS 内发生双击会被清除
+    captureTimerRef.current = setTimeout(async () => {
+      captureTimerRef.current = null;
+      try {
+        const base64Frame = await captureFrame();
+        if (!base64Frame) return;
+
+        const frame: Frame = {
+          id: uuidv4(),
+          timestamp: Date.now(),
+          data: base64Frame,
+          type: 'new_scene',
+          overlap: undefined
+        };
+
+        addFrame(frame);
+      } catch (error) {
+        console.error('Capture frame error:', error);
+      }
+    }, CAPTURE_DEBOUNCE_MS);
   }, [stream, captureFrame, addFrame]);
 
   // 双击进入/退出全屏
