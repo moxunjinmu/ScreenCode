@@ -7,6 +7,22 @@ import { setupAIHandlers } from './ai';
 import { setupTray } from './tray/trayManager';
 import { setupConfigHandlers } from './config/store';
 
+// 确保 sharp 的 DLL 可以被找到
+const appDir = path.dirname(app.getPath('exe'));
+const dllPaths = [
+  appDir, // 应用根目录
+  path.join(appDir, 'resources', 'app.asar.unpacked', 'node_modules', '@img', 'sharp-win32-x64', 'lib'),
+];
+
+// 将 DLL 目录添加到 PATH
+if (process.platform === 'win32') {
+  const currentPath = process.env.PATH || '';
+  const newPaths = dllPaths.filter(p => !currentPath.includes(p)).join(';');
+  if (newPaths) {
+    process.env.PATH = newPaths + ';' + currentPath;
+  }
+}
+
 // 主窗口引用
 let mainWindow: BrowserWindow | null = null;
 
@@ -36,11 +52,11 @@ function createWindow() {
 
   // 开发模式加载开发服务器
   if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:5380');
     // 打开开发者工具
     mainWindow.webContents.openDevTools({ mode: 'right' });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../renderer/main_window/index.html'));
   }
 
   // 窗口准备好后显示
