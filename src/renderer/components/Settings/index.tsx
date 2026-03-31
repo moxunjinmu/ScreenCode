@@ -276,6 +276,42 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                     />
                   </div>
                 </div>
+
+                {/* SDK Type Selection (for custom providers) */}
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    SDK Type
+                    <span className="ml-2 text-gray-500">(第三方中转端点需手动选择)</span>
+                  </label>
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      onClick={() => handleConfigChange('sdkType', 'openai')}
+                      className={`flex-1 px-3 py-2 rounded text-sm transition-colors border ${
+                        activeProviderConfig.sdkType === 'openai'
+                          ? 'bg-green-600/30 border-green-500 text-green-400'
+                          : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
+                      }`}
+                    >
+                      OpenAI 格式 (/v1/chat/completions)
+                    </button>
+                    <button
+                      onClick={() => handleConfigChange('sdkType', 'anthropic')}
+                      className={`flex-1 px-3 py-2 rounded text-sm transition-colors border ${
+                        activeProviderConfig.sdkType === 'anthropic'
+                          ? 'bg-purple-600/30 border-purple-500 text-purple-400'
+                          : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
+                      }`}
+                    >
+                      Anthropic 格式 (/v1/messages)
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    当前 Base URL: {activeProviderConfig.baseUrl} | 
+                    {activeProviderConfig.sdkType 
+                      ? ` 已手动指定为 ${activeProviderConfig.sdkType.toUpperCase()} SDK`
+                      : ' 自动检测'}
+                  </p>
+                </div>
               </div>
             </div>
           )}

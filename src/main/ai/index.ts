@@ -33,8 +33,13 @@ export function setupAIHandlers(ipcMain: IpcMain) {
 
 /**
  * 判断是否使用 OpenAI 格式的 API
+ * 优先级：sdkType 配置 > 自动检测
  */
-function isOpenAICompatible(baseUrl: string): boolean {
+function isOpenAICompatible(baseUrl: string, sdkType?: 'anthropic' | 'openai'): boolean {
+  // 如果显式指定了 SDK 类型，直接使用
+  if (sdkType === 'openai') return true;
+  if (sdkType === 'anthropic') return false;
+  
   // 智谱 Anthropic 兼容端点使用 Anthropic SDK 格式
   if (baseUrl.includes('/api/anthropic')) {
     return false;
@@ -54,14 +59,15 @@ function getAIService(): AIService {
   const apiKey = providerConfig.apiKey;
   const baseUrl = providerConfig.baseUrl;
   const model = providerConfig.customModel || providerConfig.model;
+  const sdkType = providerConfig.sdkType;
 
   // 判断是否使用 OpenAI 格式
-  if (isOpenAICompatible(baseUrl)) {
+  if (isOpenAICompatible(baseUrl, sdkType)) {
     // 使用 OpenAI 服务
     if (!openAIService ||
         openAIService.getModel() !== model ||
         openAIService.getBaseUrl() !== baseUrl) {
-      console.log(`[AI] Creating OpenAI service with baseUrl: ${baseUrl}, model: ${model}`);
+      console.log(`[AI] Creating OpenAI service with baseUrl: ${baseUrl}, model: ${model}, sdkType: ${sdkType || 'auto'}`);
       openAIService = new OpenAIService(apiKey, model, baseUrl);
     }
     return openAIService;
@@ -70,7 +76,7 @@ function getAIService(): AIService {
     if (!claudeService ||
         claudeService.getModel() !== model ||
         claudeService.getBaseUrl() !== baseUrl) {
-      console.log(`[AI] Creating Claude service with baseUrl: ${baseUrl}, model: ${model}`);
+      console.log(`[AI] Creating Claude service with baseUrl: ${baseUrl}, model: ${model}, sdkType: ${sdkType || 'auto'}`);
       claudeService = new ClaudeService(apiKey, model, baseUrl);
     }
     return claudeService;

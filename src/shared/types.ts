@@ -76,6 +76,7 @@ export interface ProviderConfig {
   customModel?: string;
   maxTokens?: number;
   temperature?: number;
+  sdkType?: 'anthropic' | 'openai';  // 显式指定使用的 SDK 类型
 }
 
 // 默认供应商列表
@@ -171,6 +172,16 @@ export const DEFAULT_CONFIG: AppConfig = {
       model: 'qwen-coder-plus',
       maxTokens: 8192,
       temperature: 0.7,
+      sdkType: 'openai',  // 阿里云使用 OpenAI SDK 格式
+    },
+    // 自定义供应商示例（如 claw.cjcook.site 等第三方中转）
+    'custom': {
+      apiKey: '',
+      baseUrl: '',
+      model: '',
+      maxTokens: 8192,
+      temperature: 0.7,
+      sdkType: 'openai',  // 如果是 OpenAI 兼容端点设为 'openai'，否则设为 'anthropic'
     },
   },
   apiProviders: DEFAULT_PROVIDERS,
