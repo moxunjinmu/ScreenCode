@@ -104,6 +104,12 @@ export const DEFAULT_PROVIDERS: ApiProvider[] = [
     baseUrl: 'https://openrouter.ai/api/v1',
     models: ['auto', 'anthropic/claude-opus-4.6', 'anthropic/claude-sonnet-4.6']
   },
+  {
+    id: 'aliyun',
+    name: 'Aliyun DashScope (通义千问)',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    models: ['qwen-coder-plus', 'qwen-max', 'qwen-plus', 'qwen-turbo']
+  },
 ];
 
 // 配置
@@ -156,6 +162,13 @@ export const DEFAULT_CONFIG: AppConfig = {
       apiKey: '',
       baseUrl: 'https://openrouter.ai/api/v1',
       model: 'anthropic/claude-sonnet-4.6',
+      maxTokens: 8192,
+      temperature: 0.7,
+    },
+    'aliyun': {
+      apiKey: '',
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      model: 'qwen-coder-plus',
       maxTokens: 8192,
       temperature: 0.7,
     },

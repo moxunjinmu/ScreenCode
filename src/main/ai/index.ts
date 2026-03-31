@@ -39,10 +39,11 @@ function isOpenAICompatible(baseUrl: string): boolean {
   if (baseUrl.includes('/api/anthropic')) {
     return false;
   }
-  // 智谱标准端点和 OpenRouter 使用 OpenAI 格式
+  // 智谱标准端点、OpenRouter、阿里云 DashScope 使用 OpenAI 格式
   return baseUrl.includes('bigmodel.cn') ||
          baseUrl.includes('coding/paas') ||
-         baseUrl.includes('openrouter.ai');
+         baseUrl.includes('openrouter.ai') ||
+         baseUrl.includes('dashscope.aliyuncs.com');
 }
 
 /**

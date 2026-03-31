@@ -79,18 +79,36 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
       timestamp: Date.now(),
     };
 
+    console.log('[ChatPanel] Sending message:', {
+      hasImages: selectedImages.length > 0,
+      imageCount: selectedImages.length,
+      contentLength: inputText.trim().length,
+    });
+
     addMessage(userMessage);
     setInputText('');
     clearSelectedImages();
     setLoading(true);
 
     try {
+      // 使用最新的消息列表（包含刚添加的 userMessage）
+      const allMessages = [...messages, userMessage];
+      
+      console.log('[ChatPanel] All messages to send:', {
+        total: allMessages.length,
+        withImages: allMessages.filter(m => m.images && m.images.length > 0).length,
+      });
+
       const response = await window.electronAPI.chat({
-        messages: messages.concat(userMessage).map(m => ({
+        messages: allMessages.map(m => ({
           role: m.role,
           content: m.content,
           images: m.images,
         })),
+      });
+
+      console.log('[ChatPanel] AI response received:', {
+        contentLength: response.content.length,
       });
 
       const assistantMessage: ChatMessage = {
