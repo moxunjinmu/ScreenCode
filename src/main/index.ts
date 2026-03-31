@@ -52,7 +52,7 @@ function createWindow() {
 
   // 开发模式加载开发服务器
   if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:52000');
     // 打开开发者工具
     mainWindow.webContents.openDevTools({ mode: 'right' });
   } else {
