@@ -1,6 +1,6 @@
 # 项目概览
 
-> 最后更新: 2026-02-28
+> 最后更新：2026-03-31
 
 ## 什么是 ScreenCode
 
@@ -10,12 +10,31 @@ ScreenCode 是一个 Electron 桌面应用，用于**隔离网络环境下的屏
 
 ## 核心能力
 
-- 视频采集设备枚举 + 实时预览
-- 全局热键截图（Ctrl+Shift+S），帧差分自动去重
-- 一键代码提取（Ctrl+Shift+E），多帧结构化 Prompt → AI → JSON 输出
-- 多供应商 AI 路由（Anthropic / 智谱 / OpenRouter）
-- 多轮 AI 对话 + 多会话管理
-- 系统托盘常驻 + Toast 通知
+### 已实现功能 ✅
+
+**MVP 核心功能**
+- 全局热键截图（Ctrl+Shift+S），环形缓冲区存储（最多 8 帧）
+- 图像压缩（Sharp 1080p→768px, JPEG Q=85）
+- 一键代码提取（Ctrl+Shift+E），多帧结构化 Prompt → JSON 输出
+- 多供应商 AI 路由（Anthropic / 智谱标准 / 智谱 Anthropic 兼容 / OpenRouter）
+- 系统托盘常驻 + Toast 通知（1.5s 自动消失）
+
+**Phase 2 增强功能**
+- 多轮 AI 对话 + 多会话管理（新建/切换/删除）
+- 会话标题自动生成（首条消息前 20 字符）
+- 全屏预览模式 + 区域截图覆盖层
+- 帧队列交互增强（点击选中、删除按钮）
+- 聊天面板拖拽宽度调节（<200px 自动关闭）
+- 配置实时推送（CONFIG_CHANGED IPC 事件）
+
+### 待实现功能 🚧
+
+- 真实视频采集设备枚举和捕获（当前使用硬编码数据）
+- 像素级帧差分算法（当前返回模拟值）
+- 系统托盘状态图标变体（绿=连接/红=断开/黄=处理中）
+- 流式输出 (SSE)
+- 本地 VLM 路由（合规模式）
+- 审计日志 + 本地脱敏层
 
 ## 目标用户
 
@@ -36,15 +55,27 @@ ScreenCode 是一个 Electron 桌面应用，用于**隔离网络环境下的屏
 |------|------|------|
 | 运行时 | Electron ^28 | 桌面应用框架 |
 | 构建 | Electron Forge + Vite | 开发与打包 |
-| 前端 | React 18 + TypeScript | UI |
-| 状态 | Zustand | 状态管理 |
+| 前端 | React 18 + TypeScript | UI 框架 |
+| 状态管理 | Zustand | 5 个独立 Store (capture/frame/app/chat/ui) |
 | 样式 | TailwindCSS | 原子化 CSS |
-| 图像 | Sharp | 高性能压缩 |
-| AI | @anthropic-ai/sdk + openai | 双 SDK 自动路由 |
-| 存储 | electron-store | 配置持久化 |
+| 图像处理 | Sharp | 高性能压缩 (token 成本降低 65%) |
+| AI SDK | @anthropic-ai/sdk + openai | 双 SDK 自动路由 |
+| 配置存储 | electron-store | 持久化配置 + IPC 实时推送 |
+
+## 性能指标
+
+| 指标 | 目标值 | 状态 |
+|------|--------|------|
+| 热键到 Toast 延迟 | < 200ms | ✅ |
+| 代码提取超时 | 20s | ✅ |
+| AI 聊天响应 | < 8s | ✅ |
+| Ring Buffer 容量 | 8 帧 | ✅ |
+| 图像压缩宽度 | 768px (JPEG Q=85) | ✅ |
+| Toast 持续时间 | 1.5s | ✅ |
 
 ## 相关文档
 
 - [路线图](roadmap.md)
 - [产品需求文档](prd.md)
 - [架构设计](../01-architecture/overview.md)
+- [变更日志](../08-history/changelog.md)

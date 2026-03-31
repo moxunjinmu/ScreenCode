@@ -26,7 +26,7 @@ function getAllDependencies(moduleName: string, deps = new Set<string>()): Set<s
 
 // afterCopy 钩子：在复制文件到构建目录后、prune 之前执行
 const afterCopy = [
-  (buildPath: string, electronVersion: string, platform: string, arch: string, callback: Function) => {
+  (buildPath: string, _electronVersion: string, _platform: string, _arch: string, callback: Function) => {
     const sourceDir = path.join(process.cwd(), 'node_modules');
     const targetDir = path.join(buildPath, 'node_modules');
 
@@ -88,16 +88,13 @@ const config: ForgeConfig = {
       OriginalFilename: 'ScreenCode.exe',
       ProductName: 'ScreenCode',
     },
-    asarUnpack: ['**/*.node', '**/*.dll'],
     afterCopy,
-    // 使用本地安装的 Electron，避免下载
-    electronDist: path.join(process.cwd(), 'node_modules', 'electron', 'dist'),
   },
   rebuildConfig: {
     onlyModules: [], // 跳过 rebuild，避免网络请求
   },
   hooks: {
-    postPackage: async (forgeConfig, packageResult) => {
+    postPackage: async (_forgeConfig, packageResult) => {
       // 将 DLL 文件复制到最终输出目录
       const outputPath = packageResult.outputPaths[0];
       const dllSourceDir = path.join(process.cwd(), 'node_modules', '@img', 'sharp-win32-x64', 'lib');
@@ -112,7 +109,7 @@ const config: ForgeConfig = {
         }
       }
     },
-    postMake: async (forgeConfig, makeResults) => {
+    postMake: async (_forgeConfig, makeResults) => {
       // 对于 Squirrel 安装包，需要将 DLL 文件复制到 staging 目录
       // Squirrel 安装后会将应用放在 %LocalAppData%\ScreenCode\app-1.0.0\
       // 我们需要确保 DLL 文件被包含在安装包中

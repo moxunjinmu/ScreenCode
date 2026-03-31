@@ -40,13 +40,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
       setCurrentModel(providerConfig?.customModel || providerConfig?.model || '');
     });
 
-    const cleanup = window.electronAPI.onConfigChanged((config) => {
+    const unsubscribe = window.electronAPI.onConfigChanged((config) => {
       const providerConfig = config.providerConfigs?.[config.activeProvider];
       setCurrentModel(providerConfig?.customModel || providerConfig?.model || '');
     });
 
-    return cleanup;
-  }, []);
+    return () => {
+      unsubscribe();
+    };
+  }, [setCurrentModel]);
 
   // 滚动到底部
   useEffect(() => {

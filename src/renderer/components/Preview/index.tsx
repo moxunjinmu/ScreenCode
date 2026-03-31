@@ -34,7 +34,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
   } = useCaptureStore();
 
   const { isRegionCapture, setRegionCapture, isFullscreenPreview, setFullscreenPreview } = useUIStore();
-  const { addFrame, frames } = useFrameStore();
+  const { addFrame } = useFrameStore();
 
   // 当选择设备后自动开始捕获
   useEffect(() => {
@@ -185,7 +185,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
   };
 
   // 区域截图完成回调
-  const handleRegionCapture = useCallback((frame: Frame) => {
+  const handleRegionCapture = useCallback(() => {
     setRegionCapture(false);
   }, [setRegionCapture]);
 

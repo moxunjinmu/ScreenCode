@@ -23,7 +23,8 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
 
   const { stream } = useCaptureStore();
   const { addFrame } = useFrameStore();
-  const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_containerRect, setContainerRect] = useState<DOMRect | null>(null);
 
   // 获取容器尺寸
   useEffect(() => {
