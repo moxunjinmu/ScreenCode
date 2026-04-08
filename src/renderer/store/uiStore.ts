@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DisplayResolution } from '@shared/types';
 
 interface SelectionRect {
   x: number;
@@ -29,6 +30,10 @@ interface UIState {
   isChatPanelOpen: boolean;
   toggleChatPanel: () => void;
   setChatPanelOpen: (value: boolean) => void;
+
+  // 显示分辨率
+  displayResolution: DisplayResolution | null;
+  setDisplayResolution: (resolution: DisplayResolution | null) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -79,7 +84,11 @@ export const useUIStore = create<UIState>((set, get) => ({
   }),
 
   // 聊天面板开关
-  isChatPanelOpen: true,
+  isChatPanelOpen: false,
   toggleChatPanel: () => set((state) => ({ isChatPanelOpen: !state.isChatPanelOpen })),
   setChatPanelOpen: (value) => set({ isChatPanelOpen: value }),
+
+  // 显示分辨率
+  displayResolution: null,
+  setDisplayResolution: (resolution) => set({ displayResolution: resolution }),
 }));

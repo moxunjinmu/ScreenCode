@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useCaptureStore } from '../../store/captureStore';
 import { useUIStore } from '../../store/uiStore';
 import { useFrameStore } from '../../store/frameStore';
-import { Frame } from '@shared/types';
+import { Frame, DisplayResolution, PRESET_RESOLUTIONS, PRESET_SCALES } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import RegionCaptureOverlay from './RegionCaptureOverlay';
 
@@ -33,8 +33,13 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     captureFrame
   } = useCaptureStore();
 
-  const { isRegionCapture, setRegionCapture, isFullscreenPreview, setFullscreenPreview } = useUIStore();
+  const { isRegionCapture, setRegionCapture, isFullscreenPreview, setFullscreenPreview, displayResolution, setDisplayResolution } = useUIStore();
   const { addFrame } = useFrameStore();
+
+  // 视频源分辨率状态
+  const [sourceResolution, setSourceResolution] = useState<{ width: number; height: number } | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<string>('source');  // 'source' 或分辨率索引
+  const [selectedScale, setSelectedScale] = useState<number>(1.0);
 
   // 当选择设备后自动开始捕获
   useEffect(() => {
@@ -94,6 +99,48 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
+
+  // 检测视频源分辨率
+  useEffect(() => {
+    if (!videoRef.current || !stream) return;
+
+    const video = videoRef.current;
+    const handleLoadedMetadata = () => {
+      const width = video.videoWidth;
+      const height = video.videoHeight;
+      if (width && height) {
+        setSourceResolution({ width, height });
+      }
+    };
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    // 如果已经加载过元数据
+    if (video.readyState >= 1) {
+      handleLoadedMetadata();
+    }
+
+    return () => video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+  }, [stream]);
+
+  // 分辨率或缩放变化时更新显示
+  useEffect(() => {
+    if (!videoRef.current) return;
+
+    const baseRes = selectedPreset === 'source' && sourceResolution
+      ? sourceResolution
+      : selectedPreset !== 'source'
+        ? PRESET_RESOLUTIONS[parseInt(selectedPreset)] || sourceResolution
+        : sourceResolution;
+
+    if (baseRes) {
+      const displayRes: DisplayResolution = {
+        width: Math.round(baseRes.width * selectedScale),
+        height: Math.round(baseRes.height * selectedScale),
+        scale: selectedScale,
+      };
+      setDisplayResolution(displayRes);
+    }
+  }, [selectedPreset, selectedScale, sourceResolution, setDisplayResolution]);
 
   // 监听快捷键 - 区域截图
   useEffect(() => {
@@ -245,6 +292,38 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
               {isRegionCapture ? '取消选择' : '区域截图'}
             </button>
           )}
+
+          {/* 分辨率选择 */}
+          {stream && sourceResolution && (
+            <>
+              <label className="text-sm text-gray-400">分辨率:</label>
+              <select
+                value={selectedPreset}
+                onChange={(e) => setSelectedPreset(e.target.value)}
+                className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none focus:border-primary-500 min-w-[120px]"
+              >
+                <option value="source">源 {sourceResolution.width}x{sourceResolution.height}</option>
+                {PRESET_RESOLUTIONS.map((res, idx) => (
+                  <option key={idx} value={idx}>
+                    {res.width}x{res.height}
+                  </option>
+                ))}
+              </select>
+
+              <label className="text-sm text-gray-400">缩放:</label>
+              <select
+                value={selectedScale}
+                onChange={(e) => setSelectedScale(parseFloat(e.target.value))}
+                className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none focus:border-primary-500 min-w-[80px]"
+              >
+                {PRESET_SCALES.map((scale) => (
+                  <option key={scale} value={scale}>
+                    {Math.round(scale * 100)}%
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
         </div>
       )}
 
@@ -274,7 +353,16 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
               autoPlay
               muted
               playsInline
-              className={`w-full h-full object-contain ${isRegionCapture ? 'cursor-crosshair' : 'cursor-pointer'}`}
+              className={`${isRegionCapture ? 'cursor-crosshair' : 'cursor-pointer'} object-contain`}
+              style={displayResolution ? {
+                width: `${displayResolution.width}px`,
+                height: `${displayResolution.height}px`,
+                maxWidth: '100%',
+                maxHeight: '100%',
+              } : {
+                width: '100%',
+                height: '100%',
+              }}
               onClick={(e) => {
                 // 如果不在区域截图模式，单击截图
                 if (!isRegionCapture && e.detail === 1) {

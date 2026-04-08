@@ -113,6 +113,24 @@ export const DEFAULT_PROVIDERS: ApiProvider[] = [
   },
 ];
 
+// 显示分辨率配置
+export interface DisplayResolution {
+  width: number;
+  height: number;
+  scale?: number;  // 缩放百分比，1.0 = 100%
+}
+
+// 预设分辨率选项
+export const PRESET_RESOLUTIONS: DisplayResolution[] = [
+  { width: 1920, height: 1080 },
+  { width: 1280, height: 720 },
+  { width: 1024, height: 576 },
+  { width: 854, height: 480 },
+];
+
+// 预设缩放比例
+export const PRESET_SCALES = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
 // 配置
 export interface AppConfig {
   activeProvider: string;  // 当前激活的供应商 ID
@@ -126,7 +144,10 @@ export interface AppConfig {
   maxFrames: number;
   compressionWidth: number;
   compressionQuality: number;
-  
+
+  // 显示分辨率配置
+  displayResolution?: DisplayResolution;  // 用户选择的显示分辨率
+
   // 向后兼容旧配置
   claudeApiKey?: string;
   claudeApiBaseUrl?: string;
