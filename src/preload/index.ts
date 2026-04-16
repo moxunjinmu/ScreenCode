@@ -34,6 +34,10 @@ const electronAPI = {
   getConfig: () => ipcRenderer.invoke(IPC_CHANNELS.CONFIG_GET) as Promise<AppConfig>,
   setConfig: (config: Partial<AppConfig>) => ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SET, config),
 
+  // 剪贴板
+  writeImageToClipboard: (base64Data: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLIPBOARD_WRITE_IMAGE, base64Data),
+
   // 事件监听
   onFrameAdded: (callback: (frame: Frame) => void) => {
     const listener = (_event: unknown, frame: Frame) => callback(frame);

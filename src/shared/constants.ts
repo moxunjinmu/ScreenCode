@@ -28,6 +28,9 @@ export const IPC_CHANNELS = {
   TRAY_SHOW_WINDOW: 'tray:show-window',
   TRAY_UPDATE: 'tray:update',
 
+  // 剪贴板相关
+  CLIPBOARD_WRITE_IMAGE: 'clipboard:write-image',
+
   // 配置相关
   CONFIG_GET: 'config:get',
   CONFIG_SET: 'config:set',

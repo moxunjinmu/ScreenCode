@@ -1,6 +1,15 @@
 # ScreenCode 变更日志
 
-> 最后更新：2026-04-08
+> 最后更新：2026-04-16
+
+---
+
+## 2026-04-16
+
+### 截图保存到剪贴板
+- 全屏截图和区域截图完成后自动将图片写入系统剪贴板
+- 新增 `CLIPBOARD_WRITE_IMAGE` IPC 通道（renderer → main）
+- 使用 Electron `clipboard.writeImage()` + `nativeImage` API
 
 ---
 

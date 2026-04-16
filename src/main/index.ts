@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage } from 'electron';
 import path from 'path';
 import { IPC_CHANNELS, SHORTCUTS } from '@shared/constants';
 import { setupCaptureHandlers } from './capture';
@@ -104,6 +104,11 @@ app.whenReady().then(() => {
   registerShortcuts();
 
   // 设置 IPC 处理器
+  ipcMain.handle(IPC_CHANNELS.CLIPBOARD_WRITE_IMAGE, (_event, base64Data: string) => {
+    const image = nativeImage.createFromDataURL(`data:image/jpeg;base64,${base64Data}`);
+    clipboard.writeImage(image);
+  });
+
   setupCaptureHandlers(ipcMain);
   setupFrameHandlers(ipcMain);
   setupAIHandlers(ipcMain);

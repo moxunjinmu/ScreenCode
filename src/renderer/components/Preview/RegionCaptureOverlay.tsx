@@ -142,6 +142,10 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
       };
 
       addFrame(frame);
+
+      // 写入剪贴板
+      await window.electronAPI.writeImageToClipboard(base64);
+
       onCapture?.(frame);
       
     } catch (error) {

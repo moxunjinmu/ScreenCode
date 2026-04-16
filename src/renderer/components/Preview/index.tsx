@@ -216,6 +216,9 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
         };
 
         addFrame(frame);
+
+        // 写入剪贴板
+        await window.electronAPI.writeImageToClipboard(base64Frame);
       } catch (error) {
         console.error('Capture frame error:', error);
       }

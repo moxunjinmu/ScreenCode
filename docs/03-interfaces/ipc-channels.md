@@ -49,6 +49,12 @@
 | `CONFIG_SET` | renderer → main | invoke | `Partial<AppConfig>` | `void` |
 | `CONFIG_CHANGED` | main → renderer | event (push) | `AppConfig` | - |
 
+### 剪贴板
+
+| 通道 | 方向 | 模式 | Payload | 返回值 |
+|------|------|------|---------|--------|
+| `CLIPBOARD_WRITE_IMAGE` | renderer → main | invoke | `string` (base64) | `void` |
+
 ### 托盘
 
 | 通道 | 方向 | 模式 | Payload | 返回值 |
@@ -82,6 +88,9 @@ interface ElectronAPI {
   // 配置
   getConfig(): Promise<AppConfig>;
   setConfig(config: Partial<AppConfig>): Promise<void>;
+
+  // 剪贴板
+  writeImageToClipboard(base64Data: string): Promise<void>;
 
   // 事件监听 (返回取消订阅函数)
   onFrameAdded(callback: (frame: Frame) => void): () => void;
