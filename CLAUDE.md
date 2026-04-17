@@ -2,233 +2,205 @@
 
 此文件为 Claude Code (claude.ai/code) 在此代码库中工作时提供指导。
 
-## 工作流程（强制执行）
+## 语言
 
-> ⚠️ **警告**：本项目要求严格遵守文档优先原则。**任何违反此流程的代码修改都将被视为不合格，需要返工。**
+所有回复和文件使用中文。
+
+## 工作流程
 
 ### 强制流程
 
-在回答任何问题或执行任何任务之前，必须完成以下步骤：
+1. **改代码前先读相关源码**，理解现有实现，禁止凭猜测修改
+2. **改完代码后同步更新本文档**中受影响的部分（如 IPC 通道、模块职责、配置字段等）
+3. **完成需求后提交 Git** — `git add` + `git commit` + `git push`，无需用户额外指示
 
-#### 步骤 1：查阅相关文档
+### 文档维护原则
 
-根据任务涉及的领域，**必须**先读取对应文档：
-
-- 架构/设计问题 → `docs/01-architecture/`
-- 具体模块问题 → `docs/02-modules/` 中对应文件
-- IPC/接口问题 → `docs/03-interfaces/`
-- 状态管理问题 → `docs/04-data-and-state/`
-- 构建/测试/环境问题 → `docs/05-dev-and-ops/`
-- 开发规范问题 → `docs/06-process-and-guides/`
-- 历史决策问题 → `docs/07-adrs/`
-
-#### 步骤 2：确认约束后再动手
-
-- 阅读文档中的设计约束和现有实现
-- 读取相关源码，验证实现细节
-- 基于**文档 + 源码**的完整上下文给出回答或执行修改
-- **禁止**仅凭代码理解和猜测直接修改
-
-#### 步骤 3：修改代码后同步更新文档
-
-任何代码变更完成后，**必须**同步更新受影响的文档：
-
-- 新增/修改模块 → 更新 `docs/02-modules/` 对应文件
-- 新增/修改 IPC 通道或接口 → 更新 `docs/03-interfaces/` 对应文件
-- 新增/修改 Store 或持久化 → 更新 `docs/04-data-and-state/` 对应文件
-- 新增/修改配置字段 → 更新 `docs/03-interfaces/config-schema.md`
-- 架构级变更 → 更新 `docs/01-architecture/` + 新增 ADR
-- 完成功能 → 更新 `docs/05-dev-and-ops/backlog.md` + `docs/08-history/changelog.md`
-
-#### 步骤 4：完成需求后默认提交 Git
-
-每次完成一个完整需求后，**必须**执行 `git add` + `git commit` + `git push`，无需用户额外指示。
-
----
-
-**目的**：避免与现有设计冲突，确保文档与代码始终保持一致。违反此流程的修改将被要求返工。
+- **CLAUDE.md 是唯一的活文档**，包含 AI 开发所需的全部关键信息
+- **docs/ 目录仅作参考索引**，历史归档用，日常不要求更新
+- 代码才是真实来源，文档与代码冲突时以代码为准
 
 ## 项目概述
 
-ScreenCode 是一个 Electron 桌面应用,用于隔离网络环境下的屏幕捕获和代码提取。通过采集卡捕获内网机器屏幕,使用多供应商 AI API（智谱 GLM-5、Claude Sonnet 等）进行代码识别和提取,支持多轮 AI 对话和会话管理。
+ScreenCode 是一个 Electron 桌面应用，用于隔离网络环境下的屏幕捕获和代码提取。通过采集卡捕获内网机器屏幕，使用多供应商 AI API（智谱 GLM-5、Claude Sonnet 等）进行代码识别和提取，支持多轮 AI 对话和会话管理。
 
 ## 开发命令
 
 ```bash
-# 启动开发服务器 (Electron Forge + Vite)
-npm run dev
-
-# 类型检查 (不生成文件)
-npm run typecheck
-
-# ESLint 检查
-npm run lint
-
-# 构建生产版本
-npm run build
-
-# 打包应用 (生成可分发的安装包)
-npm run package
+npm run dev          # 启动开发服务器 (Electron Forge + Vite)
+npm run typecheck    # 类型检查 (不生成文件)
+npm run lint         # ESLint 检查
+npm run build        # 构建生产版本
+npm run package      # 打包应用 (生成可分发的安装包)
 ```
 
 ## 核心架构
 
 ### 进程模型
 
-项目采用 Electron 多进程架构:
+```
+┌─────────────────────────────────────────────────────┐
+│  Main Process (src/main/)                            │
+│  Capture │ Processor │ AI Service │ Shortcut │ Config │
+├──────────────────── IPC ────────────────────────────┤
+│  Preload (src/preload/) — contextBridge 安全桥接      │
+├─────────────────────────────────────────────────────┤
+│  Renderer Process (src/renderer/)                    │
+│  React 18 + Zustand + TailwindCSS                    │
+│  Store: capture | frame | app | chat | ui            │
+└─────────────────────────────────────────────────────┘
+```
 
-- **Main Process** (`src/main/`): 负责系统级操作、全局热键、视频采集、图像处理、AI 服务调用、配置管理
-- **Renderer Process** (`src/renderer/`): React UI,负责用户交互和状态展示
-- **Preload** (`src/preload/`): 安全桥接层,通过 `contextBridge` 暴露受限 API
+### 目录结构
+
+```
+src/
+├── main/           # 主进程
+│   ├── index.ts    # 入口，窗口创建、全局热键注册
+│   ├── capture/    # 视频采集（设备枚举、流管理）
+│   ├── processor/  # 帧处理（ringBuffer、frameDiff、imageCompressor）
+│   ├── ai/         # AI 服务（index路由、claude、openai、promptBuilder）
+│   ├── tray/       # 系统托盘
+│   └── config/     # 配置管理（electron-store 持久化）
+├── renderer/       # 渲染进程
+│   ├── components/ # Preview、ChatPanel、Settings、CodeDisplay、Toast、ThumbnailQueue
+│   └── store/      # captureStore、frameStore、appStore、chatStore、uiStore
+├── preload/        # 安全桥接
+└── shared/         # types.ts（类型定义）、constants.ts（IPC 通道、常量）
+```
 
 ### 关键模块
 
 **帧处理流水线** (`src/main/processor/`):
-- `ringBuffer.ts`: 环形缓冲区,最多存储 8 帧截图
-- `frameDiff.ts`: 帧差分算法,阈值 5%,自动去除重复帧
-- `imageCompressor.ts`: Sharp 图像压缩 (1080p → 768px, JPEG Q=85)
+- `ringBuffer.ts`: 泛型环形缓冲区，最多 8 帧
+- `frameDiff.ts`: 帧差分（当前返回固定值 0.3，待实现像素级对比）
+- `imageCompressor.ts`: Sharp 压缩（1080p → 768px, JPEG Q=85, lanczos3）
 
 **AI 服务** (`src/main/ai/`):
-- `index.ts`: AI 服务调度层,根据 baseUrl 自动路由到 OpenAI 或 Anthropic 服务
-- `claudeService.ts`: Anthropic SDK 封装,用于 Anthropic 官方和智谱 Anthropic 兼容端点
-- `openAIService.ts`: OpenAI SDK 封装,用于智谱标准端点和 OpenRouter
-- `promptBuilder.ts`: 结构化多帧 Prompt 构建,包含帧元数据和时序关系
+- `index.ts`: 服务调度层，`isOpenAICompatible(baseUrl)` 自动路由 SDK
+- `claudeService.ts`: Anthropic SDK 封装
+- `openAIService.ts`: OpenAI SDK 封装
+- `promptBuilder.ts`: 结构化多帧 Prompt，含帧元数据和时序关系
 
-**状态管理** (`src/renderer/store/`):
-- 使用 Zustand 管理应用状态
-- `captureStore.ts`: 采集状态 (设备、流)
-- `frameStore.ts`: 帧队列状态
-- `appStore.ts`: 应用全局状态 (代码结果、处理状态、错误)
-- `chatStore.ts`: 聊天状态 (消息、会话管理、当前模型)
-- `uiStore.ts`: UI 状态 (全屏预览、区域截图)
+**配置管理** (`src/main/config/store.ts`):
+- electron-store 持久化，支持 4 个供应商独立配置
+- 配置变更时通过 `CONFIG_CHANGED` IPC 事件实时推送到渲染进程
+- 自动迁移旧格式（单一 claudeApiKey → 多供应商 providerConfigs）
 
-**配置管理** (`src/main/config/`):
-- `store.ts`: electron-store 持久化,支持多供应商独立配置,配置变更时通过 `CONFIG_CHANGED` IPC 事件实时推送到渲染进程
+### IPC 通道
 
-### IPC 通信
+定义文件: `src/shared/constants.ts` → `IPC_CHANNELS`
 
-Main 和 Renderer 进程通过 IPC 通道通信,通道定义在 `src/shared/constants.ts` 的 `IPC_CHANNELS` 中。Preload 脚本通过 `contextBridge.exposeInMainWorld` 暴露安全 API。
+| 通道 | 方向 | 模式 | 说明 |
+|------|------|------|------|
+| `CONFIG_GET` / `CONFIG_SET` | renderer → main | invoke | 配置读写 |
+| `CONFIG_CHANGED` | main → renderer | event | 配置变更推送 |
+| `AI_EXTRACT` | renderer → main | invoke | 代码提取 |
+| `AI_CHAT` | renderer → main | invoke | AI 聊天 |
+| `AI_RESULT` / `AI_ERROR` | main → renderer | event | AI 结果/错误 |
+| `CAPTURE_START` / `CAPTURE_STOP` | renderer → main | invoke | 视频采集控制 |
+| `FRAME_ADD` / `FRAME_CLEAR` | renderer → main | invoke | 帧队列操作 |
+| `CLIPBOARD_WRITE_IMAGE` | renderer → main | invoke | 写入剪贴板 |
+| `DEVICE_ENUM` / `DEVICE_SELECT` | renderer → main | invoke | 设备管理 |
 
-关键 IPC 通道:
-- `config:get` / `config:set`: 配置读写 (request-response)
-- `config:changed`: 配置变更推送 (main → renderer 事件)
-- `ai:chat` / `ai:extract`: AI 服务调用
-- `ai:result` / `ai:error`: AI 结果/错误推送
+Preload 通过 `contextBridge.exposeInMainWorld('electronAPI', ...)` 暴露受限 API。
 
 ### AI 服务路由
 
-`src/main/ai/index.ts` 中的 `isOpenAICompatible()` 函数根据 baseUrl 自动选择 SDK:
-- 包含 `/api/anthropic` → ClaudeService (Anthropic SDK)
-- 包含 `bigmodel.cn` 或 `openrouter.ai` → OpenAIService (OpenAI SDK)
-- 其他 → ClaudeService (默认)
+`isOpenAICompatible(baseUrl)` 匹配规则（按优先级）:
+
+| 匹配 | SDK | 供应商 |
+|------|-----|--------|
+| 包含 `/api/anthropic` | Anthropic | zhipu-anthropic |
+| 包含 `bigmodel.cn` | OpenAI | zhipu（标准端点） |
+| 包含 `openrouter.ai` | OpenAI | openrouter |
+| 其他 | Anthropic | anthropic（默认） |
 
 ### 多供应商配置
 
-支持 4 个 API 供应商:
-- `anthropic`: Anthropic 官方 (Anthropic SDK)
-- `zhipu`: 智谱 AI 标准端点 `/api/paas/v4` (OpenAI SDK),支持 glm-5
-- `zhipu-anthropic`: 智谱 Anthropic 兼容端点 `/api/anthropic` (Anthropic SDK)
-- `openrouter`: OpenRouter (OpenAI SDK)
+| ID | 名称 | Base URL | SDK |
+|----|------|----------|-----|
+| `anthropic` | Anthropic 官方 | `https://api.anthropic.com` | Anthropic |
+| `zhipu` | 智谱 AI | `https://open.bigmodel.cn/api/paas/v4` | OpenAI |
+| `zhipu-anthropic` | 智谱 Anthropic 兼容 | `https://open.bigmodel.cn/api/anthropic` | Anthropic |
+| `openrouter` | OpenRouter | `https://openrouter.ai/api/v1` | OpenAI |
+
+### 配置 Schema
+
+```typescript
+// src/shared/types.ts
+interface AppConfig {
+  activeProvider: string;                                // 当前激活供应商 ID
+  providerConfigs: { [providerId: string]: ProviderConfig };
+  apiProviders: ApiProvider[];
+  frameDiffThreshold: number;    // 帧差分阈值，默认 0.05 (5%)
+  maxFrames: number;             // Ring Buffer 最大帧数，默认 8
+  compressionWidth: number;      // 压缩目标宽度，默认 768
+  compressionQuality: number;    // JPEG 质量，默认 85
+  lastDeviceId: string | null;
+}
+
+interface ProviderConfig {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  customModel?: string;
+  maxTokens?: number;      // 默认 8192
+  temperature?: number;    // 默认 0.7
+}
+```
 
 ## 核心工作流程
 
-### 截图入队流程
+**截图入队**: Ctrl+Shift+S → 捕获帧 → 帧差分(<5%丢弃) → Sharp压缩 → RingBuffer → Toast通知
 
-1. 用户按下 `Ctrl+Shift+S` 全局热键
-2. Main 进程从视频流捕获当前帧
-3. 帧差分检查:差异 < 5% 则丢弃,否则压缩后存入 Ring Buffer
-4. 通过 IPC 通知 Renderer 更新缩略图
-5. 显示 Toast 通知 (1.5s 自动消失)
+**代码提取**: Ctrl+Shift+E → 取RingBuffer所有帧 → 构建结构化Prompt → AI API → 解析JSON `{language, code, confidence}`
 
-### 代码提取流程
+**会话管理**: 多会话(新建/切换/删除)，标题取首条消息前20字符，数据存于内存(Zustand)
 
-1. 用户按下 `Ctrl+Shift+E` 全局热键
-2. Main 进程检查 Ring Buffer 是否有帧
-3. 构建结构化多帧 Prompt (包含帧元数据、时序关系、重叠信息)
-4. 调用 AI API (根据当前供应商自动路由)
-5. 解析 JSON 响应 `{language, code, confidence}`
-6. 通过 IPC 发送结果到 Renderer 展示
+**区域截图**: 点击按钮/Ctrl+Shift+R → 拖拽选区 → 编辑模式(红色边框+8方向手柄，可拖拽移动/resize) → ✓确认保存 / ✕取消
 
-### 会话管理
+## 技术栈
 
-- 支持多会话:新建、切换、删除
-- 会话标题自动取首条用户消息前 20 字符
-- 会话数据存于内存 (Zustand store)
-- 模型名称实时响应配置变更
-
-## 技术栈特性
-
-- **构建工具**: Electron Forge + Vite (快速热更新)
-- **图像处理**: Sharp Native 模块 (高性能压缩,降低 API token 成本 65%)
-- **状态管理**: Zustand (轻量级,天然适配 Electron IPC 异步状态)
-- **配置持久化**: electron-store
-- **AI SDK**: @anthropic-ai/sdk + openai (双 SDK 自动路由)
+| 层次 | 技术 |
+|------|------|
+| 运行时 | Electron ^28 |
+| 构建 | Electron Forge + Vite |
+| 前端 | React 18 + TypeScript + TailwindCSS |
+| 状态 | Zustand (5个Store) |
+| 图像 | Sharp Native (降低 token 成本 65%) |
+| AI | @anthropic-ai/sdk + openai (双SDK自动路由) |
+| 存储 | electron-store |
 
 ## 重要约束
 
-- Ring Buffer 最大容量: 8 帧
-- 帧差分阈值: 5% (可在 `src/main/config/store.ts` 配置)
-- 图像压缩目标宽度: 768px
-- AI API 超时: 25 秒
-- Toast 通知持续时间: 1.5 秒
-- 聊天图片上限: 4 张/消息
+| 约束 | 值 | 来源 |
+|------|-----|------|
+| Ring Buffer 最大容量 | 8 帧 | `FRAME_QUEUE.MAX_FRAMES` |
+| 帧差分阈值 | 5% | `frameDiffThreshold` |
+| 图像压缩目标宽度 | 768px | `compressionWidth` |
+| JPEG 质量 | 85 | `compressionQuality` |
+| AI API 超时 | 25 秒 | `AI_TIMEOUT` |
+| Toast 通知时长 | 1.5 秒 | `TOAST_DURATION` |
+| 聊天图片上限 | 4 张/消息 | `MAX_CHAT_IMAGES` |
 
 ## 开发注意事项
 
-- Main 进程代码修改需要重启应用才能生效
-- Renderer 进程代码支持热更新
-- 图像处理使用 Sharp Native 模块,确保依赖正确安装
-- IPC 通道名称必须与 `src/shared/constants.ts` 中定义保持一致
-- 所有异步操作应有适当的错误处理和超时机制
-- 智谱 GLM-5 需使用标准端点 `/api/paas/v4`,Coding Plan 端点不支持 glm-5
+- Main 进程代码修改需重启应用，Renderer 支持热更新
+- IPC 通道名称必须与 `src/shared/constants.ts` 定义一致
+- Sharp Native 模块需确保依赖正确安装
+- 智谱 GLM-5 需使用标准端点 `/api/paas/v4`
+- 所有异步操作应有错误处理和超时机制
 
-## 项目文档
+## 参考文档索引
+
+> 以下文档仅作历史参考，不要求日常维护。代码为准。
 
 ```
 docs/
-├── 00-intro/           # 项目概览、路线图、PRD
-│   ├── overview.md
-│   ├── roadmap.md
-│   └── prd.md
-├── 01-architecture/    # 架构设计、时序、Tauri 备选
-│   ├── overview.md
-│   ├── runtime-views.md
-│   └── tauri-alternative.md
-├── 02-modules/         # 模块文档
-│   ├── electron-main.md
-│   ├── renderer-ui.md
-│   ├── capture-engine.md
-│   ├── ai-integration.md
-│   └── config-system.md
-├── 03-interfaces/      # 接口契约
-│   ├── ipc-channels.md
-│   ├── config-schema.md
-│   └── ai-service-contracts.md
-├── 04-data-and-state/  # 状态与持久化
-│   ├── state-stores.md
-│   └── persistence.md
-├── 05-dev-and-ops/     # 开发运维
-│   ├── build-and-packaging.md
-│   ├── testing-strategy.md
-│   ├── backlog.md
-│   └── environment.md
-├── 06-process-and-guides/ # 流程指南
-│   ├── contribution-guide.md
-│   └── coding-standards.md
-├── 07-adrs/            # 架构决策记录
-│   ├── ADR-template.md
-│   ├── ADR-0001-initial-electron-architecture.md
-│   ├── ADR-0002-ai-provider-abstraction.md
-│   └── ADR-0003-config-store-and-migration.md
-└── 08-history/         # 历史归档（日常无需读取）
-    ├── changelog.md
-    ├── completed-tasks.md
-    └── resolved-issues.md
+├── 01-architecture/    # 架构设计图、时序图
+├── 02-modules/         # 模块详细文档（AI集成、采集引擎、配置系统、渲染UI）
+├── 03-interfaces/      # IPC通道契约、配置Schema、AI服务接口
+├── 07-adrs/            # 架构决策记录（3个ADR）
+└── 08-history/         # 变更日志、已完成任务（git log更可靠）
 ```
-
-更新规则:
-- 完成功能后: 更新 `05-dev-and-ops/backlog.md` (标记完成移到 `08-history/completed-tasks.md`) + `08-history/changelog.md` (追加记录)
-- 架构变更时: 额外更新 `01-architecture/` 相关文件
-- 接口变更时: 更新 `03-interfaces/` 对应文件
-- 设计决策时: 在 `07-adrs/` 新增 ADR
-- `08-history/` 目录下的文件日常不读取，仅归档用途
