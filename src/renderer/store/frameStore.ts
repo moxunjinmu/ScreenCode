@@ -29,9 +29,9 @@ export const useFrameStore = create<FrameState>((set, get) => ({
   addFrame: (frame) => {
     const { frames, maxFrames } = get();
     if (frames.length >= maxFrames) {
-      set({ frames: [...frames.slice(1), frame] });
+      set({ frames: [frame, ...frames.slice(0, maxFrames - 1)] });
     } else {
-      set({ frames: [...frames, frame] });
+      set({ frames: [frame, ...frames] });
     }
   },
 
