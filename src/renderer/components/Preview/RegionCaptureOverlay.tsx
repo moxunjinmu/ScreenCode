@@ -81,11 +81,16 @@ function getCursor(mode: DragMode): string {
   return map[mode];
 }
 
-/** 从视频帧裁剪指定区域，返回 base64 */
+/** 从视频帧裁剪指定区域，返回 base64；video 未就绪时返回 null */
 function cropVideoRegion(
   video: HTMLVideoElement,
   rect: Rect
 ): string | null {
+  // 检查 video 是否有有效帧
+  if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+    return null;
+  }
+
   const containerRect = video.getBoundingClientRect();
   const videoWidth = video.videoWidth;
   const videoHeight = video.videoHeight;
@@ -117,6 +122,9 @@ function cropVideoRegion(
   const vw = Math.round(rect.width * scaleX);
   const vh = Math.round(rect.height * scaleY);
 
+  // 确保裁剪尺寸有效
+  if (vw <= 0 || vh <= 0) return null;
+
   const canvas = document.createElement('canvas');
   canvas.width = vw;
   canvas.height = vh;
@@ -127,8 +135,8 @@ function cropVideoRegion(
     video,
     Math.max(0, vx),
     Math.max(0, vy),
-    Math.min(vw, videoWidth - vx),
-    Math.min(vh, videoHeight - vy),
+    Math.min(vw, videoWidth - Math.max(0, vx)),
+    Math.min(vh, videoHeight - Math.max(0, vy)),
     0, 0, vw, vh
   );
 
@@ -274,14 +282,28 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
   useEffect(() => {
     if (editState !== 'idle' || !rect || !videoRef.current || !stream) return;
     if (rect.width < MIN_SIZE || rect.height < MIN_SIZE) return;
-    // 只在刚完成拖拽选择时触发（没有 pendingCapture 时）
     if (pendingCapture) return;
 
-    const base64 = cropVideoRegion(videoRef.current, rect);
-    if (base64) {
-      setPendingCapture({ base64 });
-      setEditState('editing');
-    }
+    const video = videoRef.current;
+    let cancelled = false;
+
+    /** 等待 video 有有效帧后再截图 */
+    const tryCapture = () => {
+      if (cancelled) return;
+      const base64 = cropVideoRegion(video, rect);
+      if (base64) {
+        setPendingCapture({ base64 });
+        setEditState('editing');
+      } else {
+        // video 帧未就绪，下一帧重试
+        requestAnimationFrame(tryCapture);
+      }
+    };
+
+    // 延迟到下一帧确保 video 已渲染
+    requestAnimationFrame(tryCapture);
+
+    return () => { cancelled = true; };
   }, [editState, rect, videoRef, stream, pendingCapture]);
 
   // ===== Overlay 上的鼠标按下 =====
@@ -373,10 +395,14 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
   const handleRecapture = useCallback(() => {
     if (!rect || !videoRef.current || !stream) return;
     if (rect.width < MIN_SIZE || rect.height < MIN_SIZE) return;
-    const base64 = cropVideoRegion(videoRef.current, rect);
-    if (base64) {
-      setPendingCapture({ base64 });
-    }
+
+    const video = videoRef.current;
+    requestAnimationFrame(() => {
+      const base64 = cropVideoRegion(video, rect);
+      if (base64) {
+        setPendingCapture({ base64 });
+      }
+    });
   }, [rect, videoRef, stream]);
 
   if (!isRegionCapture) return null;
