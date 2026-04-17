@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useUIStore } from '../../store/uiStore';
-import { useCaptureStore } from '../../store/captureStore';
 import { useFrameStore } from '../../store/frameStore';
 import { Frame } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
@@ -10,12 +9,7 @@ interface RegionCaptureOverlayProps {
   onCapture?: (frame: Frame) => void;
 }
 
-/** 暂存区域截图预览数据，待用户确认后再保存 */
-interface PendingCapture {
-  base64: string;
-}
-
-/** 选区矩形（组件内部使用） */
+/** 选区矩形 */
 interface Rect {
   x: number;
   y: number;
@@ -48,7 +42,8 @@ function hitTest(mx: number, my: number, rect: Rect): DragMode {
   const insideY = my >= y && my <= b;
 
   // 四角优先
-  if ((nearLeft && nearTop) || (nearRight && nearBottom) && insideX && insideY) return nearLeft && nearTop ? 'nw' : 'se';
+  if (nearLeft && nearTop) return 'nw';
+  if (nearRight && nearBottom) return 'se';
   if (nearLeft && nearBottom) return 'sw';
   if (nearRight && nearTop) return 'ne';
 
@@ -81,36 +76,27 @@ function getCursor(mode: DragMode): string {
   return map[mode];
 }
 
-/** 从视频帧裁剪指定区域，返回 base64；video 未就绪时返回 null */
-function cropVideoRegion(
-  video: HTMLVideoElement,
-  rect: Rect
-): string | null {
-  // 检查 video 是否有有效帧
-  if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
-    return null;
-  }
+/** 从视频帧裁剪指定区域，返回 base64 */
+function cropVideoRegion(video: HTMLVideoElement, rect: Rect): string | null {
+  if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) return null;
 
   const containerRect = video.getBoundingClientRect();
   const videoWidth = video.videoWidth;
   const videoHeight = video.videoHeight;
-  const containerWidth = containerRect.width;
-  const containerHeight = containerRect.height;
 
   const videoAspect = videoWidth / videoHeight;
-  const containerAspect = containerWidth / containerHeight;
+  const containerAspect = containerRect.width / containerRect.height;
 
   let displayWidth: number, displayHeight: number, offsetX: number, offsetY: number;
-
   if (videoAspect > containerAspect) {
-    displayWidth = containerWidth;
-    displayHeight = containerWidth / videoAspect;
+    displayWidth = containerRect.width;
+    displayHeight = containerRect.width / videoAspect;
     offsetX = 0;
-    offsetY = (containerHeight - displayHeight) / 2;
+    offsetY = (containerRect.height - displayHeight) / 2;
   } else {
-    displayHeight = containerHeight;
-    displayWidth = containerHeight * videoAspect;
-    offsetX = (containerWidth - displayWidth) / 2;
+    displayHeight = containerRect.height;
+    displayWidth = containerRect.height * videoAspect;
+    offsetX = (containerRect.width - displayWidth) / 2;
     offsetY = 0;
   }
 
@@ -122,7 +108,6 @@ function cropVideoRegion(
   const vw = Math.round(rect.width * scaleX);
   const vh = Math.round(rect.height * scaleY);
 
-  // 确保裁剪尺寸有效
   if (vw <= 0 || vh <= 0) return null;
 
   const canvas = document.createElement('canvas');
@@ -145,81 +130,50 @@ function cropVideoRegion(
 
 const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, onCapture }) => {
   const { isRegionCapture, setRegionCapture } = useUIStore();
-  const { stream } = useCaptureStore();
   const { addFrame } = useFrameStore();
 
-  /** 选区矩形（完全由组件内部管理） */
   const [rect, setRect] = useState<Rect | null>(null);
-  /** 编辑状态 */
   const [editState, setEditState] = useState<EditState>('idle');
-  /** 拖拽模式 */
   const [dragMode, setDragMode] = useState<DragMode>('none');
-  /** 待确认的截图数据 */
-  const [pendingCapture, setPendingCapture] = useState<PendingCapture | null>(null);
-  /** 当前光标 */
   const [cursor, setCursor] = useState('crosshair');
 
-  /** 拖拽起始数据（ref 避免闭包问题） */
   const dragStartRef = useRef<{ x: number; y: number; rect: Rect } | null>(null);
 
-  // ===== 退出区域截图时清理所有状态 =====
+  // 退出区域截图时清理状态
   useEffect(() => {
     if (!isRegionCapture) {
       setRect(null);
       setEditState('idle');
       setDragMode('none');
-      setPendingCapture(null);
       setCursor('crosshair');
       dragStartRef.current = null;
     }
   }, [isRegionCapture]);
 
-  // ===== 全局 mousemove / mouseup（拖拽移动和 resize） =====
+  // editing + 拖拽中：全局 mousemove / mouseup
   useEffect(() => {
     if (editState !== 'editing' || dragMode === 'none') return;
 
     const handleGlobalMove = (e: MouseEvent) => {
       const start = dragStartRef.current;
       if (!start) return;
-
       const dx = e.clientX - start.x;
       const dy = e.clientY - start.y;
 
       setRect(prev => {
         if (!prev) return prev;
         const r = start.rect;
-
-        let newX = r.x;
-        let newY = r.y;
-        let newW = r.width;
-        let newH = r.height;
+        let newX = r.x, newY = r.y, newW = r.width, newH = r.height;
 
         if (dragMode === 'move') {
           newX = r.x + dx;
           newY = r.y + dy;
         } else {
-          // 调整北边
-          if (dragMode.includes('n')) {
-            const delta = Math.min(dy, r.height - MIN_SIZE);
-            newY = r.y + delta;
-            newH = r.height - delta;
-          }
-          // 调整南边
-          if (dragMode.includes('s')) {
-            newH = Math.max(MIN_SIZE, r.height + dy);
-          }
-          // 调整西边
-          if (dragMode.includes('w')) {
-            const delta = Math.min(dx, r.width - MIN_SIZE);
-            newX = r.x + delta;
-            newW = r.width - delta;
-          }
-          // 调整东边
-          if (dragMode.includes('e')) {
-            newW = Math.max(MIN_SIZE, r.width + dx);
-          }
+          if (dragMode.includes('n')) { const d = Math.min(dy, r.height - MIN_SIZE); newY = r.y + d; newH = r.height - d; }
+          if (dragMode.includes('s')) { newH = Math.max(MIN_SIZE, r.height + dy); }
+          if (dragMode.includes('w')) { const d = Math.min(dx, r.width - MIN_SIZE); newX = r.x + d; newW = r.width - d; }
+          if (dragMode.includes('e')) { newW = Math.max(MIN_SIZE, r.width + dx); }
         }
-
         return { x: newX, y: newY, width: newW, height: newH };
       });
     };
@@ -237,18 +191,16 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
     };
   }, [editState, dragMode]);
 
-  // ===== 拖拽选区阶段的全局事件 =====
+  // selecting：全局 mousemove / mouseup
   useEffect(() => {
     if (editState !== 'selecting' || !videoRef.current) return;
 
     const handleGlobalMove = (e: MouseEvent) => {
       if (!dragStartRef.current || !videoRef.current) return;
-      const video = videoRef.current;
-      const bounds = video.getBoundingClientRect();
+      const bounds = videoRef.current.getBoundingClientRect();
       const mx = e.clientX - bounds.left;
       const my = e.clientY - bounds.top;
-      const sx = dragStartRef.current.x;
-      const sy = dragStartRef.current.y;
+      const { x: sx, y: sy } = dragStartRef.current;
 
       setRect({
         x: Math.min(sx, mx),
@@ -261,11 +213,10 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
     const handleGlobalUp = () => {
       if (!dragStartRef.current) return;
       dragStartRef.current = null;
-      setEditState('idle');
-
-      // 选区太小则丢弃
+      // 选区太小则丢弃，否则直接进入编辑模式
       setRect(prev => {
         if (!prev || prev.width < MIN_SIZE || prev.height < MIN_SIZE) return null;
+        setEditState('editing');
         return prev;
       });
     };
@@ -278,137 +229,87 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
     };
   }, [editState, videoRef]);
 
-  // ===== 选区确定后自动裁剪并进入编辑模式 =====
-  useEffect(() => {
-    if (editState !== 'idle' || !rect || !videoRef.current || !stream) return;
-    if (rect.width < MIN_SIZE || rect.height < MIN_SIZE) return;
-    if (pendingCapture) return;
-
-    const video = videoRef.current;
-    let cancelled = false;
-
-    /** 等待 video 有有效帧后再截图 */
-    const tryCapture = () => {
-      if (cancelled) return;
-      const base64 = cropVideoRegion(video, rect);
-      if (base64) {
-        setPendingCapture({ base64 });
-        setEditState('editing');
-      } else {
-        // video 帧未就绪，下一帧重试
-        requestAnimationFrame(tryCapture);
-      }
-    };
-
-    // 延迟到下一帧确保 video 已渲染
-    requestAnimationFrame(tryCapture);
-
-    return () => { cancelled = true; };
-  }, [editState, rect, videoRef, stream, pendingCapture]);
-
-  // ===== Overlay 上的鼠标按下 =====
+  // overlay 鼠标按下
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!isRegionCapture || !videoRef.current) return;
     e.preventDefault();
-    e.stopPropagation();
 
-    const video = videoRef.current;
-    const bounds = video.getBoundingClientRect();
+    const bounds = videoRef.current.getBoundingClientRect();
     const mx = e.clientX - bounds.left;
     const my = e.clientY - bounds.top;
 
-    // editing 模式下检查 hitTest
+    // editing 模式下 hitTest
     if (editState === 'editing' && rect) {
       const mode = hitTest(mx, my, rect);
-
       if (mode === 'none') {
-        // 在选区外重新画选区
-        setPendingCapture(null);
+        // 选区外重新画
         dragStartRef.current = { x: mx, y: my, rect: { x: mx, y: my, width: 0, height: 0 } };
         setRect({ x: mx, y: my, width: 0, height: 0 });
         setEditState('selecting');
         return;
       }
-
-      // 移动或 resize
       dragStartRef.current = { x: e.clientX, y: e.clientY, rect: { ...rect } };
       setDragMode(mode);
       return;
     }
 
-    // idle 模式 — 开始新选区
+    // idle → 开始新选区
     dragStartRef.current = { x: mx, y: my, rect: { x: mx, y: my, width: 0, height: 0 } };
     setRect({ x: mx, y: my, width: 0, height: 0 });
     setEditState('selecting');
-    setPendingCapture(null);
   }, [isRegionCapture, videoRef, editState, rect]);
 
-  // ===== 鼠标移动 — 更新光标 =====
+  // 鼠标移动 → 更新光标
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!videoRef.current) return;
     if (editState !== 'editing' || !rect || dragMode !== 'none') {
       setCursor(editState === 'selecting' ? 'crosshair' : getCursor(dragMode));
       return;
     }
-
     const bounds = videoRef.current.getBoundingClientRect();
-    const mx = e.clientX - bounds.left;
-    const my = e.clientY - bounds.top;
-    const mode = hitTest(mx, my, rect);
+    const mode = hitTest(e.clientX - bounds.left, e.clientY - bounds.top, rect);
     setCursor(getCursor(mode));
   }, [videoRef, editState, rect, dragMode]);
 
-  // ===== 确认保存 =====
-  const handleConfirm = useCallback(async () => {
-    if (!pendingCapture) return;
+  /** 确认保存 — 实时从 video 截取，不再依赖预捕获 */
+  const handleConfirm = useCallback(() => {
+    if (!rect || !videoRef.current) return;
 
-    try {
-      const frame: Frame = {
-        id: uuidv4(),
-        timestamp: Date.now(),
-        data: pendingCapture.base64,
-        type: 'new_scene',
-        overlap: undefined,
-      };
-      addFrame(frame);
-      await window.electronAPI.writeImageToClipboard(pendingCapture.base64);
-      onCapture?.(frame);
-    } catch (error) {
-      console.error('Save region capture failed:', error);
-    }
+    const base64 = cropVideoRegion(videoRef.current, rect);
+    if (!base64) return;
 
-    setPendingCapture(null);
+    // 先退出区域截图模式（确保 UI 立即响应）
     setRect(null);
     setEditState('idle');
     setRegionCapture(false);
-  }, [pendingCapture, addFrame, setRegionCapture, onCapture]);
 
-  // ===== 取消 =====
+    // 再异步保存
+    const frame: Frame = {
+      id: uuidv4(),
+      timestamp: Date.now(),
+      data: base64,
+      type: 'new_scene',
+      overlap: undefined,
+    };
+    addFrame(frame);
+    onCapture?.(frame);
+
+    window.electronAPI.writeImageToClipboard(base64).catch((err: unknown) => {
+      console.error('Clipboard write failed:', err);
+    });
+  }, [rect, videoRef, addFrame, setRegionCapture, onCapture]);
+
+  /** 取消 */
   const handleCancel = useCallback(() => {
-    setPendingCapture(null);
     setRect(null);
     setEditState('idle');
     setRegionCapture(false);
   }, [setRegionCapture]);
 
-  // ===== 重新截图（editing 模式下 resize/move 后需要重新裁剪） =====
-  const handleRecapture = useCallback(() => {
-    if (!rect || !videoRef.current || !stream) return;
-    if (rect.width < MIN_SIZE || rect.height < MIN_SIZE) return;
-
-    const video = videoRef.current;
-    requestAnimationFrame(() => {
-      const base64 = cropVideoRegion(video, rect);
-      if (base64) {
-        setPendingCapture({ base64 });
-      }
-    });
-  }, [rect, videoRef, stream]);
-
   if (!isRegionCapture) return null;
 
-  const showButtons = editState === 'editing' && pendingCapture && rect;
-  const showHint = editState === 'idle' && !rect && !pendingCapture;
+  const showButtons = editState === 'editing' && rect;
+  const showHint = editState === 'idle' && !rect;
 
   return (
     <div
@@ -432,15 +333,13 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
             backgroundColor: editState === 'editing' ? 'transparent' : 'rgba(239,68,68,0.08)',
           }}
         >
-          {/* editing 状态下显示四角手柄 */}
+          {/* editing 状态下显示 8 个手柄 */}
           {editState === 'editing' && (
             <>
-              {/* 四个角手柄 */}
               <span className="absolute -top-[4px] -left-[4px] w-2 h-2 bg-white border border-red-500 rounded-sm" />
               <span className="absolute -top-[4px] -right-[4px] w-2 h-2 bg-white border border-red-500 rounded-sm" />
               <span className="absolute -bottom-[4px] -left-[4px] w-2 h-2 bg-white border border-red-500 rounded-sm" />
               <span className="absolute -bottom-[4px] -right-[4px] w-2 h-2 bg-white border border-red-500 rounded-sm" />
-              {/* 四个边中点手柄 */}
               <span className="absolute -top-[4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-white border border-red-500 rounded-sm" />
               <span className="absolute -bottom-[4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-white border border-red-500 rounded-sm" />
               <span className="absolute top-1/2 -translate-y-1/2 -left-[4px] w-2 h-2 bg-white border border-red-500 rounded-sm" />
@@ -457,12 +356,12 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
         </div>
       )}
 
-      {/* 确认 / 取消 + 重新截图按钮 */}
-      {showButtons && rect && (
+      {/* 确认 / 取消按钮 */}
+      {showButtons && (
         <div
           className="absolute flex items-center gap-1.5"
           style={{
-            left: rect.x + rect.width / 2 - 78,
+            left: rect.x + rect.width / 2 - 39,
             top: rect.y + rect.height + 8,
           }}
         >
@@ -472,13 +371,6 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
             title="取消"
           >
             ✕
-          </button>
-          <button
-            onClick={handleRecapture}
-            className="h-9 px-3 flex items-center justify-center rounded-full bg-blue-600/90 hover:bg-blue-500 transition-colors text-white text-xs shadow-lg"
-            title="重新截取当前区域"
-          >
-            重截
           </button>
           <button
             onClick={handleConfirm}
