@@ -76,14 +76,23 @@ function getCursor(mode: DragMode): string {
   return map[mode];
 }
 
-/** 从视频帧裁剪指定区域，返回 base64 */
+/** 从视频帧裁剪指定区域，返回 base64（先截全帧再裁剪，确保可靠） */
 function cropVideoRegion(video: HTMLVideoElement, rect: Rect): string | null {
   if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) return null;
 
-  const containerRect = video.getBoundingClientRect();
   const videoWidth = video.videoWidth;
   const videoHeight = video.videoHeight;
 
+  // 第一步：截取完整视频帧
+  const fullCanvas = document.createElement('canvas');
+  fullCanvas.width = videoWidth;
+  fullCanvas.height = videoHeight;
+  const fullCtx = fullCanvas.getContext('2d');
+  if (!fullCtx) return null;
+  fullCtx.drawImage(video, 0, 0, videoWidth, videoHeight);
+
+  // 第二步：计算 CSS 坐标 → 视频像素坐标
+  const containerRect = video.getBoundingClientRect();
   const videoAspect = videoWidth / videoHeight;
   const containerAspect = containerRect.width / containerRect.height;
 
@@ -103,29 +112,23 @@ function cropVideoRegion(video: HTMLVideoElement, rect: Rect): string | null {
   const scaleX = videoWidth / displayWidth;
   const scaleY = videoHeight / displayHeight;
 
-  const vx = Math.round((rect.x - offsetX) * scaleX);
-  const vy = Math.round((rect.y - offsetY) * scaleY);
-  const vw = Math.round(rect.width * scaleX);
-  const vh = Math.round(rect.height * scaleY);
+  const vx = Math.max(0, Math.round((rect.x - offsetX) * scaleX));
+  const vy = Math.max(0, Math.round((rect.y - offsetY) * scaleY));
+  const vw = Math.min(Math.round(rect.width * scaleX), videoWidth - vx);
+  const vh = Math.min(Math.round(rect.height * scaleY), videoHeight - vy);
 
   if (vw <= 0 || vh <= 0) return null;
 
-  const canvas = document.createElement('canvas');
-  canvas.width = vw;
-  canvas.height = vh;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
+  // 第三步：从全帧裁剪
+  const cropCanvas = document.createElement('canvas');
+  cropCanvas.width = vw;
+  cropCanvas.height = vh;
+  const cropCtx = cropCanvas.getContext('2d');
+  if (!cropCtx) return null;
 
-  ctx.drawImage(
-    video,
-    Math.max(0, vx),
-    Math.max(0, vy),
-    Math.min(vw, videoWidth - Math.max(0, vx)),
-    Math.min(vh, videoHeight - Math.max(0, vy)),
-    0, 0, vw, vh
-  );
+  cropCtx.drawImage(fullCanvas, vx, vy, vw, vh, 0, 0, vw, vh);
 
-  return canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+  return cropCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
 }
 
 const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, onCapture }) => {
@@ -356,7 +359,7 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
         </div>
       )}
 
-      {/* 确认 / 取消按钮 */}
+      {/* 确认 / 取消按钮（阻止 mousedown 冒泡，避免触发 overlay 的选区重置） */}
       {showButtons && (
         <div
           className="absolute flex items-center gap-1.5"
@@ -364,6 +367,7 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
             left: rect.x + rect.width / 2 - 39,
             top: rect.y + rect.height + 8,
           }}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           <button
             onClick={handleCancel}
