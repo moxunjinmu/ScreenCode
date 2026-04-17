@@ -282,18 +282,27 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
             </button>
           )}
 
-          {/* 区域截图按钮 */}
+          {/* 截图按钮 */}
           {stream && (
-            <button
-              onClick={() => setRegionCapture(!isRegionCapture)}
-              className={`px-3 py-1 text-xs rounded transition-colors ${isRegionCapture
-                  ? 'bg-primary-600 hover:bg-primary-700'
-                  : 'bg-gray-700 hover:bg-gray-600'
-                }`}
-              title="快捷键: Ctrl+Shift+R"
-            >
-              {isRegionCapture ? '取消选择' : '区域截图'}
-            </button>
+            <>
+              <button
+                onClick={handleCaptureFrame}
+                className="px-3 py-1 text-xs rounded transition-colors bg-green-600 hover:bg-green-700"
+                title="快捷键: Ctrl+Shift+S"
+              >
+                全屏截图
+              </button>
+              <button
+                onClick={() => setRegionCapture(!isRegionCapture)}
+                className={`px-3 py-1 text-xs rounded transition-colors ${isRegionCapture
+                    ? 'bg-primary-600 hover:bg-primary-700'
+                    : 'bg-gray-700 hover:bg-gray-600'
+                  }`}
+                title="快捷键: Ctrl+Shift+R"
+              >
+                {isRegionCapture ? '取消选择' : '区域截图'}
+              </button>
+            </>
           )}
 
           {/* 分辨率选择 */}
