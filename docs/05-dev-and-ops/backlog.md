@@ -1,7 +1,7 @@
 # ScreenCode 待办清单
 
-> 最后更新: 2026-02-28
-> 仅包含未完成任务，已完成任务归档至 [archive/completed-tasks.md](archive/completed-tasks.md)
+> 最后更新: 2026-04-17
+> 仅包含未完成任务，已完成任务归档至 [completed-tasks.md](../08-history/completed-tasks.md)
 
 ---
 
