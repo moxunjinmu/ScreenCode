@@ -33,7 +33,7 @@ const FullscreenPreview: React.FC<{
       {/* 关闭按钮 */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl"
+        className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 text-white text-xl backdrop-blur-sm transition-colors"
       >
         ✕
       </button>
