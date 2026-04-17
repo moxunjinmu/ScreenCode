@@ -155,7 +155,7 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
                     {/* 删除按钮 */}
                     <button
                       onClick={(e) => handleRemove(frame.id, e)}
-                      className="absolute top-0 right-0 w-5 h-5 bg-red-500 hover:bg-red-400 rounded-bl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                      className="absolute top-0 right-0 w-5 h-5 bg-red-500 hover:bg-red-400 rounded-bl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs z-10"
                       title="删除帧"
                     >
                       ✕
@@ -165,6 +165,7 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
                     <div
                       onClick={(e) => handlePreview(frame, index, e)}
                       className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ zIndex: 1 }}
                     >
                       <span className="text-2xl">🔍</span>
                     </div>
