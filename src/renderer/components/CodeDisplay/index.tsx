@@ -54,7 +54,7 @@ const CodeDisplay: React.FC = () => {
       </div>
       
       {/* 代码展示区 */}
-      <div className="flex-1 bg-gray-800 rounded-lg overflow-hidden flex flex-col">
+      <div className="flex-1 glass-subtle shadow-glass overflow-hidden flex flex-col">
         {codeResult ? (
           <>
             <div className="flex-1 overflow-auto p-4">
@@ -64,10 +64,10 @@ const CodeDisplay: React.FC = () => {
             </div>
             
             {/* 操作按钮 */}
-            <div className="flex justify-end gap-2 p-2 border-t border-gray-700">
+            <div className="flex justify-end gap-2 p-2 border-t border-white/[0.08]">
               <button
                 onClick={handleCopy}
-                className="px-4 py-1.5 bg-primary-600 hover:bg-primary-700 text-sm rounded transition-colors flex items-center gap-2"
+                className="glass-btn-primary px-4 py-1.5 text-sm flex items-center gap-2 text-white"
               >
                 {copied ? (
                   <>
@@ -111,12 +111,12 @@ const CodeDisplay: React.FC = () => {
                   <button
                     onClick={handleExtractCode}
                     disabled={isEmpty()}
-                    className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm rounded transition-colors"
+                    className="glass-btn-primary px-4 py-2 disabled:opacity-40 disabled:cursor-not-allowed text-sm text-white"
                   >
                     提取代码
                   </button>
                   <span className="text-xs text-gray-600">
-                    或按 <kbd className="px-1 py-0.5 bg-gray-700 rounded">Ctrl+Shift+E</kbd>
+                    或按 <kbd className="glass-kbd">Ctrl+Shift+E</kbd>
                   </span>
                 </div>
                 {!isEmpty() && (

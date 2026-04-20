@@ -149,9 +149,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-800" style={{ width }}>
+    <div className="h-full flex flex-col glass-subtle border-l-0 border-r-0" style={{ width }}>
       {/* 头部 */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 relative">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] relative">
         {/* 左侧：关闭按钮 */}
         {onClose && (
           <button
@@ -176,16 +176,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
           {/* 会话列表下拉 */}
           {showSessionList && (
             <div
-              className="absolute top-full left-0 mt-1 w-56 bg-gray-700 rounded-lg shadow-xl z-20 max-h-60 overflow-y-auto"
+              className="absolute top-full left-0 mt-1 w-56 glass-medium shadow-glass-lg z-20 max-h-60 overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               {sessions.map((session) => (
                 <div
                   key={session.id}
-                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer group ${
+                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer group rounded-md transition-all ${
                     session.id === activeSessionId
-                      ? 'bg-primary-600/30 text-white'
-                      : 'text-gray-300 hover:bg-gray-600'
+                      ? 'bg-primary-600/20 border border-primary-500/20 text-white'
+                      : 'text-gray-300 hover:bg-white/[0.06]'
                   }`}
                 >
                   <span
@@ -237,10 +237,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                className={`max-w-[85%] px-3 py-2 ${
                   msg.role === 'user'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-700 text-gray-200'
+                    ? 'glass-msg-user text-white'
+                    : 'glass-msg-assistant text-gray-200'
                 }`}
               >
                 {/* 图片 */}
@@ -264,7 +264,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
         )}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-gray-700 rounded-lg px-3 py-2">
+            <div className="glass-msg-assistant px-3 py-2">
               <div className="flex items-center gap-2">
                 <div className="animate-spin w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full" />
                 <span className="text-sm text-gray-400">思考中...</span>
@@ -277,7 +277,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
 
       {/* 选择的帧队列图片 */}
       {frames.length > 0 && (
-        <div className="px-4 py-2 border-t border-gray-700">
+        <div className="px-4 py-2 border-t border-white/[0.08]">
           <div className="text-xs text-gray-500 mb-2">点击添加到消息:</div>
           <div className="flex gap-2 overflow-x-auto">
             {frames.map((frame) => (
@@ -285,7 +285,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
                 key={frame.id}
                 src={`data:image/jpeg;base64,${frame.data}`}
                 alt="帧"
-                className="w-12 h-12 object-cover rounded cursor-pointer hover:ring-2 hover:ring-primary-500"
+                className="w-12 h-12 object-cover rounded cursor-pointer hover:ring-2 hover:ring-primary-500/40"
                 onClick={() => handleAddFromQueue(frame.data)}
               />
             ))}
@@ -295,7 +295,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
 
       {/* 已选择的图片 */}
       {selectedImages.length > 0 && (
-        <div className="px-4 py-2 border-t border-gray-700">
+        <div className="px-4 py-2 border-t border-white/[0.08]">
           <div className="flex gap-2 flex-wrap">
             {selectedImages.map((img, idx) => (
               <div key={idx} className="relative">
@@ -317,7 +317,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
       )}
 
       {/* 输入区域 */}
-      <div className="p-4 border-t border-gray-700">
+      <div className="p-4 border-t border-white/[0.08]">
         <div className="flex gap-2">
           <textarea
             ref={inputRef}
@@ -325,7 +325,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="输入提示词... (Shift+Enter 换行)"
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm resize-none focus:outline-none focus:border-primary-500"
+            className="glass-input flex-1 px-3 py-2 text-sm resize-none"
             rows={3}
             disabled={isLoading}
           />
@@ -337,7 +337,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
           <button
             onClick={handleSend}
             disabled={isLoading || (!inputText.trim() && selectedImages.length === 0)}
-            className="px-4 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm rounded transition-colors"
+            className="glass-btn-primary px-4 py-1.5 text-sm text-white disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isLoading ? '发送中...' : '发送'}
           </button>

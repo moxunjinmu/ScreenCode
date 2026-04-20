@@ -19,6 +19,12 @@ module.exports = {
           900: '#0c4a6e',
         },
       },
+      boxShadow: {
+        'glass': '0 8px 32px rgba(0,0,0,0.3)',
+        'glass-lg': '0 16px 48px rgba(0,0,0,0.4)',
+        'glass-glow': '0 0 20px rgba(14,165,233,0.15)',
+        'glass-glow-strong': '0 0 30px rgba(14,165,233,0.25)',
+      },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-in',
         'slide-up': 'slideUp 0.3s ease-out',

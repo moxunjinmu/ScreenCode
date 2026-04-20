@@ -2,11 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 自定义样式 */
+/* ===== CSS Custom Properties ===== */
 :root {
   --color-primary: #0ea5e9;
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-light: rgba(255, 255, 255, 0.12);
+  --glass-border-active: rgba(255, 255, 255, 0.20);
 }
 
+/* ===== Base Styles ===== */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -14,28 +18,33 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
+  background: #111827;
+  background-image:
+    radial-gradient(ellipse at 15% 50%, rgba(14,165,233,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 20%, rgba(14,165,233,0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, rgba(14,165,233,0.02) 0%, transparent 40%);
 }
 
-/* 滚动条样式 */
+/* ===== Glass Scrollbar ===== */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1f2937;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4b5563;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+  background: rgba(255, 255, 255, 0.18);
 }
 
-/* 代码块样式 */
+/* ===== Code Block ===== */
 pre {
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono',
     'Source Code Pro', monospace;
@@ -44,30 +53,76 @@ pre {
   tab-size: 2;
 }
 
-/* Toast 动画 */
+/* ===== Glass Component Classes ===== */
+@layer components {
+  .glass-subtle {
+    @apply bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] rounded-lg;
+  }
+  .glass-medium {
+    @apply bg-white/[0.06] backdrop-blur-md border border-white/[0.08] rounded-lg;
+  }
+  .glass-strong {
+    @apply bg-white/[0.10] backdrop-blur-lg border border-white/[0.10] rounded-lg;
+  }
+  .glass-heavy {
+    @apply bg-white/[0.15] backdrop-blur-xl border border-white/[0.12] rounded-lg;
+  }
+
+  .glass-btn {
+    @apply bg-white/[0.06] border border-white/[0.08] rounded
+           hover:bg-white/[0.10] hover:border-white/[0.12]
+           active:bg-white/[0.15] active:border-white/[0.20]
+           transition-all duration-200;
+  }
+  .glass-btn-primary {
+    @apply bg-primary-600/40 border border-primary-500/30
+           hover:bg-primary-600/60 hover:border-primary-500/50
+           active:bg-primary-600/80
+           transition-all duration-200;
+  }
+  .glass-btn-danger {
+    @apply bg-red-600/40 border border-red-500/30
+           hover:bg-red-600/60
+           active:bg-red-600/80
+           transition-all duration-200;
+  }
+  .glass-btn-success {
+    @apply bg-green-600/40 border border-green-500/30
+           hover:bg-green-600/60
+           active:bg-green-600/80
+           transition-all duration-200;
+  }
+
+  .glass-input {
+    @apply bg-white/[0.04] border border-white/[0.08] rounded
+           focus:bg-white/[0.06] focus:border-primary-500/50 focus:outline-none
+           placeholder-gray-500
+           transition-all duration-200;
+  }
+
+  .glass-kbd {
+    @apply px-1.5 py-0.5 bg-white/[0.08] border border-white/[0.06] rounded text-xs;
+  }
+
+  .glass-msg-user {
+    @apply bg-primary-600/30 border border-primary-500/20 backdrop-blur-sm rounded-lg;
+  }
+  .glass-msg-assistant {
+    @apply bg-white/[0.06] border border-white/[0.06] backdrop-blur-sm rounded-lg;
+  }
+}
+
+/* ===== Animations ===== */
 @keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
-
 @keyframes slideOut {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(100%);
-    opacity: 0;
-  }
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
 }
 
-/* 禁用文本选择 */
+/* ===== Utility ===== */
 .no-select {
   -webkit-user-select: none;
   user-select: none;

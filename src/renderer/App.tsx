@@ -158,7 +158,7 @@ const App: React.FC = () => {
         {!isChatPanelOpen && (
           <button
             onClick={toggleChatPanel}
-            className="absolute right-0 top-1/2 -translate-y-1/2 bg-primary-600 hover:bg-primary-500 text-white px-2 py-4 rounded-l-lg shadow-lg transition-all duration-300 z-10"
+            className="absolute right-0 top-1/2 -translate-y-1/2 bg-primary-600/50 backdrop-blur-md border border-primary-500/30 border-r-0 hover:bg-primary-600/70 text-white px-2 py-4 rounded-l-lg shadow-glass-glow transition-all duration-300 z-10"
             title="打开聊天面板"
           >
             ◀
@@ -173,7 +173,7 @@ const App: React.FC = () => {
           {/* 拖拽分隔条 */}
           <div
             onMouseDown={handleMouseDown}
-            className={`w-1 h-full bg-gray-700 hover:bg-primary-500 cursor-col-resize transition-colors float-left ${isDragging ? 'bg-primary-500' : ''}`}
+            className={`w-1 h-full bg-white/[0.10] hover:bg-primary-500/50 cursor-col-resize transition-all float-left ${isDragging ? 'bg-primary-500/60' : ''}`}
           />
           <div className="h-full float-right" style={{ width: chatWidth - 4 }}>
             <ChatPanel width={chatWidth - 4} onClose={toggleChatPanel} />
@@ -211,7 +211,7 @@ const App: React.FC = () => {
           {!isChatPanelOpen && (
             <button
               onClick={toggleChatPanel}
-              className="absolute right-0 top-1/2 -translate-y-1/2 bg-primary-600 hover:bg-primary-500 text-white px-2 py-4 rounded-l-lg shadow-lg transition-all duration-300 z-10"
+              className="absolute right-0 top-1/2 -translate-y-1/2 bg-primary-600/50 backdrop-blur-md border border-primary-500/30 border-r-0 hover:bg-primary-600/70 text-white px-2 py-4 rounded-l-lg shadow-glass-glow transition-all duration-300 z-10"
               title="打开聊天面板"
             >
               ◀
@@ -227,7 +227,7 @@ const App: React.FC = () => {
           {/* 拖拽分隔条 */}
           <div
             onMouseDown={handleMouseDown}
-            className={`w-1 h-full bg-gray-700 hover:bg-primary-500 cursor-col-resize transition-colors shrink-0 ${isDragging ? 'bg-primary-500' : ''}`}
+            className={`w-1 h-full bg-white/[0.10] hover:bg-primary-500/50 cursor-col-resize transition-all shrink-0 ${isDragging ? 'bg-primary-500/60' : ''}`}
           />
 
           {/* 聊天面板内容 */}

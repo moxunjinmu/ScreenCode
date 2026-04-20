@@ -248,7 +248,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
           <select
             value={selectedDeviceId || ''}
             onChange={(e) => handleDeviceChange(e.target.value)}
-            className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none focus:border-primary-500 min-w-[200px]"
+            className="glass-input px-2 py-1 text-sm min-w-[200px]"
           >
             <option value="">选择设备...</option>
             {devices.map((device) => (
@@ -259,13 +259,13 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
           </select>
 
           {isCapturing && (
-            <span className="px-2 py-1 bg-green-600 text-xs rounded animate-pulse">
+            <span className="px-2 py-1 glass-btn-success text-xs text-green-200 animate-pulse">
               ● 采集中
             </span>
           )}
 
           {isLoading && (
-            <span className="px-2 py-1 bg-yellow-600 text-xs rounded">
+            <span className="px-2 py-1 bg-yellow-600/40 border border-yellow-500/30 text-xs rounded text-yellow-200">
               加载中...
             </span>
           )}
@@ -273,9 +273,9 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
           {selectedDeviceId && (
             <button
               onClick={handleStartStop}
-              className={`px-3 py-1 text-xs rounded transition-colors ${isCapturing
-                  ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-primary-600 hover:bg-primary-700'
+              className={`px-3 py-1 text-xs rounded transition-all ${isCapturing
+                  ? 'glass-btn-danger text-red-200'
+                  : 'glass-btn-primary text-white'
                 }`}
             >
               {isCapturing ? '停止' : '开始'}
@@ -287,16 +287,16 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
             <>
               <button
                 onClick={handleCaptureFrame}
-                className="px-3 py-1 text-xs rounded transition-colors bg-green-600 hover:bg-green-700"
+                className="glass-btn-success px-3 py-1 text-xs text-green-200"
                 title="快捷键: Ctrl+Shift+S"
               >
                 全屏截图
               </button>
               <button
                 onClick={() => setRegionCapture(!isRegionCapture)}
-                className={`px-3 py-1 text-xs rounded transition-colors ${isRegionCapture
-                    ? 'bg-primary-600 hover:bg-primary-700'
-                    : 'bg-gray-700 hover:bg-gray-600'
+                className={`px-3 py-1 text-xs rounded transition-all ${isRegionCapture
+                    ? 'glass-btn-primary text-white'
+                    : 'glass-btn text-gray-300'
                   }`}
                 title="快捷键: Ctrl+Shift+R"
               >
@@ -312,7 +312,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
               <select
                 value={selectedPreset}
                 onChange={(e) => setSelectedPreset(e.target.value)}
-                className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none focus:border-primary-500 min-w-[120px]"
+                className="glass-input px-2 py-1 text-sm min-w-[120px]"
               >
                 <option value="source">源 {sourceResolution.width}x{sourceResolution.height}</option>
                 {PRESET_RESOLUTIONS.map((res, idx) => (
@@ -326,7 +326,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
               <select
                 value={selectedScale}
                 onChange={(e) => setSelectedScale(parseFloat(e.target.value))}
-                className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none focus:border-primary-500 min-w-[80px]"
+                className="glass-input px-2 py-1 text-sm min-w-[80px]"
               >
                 {PRESET_SCALES.map((scale) => (
                   <option key={scale} value={scale}>
@@ -341,11 +341,11 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
 
       {/* 视频预览 */}
       <div
-        className={`flex-1 bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center relative ${isFullscreen ? 'rounded-none' : ''}`}
+        className={`flex-1 glass-subtle shadow-glass overflow-hidden flex items-center justify-center relative ${isFullscreen ? 'rounded-none' : ''}`}
         onDoubleClick={handleDoubleClick}
       >
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-10">
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 backdrop-blur-sm z-10">
             <div className="text-center">
               <p className="text-red-400 mb-2">{error}</p>
               <button
@@ -412,25 +412,25 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
 
         {/* 全屏模式下的工具栏 */}
         {isFullscreen && stream && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-black/70 rounded-lg">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 glass-strong shadow-glass-lg rounded-lg">
             <button
               onClick={() => setRegionCapture(!isRegionCapture)}
-              className={`px-3 py-1.5 text-xs rounded transition-colors ${isRegionCapture
-                  ? 'bg-primary-600 hover:bg-primary-700'
-                  : 'bg-gray-700 hover:bg-gray-600'
+              className={`px-3 py-1.5 text-xs rounded transition-all ${isRegionCapture
+                  ? 'glass-btn-primary text-white'
+                  : 'glass-btn text-gray-300'
                 }`}
             >
               {isRegionCapture ? '取消选择' : '区域截图'}
             </button>
             <button
               onClick={handleCaptureFrame}
-              className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 rounded transition-colors"
+              className="glass-btn-success px-3 py-1.5 text-xs text-green-200"
             >
               全屏截图
             </button>
             <button
               onClick={handleDoubleClick}
-              className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+              className="glass-btn px-3 py-1.5 text-xs text-gray-300"
             >
               退出全屏
             </button>
@@ -440,7 +440,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
 
       {/* 全屏模式提示 */}
       {isFullscreen && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/70 rounded text-xs text-gray-300">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 glass-strong text-xs text-gray-300">
           双击视频退出全屏 | ESC 退出 | 单击截图 | Ctrl+Shift+R 区域截图
         </div>
       )}

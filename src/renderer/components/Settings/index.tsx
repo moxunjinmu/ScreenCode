@@ -153,10 +153,10 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const currentProvider = providers.find(p => p.id === activeProviderId);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="glass-strong shadow-glass-lg rounded-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
+        <div className="flex items-center justify-between p-4 border-b border-white/[0.08] sticky top-0 bg-white/[0.06] backdrop-blur-md z-10 rounded-t-xl">
           <h2 className="text-lg font-semibold">Settings</h2>
           <button
             onClick={onClose}
@@ -178,10 +178,10 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                 <div
                   key={provider.id}
                   onClick={() => handleSelectProvider(provider.id)}
-                  className={`p-3 rounded cursor-pointer transition-colors border ${
+                  className={`p-3 rounded-lg cursor-pointer transition-all border ${
                     activeProviderId === provider.id
-                      ? 'bg-primary-600/30 border-primary-500'
-                      : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
+                      ? 'bg-primary-600/20 border-primary-500/40 shadow-glass-glow'
+                      : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08] hover:border-white/[0.12]'
                   }`}
                 >
                   <div className="text-sm font-medium">{provider.name}</div>
@@ -193,7 +193,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
           {/* Active Provider Config */}
           {activeProviderConfig && currentProvider && (
-            <div className="border-t border-gray-700 pt-4">
+            <div className="border-t border-white/[0.08] pt-4">
               <h3 className="text-sm font-medium text-gray-300 mb-3">
                 {currentProvider.name} Configuration
               </h3>
@@ -207,7 +207,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                     value={activeProviderConfig.apiKey || ''}
                     onChange={(e) => handleConfigChange('apiKey', e.target.value)}
                     placeholder="Enter API Key..."
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+                    className="glass-input w-full px-3 py-2 text-sm"
                   />
                 </div>
 
@@ -219,7 +219,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                     value={activeProviderConfig.baseUrl || ''}
                     onChange={(e) => handleConfigChange('baseUrl', e.target.value)}
                     placeholder="https://api.example.com"
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+                    className="glass-input w-full px-3 py-2 text-sm"
                   />
                 </div>
 
@@ -229,7 +229,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                   <select
                     value={activeProviderConfig.model || ''}
                     onChange={(e) => handleConfigChange('model', e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+                    className="glass-input w-full px-3 py-2 text-sm"
                   >
                     {currentProvider.models?.map((model) => (
                       <option key={model} value={model}>{model}</option>
@@ -247,7 +247,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                       value={activeProviderConfig.customModel || ''}
                       onChange={(e) => handleConfigChange('customModel', e.target.value)}
                       placeholder="e.g., glm-5, gpt-4o..."
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+                      className="glass-input w-full px-3 py-2 text-sm"
                     />
                   </div>
                 )}
@@ -260,7 +260,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                       type="number"
                       value={activeProviderConfig.maxTokens || 8192}
                       onChange={(e) => handleConfigChange('maxTokens', parseInt(e.target.value))}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+                      className="glass-input w-full px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
@@ -272,7 +272,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                       max="2"
                       value={activeProviderConfig.temperature || 0.7}
                       onChange={(e) => handleConfigChange('temperature', parseFloat(e.target.value))}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-primary-500"
+                      className="glass-input w-full px-3 py-2 text-sm"
                     />
                   </div>
                 </div>
@@ -286,20 +286,20 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                   <div className="flex gap-2 mt-1">
                     <button
                       onClick={() => handleConfigChange('sdkType', 'openai')}
-                      className={`flex-1 px-3 py-2 rounded text-sm transition-colors border ${
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm transition-all border ${
                         activeProviderConfig.sdkType === 'openai'
-                          ? 'bg-green-600/30 border-green-500 text-green-400'
-                          : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
+                          ? 'bg-green-600/20 border-green-500/40 text-green-400'
+                          : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]'
                       }`}
                     >
                       OpenAI 格式 (/v1/chat/completions)
                     </button>
                     <button
                       onClick={() => handleConfigChange('sdkType', 'anthropic')}
-                      className={`flex-1 px-3 py-2 rounded text-sm transition-colors border ${
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm transition-all border ${
                         activeProviderConfig.sdkType === 'anthropic'
-                          ? 'bg-purple-600/30 border-purple-500 text-purple-400'
-                          : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
+                          ? 'bg-purple-600/20 border-purple-500/40 text-purple-400'
+                          : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]'
                       }`}
                     >
                       Anthropic 格式 (/v1/messages)
@@ -317,7 +317,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
           )}
 
           {/* JSON Editor Toggle */}
-          <div className="border-t border-gray-700 pt-4">
+          <div className="border-t border-white/[0.08] pt-4">
             <button
               onClick={() => setShowJsonEditor(!showJsonEditor)}
               className="text-sm text-yellow-400 hover:text-yellow-300 flex items-center gap-1"
@@ -336,12 +336,12 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
               <textarea
                 value={jsonText}
                 onChange={(e) => handleJsonChange(e.target.value)}
-                className="w-full h-96 px-3 py-2 bg-gray-900 border border-gray-600 rounded text-xs font-mono text-green-400 focus:outline-none focus:border-primary-500 resize-none"
+                className="glass-input w-full h-96 px-3 py-2 text-xs font-mono text-green-400 resize-none bg-black/20"
                 spellCheck={false}
               />
               
               {jsonError && (
-                <div className="text-xs text-red-400 bg-red-900/20 p-2 rounded border border-red-800">
+                <div className="text-xs text-red-400 bg-red-600/10 p-2 rounded-lg border border-red-500/20">
                   ⚠️ {jsonError}
                 </div>
               )}
@@ -350,20 +350,20 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 p-4 border-t border-gray-700 sticky bottom-0 bg-gray-800">
+        <div className="flex justify-end gap-2 p-4 border-t border-white/[0.08] sticky bottom-0 bg-white/[0.06] backdrop-blur-md rounded-b-xl">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+            className="glass-btn px-4 py-2 text-sm text-gray-400 hover:text-white"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className={`px-4 py-2 text-sm rounded transition-colors ${
+            className={`px-4 py-2 text-sm rounded-lg transition-all ${
               isSaved
-                ? 'bg-green-600 text-white'
-                : 'bg-primary-600 hover:bg-primary-700 text-white'
+                ? 'glass-btn-success text-green-200'
+                : 'glass-btn-primary text-white'
             }`}
           >
             {isSaving ? 'Saving...' : isSaved ? 'Saved ✓' : 'Save All'}

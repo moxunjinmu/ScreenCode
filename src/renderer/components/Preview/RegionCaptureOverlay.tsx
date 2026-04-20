@@ -371,14 +371,14 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
         >
           <button
             onClick={handleCancel}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-red-600/90 hover:bg-red-500 transition-colors text-white text-lg shadow-lg"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-red-600/60 backdrop-blur-md border border-red-500/40 hover:bg-red-500/80 transition-all text-white text-lg shadow-glass"
             title="取消"
           >
             ✕
           </button>
           <button
             onClick={handleConfirm}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-green-600/90 hover:bg-green-500 transition-colors text-white text-lg shadow-lg"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-green-600/60 backdrop-blur-md border border-green-500/40 hover:bg-green-500/80 transition-all text-white text-lg shadow-glass"
             title="确认保存"
           >
             ✓
@@ -388,7 +388,7 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
 
       {/* 提示文字 */}
       {showHint && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/70 rounded text-sm text-white pointer-events-none">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 glass-strong text-sm text-white pointer-events-none">
           按住左键拖拽选择截图区域
         </div>
       )}
