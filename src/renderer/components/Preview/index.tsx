@@ -345,7 +345,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
         onDoubleClick={handleDoubleClick}
       >
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 backdrop-blur-sm z-10">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10" style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
             <div className="text-center">
               <p className="text-red-400 mb-2">{error}</p>
               <button

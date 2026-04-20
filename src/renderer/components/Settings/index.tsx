@@ -156,7 +156,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="glass-strong shadow-glass-lg rounded-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/[0.08] sticky top-0 bg-white/[0.06] backdrop-blur-md z-10 rounded-t-xl">
+        <div className="flex items-center justify-between p-4 border-b border-white/[0.08] sticky top-0 glass-medium z-10" style={{ borderRadius: '16px 16px 0 0' }}>
           <h2 className="text-lg font-semibold">Settings</h2>
           <button
             onClick={onClose}
@@ -350,7 +350,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 p-4 border-t border-white/[0.08] sticky bottom-0 bg-white/[0.06] backdrop-blur-md rounded-b-xl">
+        <div className="flex justify-end gap-2 p-4 border-t border-white/[0.08] sticky bottom-0 glass-medium" style={{ borderRadius: '0 0 16px 16px' }}>
           <button
             onClick={onClose}
             className="glass-btn px-4 py-2 text-sm text-gray-400 hover:text-white"

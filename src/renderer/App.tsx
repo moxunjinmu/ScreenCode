@@ -148,7 +148,7 @@ const App: React.FC = () => {
   // 全屏预览模式布局
   if (isFullscreenPreview) {
     return (
-      <div className="h-screen flex bg-gray-900 text-white">
+      <div className="h-screen flex text-white">
         {/* 全屏视频预览 */}
         <div className="flex-1 relative">
           <Preview isFullscreen={true} onToggleFullscreen={toggleFullscreenPreview} />

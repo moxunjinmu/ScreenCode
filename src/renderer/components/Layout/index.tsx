@@ -9,9 +9,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showSettings, setShowSettings] = useState(false);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-900 text-white">
+    <div className="h-screen flex flex-col text-white">
       {/* 标题栏 */}
-      <header className="h-12 flex items-center justify-between px-4 bg-white/[0.06] backdrop-blur-md border-b border-white/[0.08] select-none">
+      <header className="h-12 flex items-center justify-between px-4 glass-medium rounded-none select-none" style={{ borderRadius: 0 }}>
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">ScreenCode</h1>
           <span className="text-xs text-gray-500">v1.0.0</span>
