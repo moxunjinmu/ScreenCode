@@ -1,33 +1,18 @@
 // IPC 通道定义
+// 说明：设备枚举由渲染进程直接通过 navigator.mediaDevices 完成，不走 IPC；
+// 帧队列的唯一真源是渲染进程的 frameStore，主进程不再镜像一份。
 export const IPC_CHANNELS = {
   // 捕获相关
-  CAPTURE_START: 'capture:start',
-  CAPTURE_STOP: 'capture:stop',
-  CAPTURE_FRAME: 'capture:frame',
-  CAPTURE_ERROR: 'capture:error',
-
-  // 帧队列相关
-  FRAME_ADD: 'frame:add',
-  FRAME_CLEAR: 'frame:clear',
-  FRAME_UPDATE: 'frame:update',
+  CAPTURE_START: 'capture:start',           // renderer → main (invoke)，同步采集状态到托盘
+  CAPTURE_STOP: 'capture:stop',             // renderer → main (invoke)
+  CAPTURE_FRAME: 'capture:frame',           // main → renderer (event)，全局热键触发截图
 
   // AI 相关
   AI_EXTRACT: 'ai:extract',                 // renderer → main (invoke)
   AI_EXTRACT_TRIGGER: 'ai:extract:trigger', // main → renderer (event)，全局热键触发提取
-  AI_RESULT: 'ai:result',
-  AI_ERROR: 'ai:error',
-  AI_CHAT: 'ai:chat',
-  AI_CHAT_RESPONSE: 'ai:chat:response',
-  AI_CHAT_STREAM: 'ai:chat:stream',
-
-  // 设备相关
-  DEVICE_ENUM: 'device:enum',
-  DEVICE_SELECT: 'device:select',
-  DEVICE_STATUS: 'device:status',
-
-  // 托盘相关
-  TRAY_SHOW_WINDOW: 'tray:show-window',
-  TRAY_UPDATE: 'tray:update',
+  AI_RESULT: 'ai:result',                   // main → renderer (event)
+  AI_ERROR: 'ai:error',                     // main → renderer (event)
+  AI_CHAT: 'ai:chat',                       // renderer → main (invoke)
 
   // 剪贴板相关
   CLIPBOARD_WRITE_IMAGE: 'clipboard:write-image',
@@ -35,7 +20,7 @@ export const IPC_CHANNELS = {
   // 配置相关
   CONFIG_GET: 'config:get',
   CONFIG_SET: 'config:set',
-  CONFIG_CHANGED: 'config:changed',
+  CONFIG_CHANGED: 'config:changed',         // main → renderer (event)
 } as const;
 
 // 全局热键

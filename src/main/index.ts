@@ -4,7 +4,6 @@ import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage } f
 import path from 'path';
 import { IPC_CHANNELS, SHORTCUTS } from '@shared/constants';
 import { setupCaptureHandlers } from './capture';
-import { setupFrameHandlers } from './processor';
 import { setupAIHandlers } from './ai';
 import { setupTray } from './tray/trayManager';
 import { setupConfigHandlers } from './config/store';
@@ -121,7 +120,6 @@ app.whenReady().then(() => {
   });
 
   setupCaptureHandlers(ipcMain);
-  setupFrameHandlers(ipcMain);
   setupAIHandlers(ipcMain);
   setupConfigHandlers(ipcMain);
 

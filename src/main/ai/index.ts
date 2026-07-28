@@ -4,6 +4,7 @@ import { ClaudeResponse, Frame, ChatRequest, ProviderConfig } from '@shared/type
 import { ClaudeService } from './claudeService';
 import { OpenAIService } from './openAIService';
 import { AIService, AIServiceOptions } from './types';
+import { compressFrames, compressImages } from '../processor/compressFrames';
 import { getMainWindow } from '../index';
 import { getActiveProviderConfig } from '../config/store';
 
@@ -93,6 +94,21 @@ function getAIService(): AIService {
 }
 
 /**
+ * 压缩聊天请求中的图片，返回新请求对象（不修改入参）
+ */
+async function compressChatRequest(request: ChatRequest): Promise<ChatRequest> {
+  const messages = await Promise.all(
+    request.messages.map(async (msg) =>
+      msg.images && msg.images.length > 0
+        ? { ...msg, images: await compressImages(msg.images) }
+        : msg
+    )
+  );
+
+  return { ...request, messages };
+}
+
+/**
  * 提取代码
  */
 async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
@@ -127,8 +143,11 @@ async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
 
     console.log(`[AI] Extracting code from ${frames.length} frames using ${model} at ${baseUrl}...`);
 
+    // 截图来自渲染进程 canvas，是源分辨率原图，须先压缩再送模型
+    const compressedFrames = await compressFrames(frames);
+
     // 调用 API
-    const result = await service.extractCode(frames);
+    const result = await service.extractCode(compressedFrames);
 
     console.log('[AI] Code extraction completed:', {
       language: result.language,
@@ -189,7 +208,7 @@ async function chat(request: ChatRequest): Promise<{ content: string }> {
     console.log(`[AI] Chat request with ${request.messages.length} messages`);
 
     // 调用 API
-    const result = await service.chat(request);
+    const result = await service.chat(await compressChatRequest(request));
 
     console.log(`[AI] Chat response length: ${result.content.length}`);
 

@@ -57,13 +57,15 @@ npm run package      # 打包应用 (生成可分发的安装包)
 src/
 ├── main/           # 主进程
 │   ├── index.ts    # 入口，窗口创建、全局热键注册
-│   ├── capture/    # 视频采集（设备枚举、流管理）
-│   ├── processor/  # 帧处理（ringBuffer、frameDiff、imageCompressor）
-│   ├── ai/         # AI 服务（index路由、claude、openai、promptBuilder）
+│   ├── capture/    # 采集状态 → 托盘同步（设备枚举在渲染进程）
+│   ├── processor/  # 图像压缩（compressFrames、imageCompressor）
+│   ├── ai/         # AI 服务（index路由、types、responseParser、claude、openai、promptBuilder）
 │   ├── tray/       # 系统托盘
 │   └── config/     # 配置管理（electron-store 持久化）
 ├── renderer/       # 渲染进程
-│   ├── components/ # Preview、ChatPanel、Settings、CodeDisplay、Toast、ThumbnailQueue
+│   ├── components/ # Preview、ChatPanel、ChatPanelDock、Settings、CodeDisplay、Toast、ThumbnailQueue
+│   ├── hooks/      # useToast、useFrameCapture、useChatPanelResize
+│   ├── lib/        # electronApi（含浏览器预览降级实现）
 │   └── store/      # captureStore、frameStore、appStore、chatStore、uiStore
 ├── preload/        # 安全桥接
 └── shared/         # types.ts（类型定义）、constants.ts（IPC 通道、常量）
@@ -71,13 +73,12 @@ src/
 
 ### 关键模块
 
-**帧处理流水线** (`src/main/processor/`) — ⚠️ 当前整体未接入数据流:
-- `ringBuffer.ts`: 泛型环形缓冲区，最多 8 帧
-- `frameDiff.ts`: 帧差分（当前返回固定值 0.3，待实现像素级对比）
+**图像压缩** (`src/main/processor/`):
 - `imageCompressor.ts`: Sharp 压缩（1080p → 768px, JPEG Q=85, lanczos3）
-- **已知问题**：渲染进程从不调用 `FRAME_ADD`，帧队列实际只存在于 `frameStore`（渲染进程），
-  `extractCode` 直接把渲染进程的原始帧送往 API。**Sharp 压缩尚未实际执行**，
-  发送给模型的是 canvas 原始分辨率 JPEG。待第二批优化接入。
+- `compressFrames.ts`: 压缩入口，在 AI 请求前统一处理帧队列与聊天图片；
+  每次调用重读配置使设置即时生效；单张失败降级为原图，不阻断请求
+- **帧队列的唯一真源是渲染进程的 `frameStore`**，主进程不再镜像缓冲区。
+  实测 1920×1080 截图 base64 从约 1.77M 字符降到约 99K
 
 **AI 服务** (`src/main/ai/`):
 - `index.ts`: 服务调度层，`isOpenAICompatible(baseUrl, sdkType)` 路由 SDK；
@@ -105,10 +106,12 @@ src/
 | `AI_EXTRACT_TRIGGER` | main → renderer | event | 全局热键触发提取（不可与 `AI_EXTRACT` 复用） |
 | `AI_CHAT` | renderer → main | invoke | AI 聊天 |
 | `AI_RESULT` / `AI_ERROR` | main → renderer | event | AI 结果/错误 |
-| `CAPTURE_START` / `CAPTURE_STOP` | renderer → main | invoke | 视频采集控制 |
-| `FRAME_ADD` / `FRAME_CLEAR` | renderer → main | invoke | 帧队列操作 |
+| `CAPTURE_FRAME` | main → renderer | event | 全局热键触发截图 |
+| `CAPTURE_START` / `CAPTURE_STOP` | renderer → main | invoke | 采集状态同步到托盘 |
 | `CLIPBOARD_WRITE_IMAGE` | renderer → main | invoke | 写入剪贴板 |
-| `DEVICE_ENUM` / `DEVICE_SELECT` | renderer → main | invoke | 设备管理 |
+
+> 设备枚举与视频流获取由渲染进程直接调用 `navigator.mediaDevices` 完成（主进程无 WebRTC API），
+> 不设 IPC 通道。帧队列同理不走 IPC。新增通道前先确认渲染进程是否真的需要主进程能力。
 
 Preload 通过 `contextBridge.exposeInMainWorld('electronAPI', ...)` 暴露受限 API。
 
@@ -159,11 +162,13 @@ interface ProviderConfig {
 
 ## 核心工作流程
 
-**截图入队**: Ctrl+Shift+S → 捕获帧 → 帧差分(<5%丢弃) → Sharp压缩 → RingBuffer → Toast通知
+**截图入队**: Ctrl+Shift+S → 从预览区已挂载的 video 元素截取当前帧（复用而非新建，
+避免等待 `loadedmetadata` 导致卡死）→ canvas 编码 JPEG → frameStore（最新在最左，
+超 8 帧丢弃最旧）→ Toast 通知。压缩延后到 AI 请求前统一处理，不影响截图响应速度
 
 **代码提取**: Ctrl+Shift+E → 主进程发 `AI_EXTRACT_TRIGGER` → 渲染进程 `appStore.extractCode()`
-（热键与「提取代码」按钮共用此入口）→ 取 frameStore 所有帧 → 构建结构化Prompt → AI API
-→ 解析JSON `{language, code, confidence}` → 经 `AI_RESULT` 事件回流
+（热键与「提取代码」按钮共用此入口）→ 取 frameStore 所有帧 → **主进程 Sharp 压缩** →
+构建结构化Prompt → AI API → 解析JSON `{language, code, confidence}` → 经 `AI_RESULT` 事件回流
 
 **会话管理**: 多会话(新建/切换/删除)，标题取首条消息前20字符，数据存于内存(Zustand)
 
@@ -177,7 +182,7 @@ interface ProviderConfig {
 | 构建 | Electron Forge + Vite |
 | 前端 | React 18 + TypeScript + TailwindCSS |
 | 状态 | Zustand (5个Store) |
-| 图像 | Sharp Native（⚠️ 已集成但未接入流水线，压缩尚未实际生效） |
+| 图像 | Sharp Native（AI 请求前压缩，显著降低 token 成本） |
 | AI | @anthropic-ai/sdk + openai (双SDK自动路由) |
 | 存储 | electron-store |
 
@@ -185,10 +190,9 @@ interface ProviderConfig {
 
 | 约束 | 值 | 来源 |
 |------|-----|------|
-| Ring Buffer 最大容量 | 8 帧 | `FRAME_QUEUE.MAX_FRAMES` |
-| 帧差分阈值 | 5% | `frameDiffThreshold`（⚠️ 当前未生效，`frameDiff` 返回固定值） |
-| 图像压缩目标宽度 | 768px | `compressionWidth`（⚠️ 当前未生效，压缩未接入） |
-| JPEG 质量 | 85 | `compressionQuality`（⚠️ 同上；截图实际由 canvas 以 0.85 编码） |
+| 帧队列最大容量 | 8 帧 | `FRAME_QUEUE.MAX_FRAMES` |
+| 图像压缩目标宽度 | 768px | `compressionWidth` |
+| JPEG 质量 | 85 | `compressionQuality`（canvas 截图与 Sharp 压缩共用此值） |
 | AI API 超时 | 25 秒 | `AI_TIMEOUT`，构造 SDK 时传入 |
 | Toast 通知时长 | 成功 1.5s / 失败 2.5s | `TOAST_DURATION.SUCCESS` / `.ERROR` |
 | 聊天图片上限 | 4 张/消息 | `MAX_CHAT_IMAGES` |

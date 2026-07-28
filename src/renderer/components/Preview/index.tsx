@@ -30,7 +30,8 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     stream,
     startCapture,
     stopCapture,
-    captureFrame
+    captureFrame,
+    setVideoElement
   } = useCaptureStore();
 
   const { isRegionCapture, setRegionCapture, isFullscreenPreview, setFullscreenPreview, displayResolution, setDisplayResolution } = useUIStore();
@@ -99,6 +100,12 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
+
+  // 将预览 video 注册到 store，供全局热键截图直接复用（避免另建临时 video）
+  useEffect(() => {
+    setVideoElement(videoRef.current);
+    return () => setVideoElement(null);
+  }, [stream, setVideoElement]);
 
   // 检测视频源分辨率
   useEffect(() => {

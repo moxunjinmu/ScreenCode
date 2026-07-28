@@ -1,19 +1,13 @@
-import { DEFAULT_CONFIG, type AppConfig, type AppError, type ChatRequest, type ClaudeResponse, type Device, type Frame } from '@shared/types';
+import { DEFAULT_CONFIG, type AppConfig, type AppError, type ChatRequest, type ClaudeResponse, type Frame } from '@shared/types';
 
 export interface RendererElectronAPI {
-  enumerateDevices: () => Promise<Device[]>;
-  selectDevice: (deviceId: string) => Promise<unknown>;
   startCapture: () => Promise<unknown>;
   stopCapture: () => Promise<unknown>;
-  addFrame: (frame: Frame) => Promise<unknown>;
-  getFrames: () => Promise<Frame[]>;
-  clearFrames: () => Promise<unknown>;
   extractCode: (frames: Frame[]) => Promise<ClaudeResponse>;
   chat: (request: ChatRequest) => Promise<{ content: string }>;
   getConfig: () => Promise<AppConfig>;
   setConfig: (config: Partial<AppConfig>) => Promise<unknown>;
   writeImageToClipboard: (base64Data: string) => Promise<unknown>;
-  onFrameAdded: (callback: (frame: Frame) => void) => () => void;
   onAIResult: (callback: (result: ClaudeResponse) => void) => () => void;
   onError: (callback: (error: AppError) => void) => () => void;
   onCaptureFrame: (callback: () => void) => () => void;
@@ -29,13 +23,8 @@ const configListeners = new Set<(config: AppConfig) => void>();
 const noopUnsubscribe = () => undefined;
 
 const browserPreviewAPI: RendererElectronAPI = {
-  enumerateDevices: async () => [] as Device[],
-  selectDevice: async () => undefined,
   startCapture: async () => undefined,
   stopCapture: async () => undefined,
-  addFrame: async (_frame: Frame) => undefined,
-  getFrames: async () => [] as Frame[],
-  clearFrames: async () => undefined,
   extractCode: async (frames: Frame[]) => ({
     language: 'typescript',
     code: frames.length > 0
@@ -61,7 +50,6 @@ const browserPreviewAPI: RendererElectronAPI = {
     configListeners.forEach((listener) => listener(browserPreviewConfig));
   },
   writeImageToClipboard: async (_base64Data: string) => undefined,
-  onFrameAdded: (_callback: (frame: Frame) => void) => noopUnsubscribe,
   onAIResult: (_callback: (result: ClaudeResponse) => void) => noopUnsubscribe,
   onError: (_callback: (error: AppError) => void) => noopUnsubscribe,
   onCaptureFrame: (_callback: () => void) => noopUnsubscribe,

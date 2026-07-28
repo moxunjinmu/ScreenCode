@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { Frame } from '@shared/types';
 import { FRAME_QUEUE } from '@shared/constants';
-import { electronAPI } from '../lib/electronApi';
 
 interface FrameState {
   frames: Frame[];
@@ -11,7 +10,7 @@ interface FrameState {
   // 操作
   addFrame: (frame: Frame) => void;
   removeFrame: (frameId: string) => void;
-  clearFrames: () => Promise<void>;
+  clearFrames: () => void;
   setFrames: (frames: Frame[]) => void;
   toggleFrameSelection: (frameId: string) => void;
   selectFrame: (frameId: string) => void;
@@ -43,14 +42,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
     }));
   },
 
-  clearFrames: async () => {
-    try {
-      await electronAPI.clearFrames();
-    } catch (error) {
-      console.error('Failed to clear frames via IPC:', error);
-    }
-    set({ frames: [], selectedFrameIds: [] });
-  },
+  clearFrames: () => set({ frames: [], selectedFrameIds: [] }),
 
   setFrames: (frames) => set({ frames }),
 
