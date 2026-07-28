@@ -10,35 +10,40 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="h-screen flex flex-col text-white">
-      {/* 标题栏 */}
-      <header className="h-12 flex items-center justify-between px-4 glass-medium rounded-none select-none" style={{ borderRadius: 0 }}>
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">ScreenCode</h1>
-          <span className="text-xs text-gray-500">v1.0.0</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400">
-            <kbd className="glass-kbd mr-1">Ctrl+Shift+S</kbd>
-            截图
-            <kbd className="glass-kbd mx-1">Ctrl+Shift+E</kbd>
-            提取
-          </span>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-white/[0.10] rounded transition-all"
-            title="设置"
-          >
-            ⚙️
-          </button>
+      <header className="glass-medium border-x-0 border-t-0 rounded-none select-none" style={{ borderRadius: 0 }}>
+        <div className="h-14 px-5 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <h1 className="text-lg font-semibold tracking-tight">ScreenCode</h1>
+              <span className="status-chip">v1.0.0</span>
+            </div>
+            <p className="panel-subheading mt-0.5">采集画面、整理帧队列，并将截图交给 AI 提取代码</p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="status-chip hidden lg:inline-flex">
+              <kbd className="glass-kbd px-1.5 py-0.5">Ctrl+Shift+S</kbd>
+              截图
+            </span>
+            <span className="status-chip hidden lg:inline-flex">
+              <kbd className="glass-kbd px-1.5 py-0.5">Ctrl+Shift+E</kbd>
+              提取代码
+            </span>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="glass-btn px-3 py-1.5 text-sm text-slate-200"
+              title="打开设置"
+            >
+              设置
+            </button>
+          </div>
         </div>
       </header>
-      
-      {/* 主内容区 */}
-      <main className="flex-1 overflow-hidden">
+
+      <main className="flex-1 min-h-0 overflow-hidden">
         {children}
       </main>
-      
-      {/* 设置弹窗 */}
+
       <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );

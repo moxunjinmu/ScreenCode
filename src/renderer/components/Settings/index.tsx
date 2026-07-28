@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ApiProvider, ProviderConfig, DEFAULT_PROVIDERS } from '@shared/types';
+import { electronAPI } from '../../lib/electronApi';
 
 interface SettingsProps {
   isOpen: boolean;
@@ -46,7 +47,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
   const loadSettings = async () => {
     try {
-      const loadedConfig = await window.electronAPI.getConfig();
+      const loadedConfig = await electronAPI.getConfig();
       setConfig(loadedConfig);
       setActiveProviderId(loadedConfig.activeProvider || 'zhipu');
       setProviders(loadedConfig.apiProviders || DEFAULT_PROVIDERS);
@@ -78,7 +79,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     setConfig(updatedConfig);
 
     // 保存激活的供应商
-    await window.electronAPI.setConfig(updatedConfig);
+    await electronAPI.setConfig(updatedConfig);
   };
 
   // 当输入框改变时，同步更新 config 和 JSON
@@ -137,7 +138,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
     setIsSaving(true);
     try {
-      await window.electronAPI.setConfig(config);
+      await electronAPI.setConfig(config);
       setIsSaved(true);
       setTimeout(() => {
         setIsSaved(false);
@@ -153,209 +154,213 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const currentProvider = providers.find(p => p.id === activeProviderId);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="glass-strong shadow-glass-lg rounded-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
+    <div className="fixed inset-0 z-50 bg-slate-950/78 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="glass-strong shadow-glass-lg rounded-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-white/[0.08] sticky top-0 glass-medium z-10" style={{ borderRadius: '16px 16px 0 0' }}>
-          <h2 className="text-lg font-semibold">Settings</h2>
+          <div>
+            <h2 className="text-lg font-semibold">应用设置</h2>
+            <p className="panel-subheading mt-1">统一管理模型供应商、接口参数和完整配置 JSON。</p>
+          </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="glass-btn px-3 py-1.5 text-sm text-slate-200"
           >
-            ✕
+            关闭
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-4 space-y-4">
-          {/* Provider Selection */}
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">
-              API Provider
+        <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-4">
+          <div className="glass-subtle p-4">
+            <label className="block text-sm text-slate-300 mb-2">
+              供应商选择
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <p className="panel-subheading mb-3">切换后会立即更新当前激活的模型供应商，详细参数在下方编辑。</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {providers.map((provider) => (
-                <div
+                <button
+                  type="button"
                   key={provider.id}
                   onClick={() => handleSelectProvider(provider.id)}
-                  className={`p-3 rounded-lg cursor-pointer transition-all border ${
+                  className={`p-3 rounded-lg cursor-pointer transition-all border text-left ${
                     activeProviderId === provider.id
                       ? 'bg-primary-600/20 border-primary-500/40 shadow-glass-glow'
                       : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08] hover:border-white/[0.12]'
                   }`}
                 >
                   <div className="text-sm font-medium">{provider.name}</div>
-                  <div className="text-xs text-gray-400 truncate mt-1">{provider.baseUrl}</div>
-                </div>
+                  <div className="text-xs text-slate-400 truncate mt-1">{provider.baseUrl}</div>
+                </button>
               ))}
             </div>
           </div>
 
-          {/* Active Provider Config */}
           {activeProviderConfig && currentProvider && (
-            <div className="border-t border-white/[0.08] pt-4">
-              <h3 className="text-sm font-medium text-gray-300 mb-3">
-                {currentProvider.name} Configuration
-              </h3>
-              
-              <div className="space-y-3">
-                {/* API Key */}
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">API Key</label>
-                  <input
-                    type="password"
-                    value={activeProviderConfig.apiKey || ''}
-                    onChange={(e) => handleConfigChange('apiKey', e.target.value)}
-                    placeholder="Enter API Key..."
-                    className="glass-input w-full px-3 py-2 text-sm"
-                  />
-                </div>
+            <div className="glass-subtle p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h3 className="text-sm font-medium text-slate-200">
+                  当前配置：{currentProvider.name}
+                </h3>
+                <span className="status-chip">当前供应商 ID：{activeProviderId}</span>
+              </div>
 
-                {/* Base URL */}
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Base URL</label>
-                  <input
-                    type="text"
-                    value={activeProviderConfig.baseUrl || ''}
-                    onChange={(e) => handleConfigChange('baseUrl', e.target.value)}
-                    placeholder="https://api.example.com"
-                    className="glass-input w-full px-3 py-2 text-sm"
-                  />
-                </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-slate-300 mb-1">API Key</label>
+                      <input
+                        type="password"
+                        value={activeProviderConfig.apiKey || ''}
+                        onChange={(e) => handleConfigChange('apiKey', e.target.value)}
+                        placeholder="输入 API Key"
+                        className="glass-input w-full px-3 py-2 text-sm"
+                      />
+                    </div>
 
-                {/* Model Selection */}
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Model</label>
-                  <select
-                    value={activeProviderConfig.model || ''}
-                    onChange={(e) => handleConfigChange('model', e.target.value)}
-                    className="glass-input w-full px-3 py-2 text-sm"
-                  >
-                    {currentProvider.models?.map((model) => (
-                      <option key={model} value={model}>{model}</option>
-                    ))}
-                    <option value="custom">Custom Model</option>
-                  </select>
-                </div>
+                    <div>
+                      <label className="block text-xs text-slate-300 mb-1">Base URL</label>
+                      <input
+                        type="text"
+                        value={activeProviderConfig.baseUrl || ''}
+                        onChange={(e) => handleConfigChange('baseUrl', e.target.value)}
+                        placeholder="例如 https://api.example.com"
+                        className="glass-input w-full px-3 py-2 text-sm"
+                      />
+                    </div>
 
-                {/* Custom Model */}
-                {activeProviderConfig.model === 'custom' && (
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Custom Model Name</label>
-                    <input
-                      type="text"
-                      value={activeProviderConfig.customModel || ''}
-                      onChange={(e) => handleConfigChange('customModel', e.target.value)}
-                      placeholder="e.g., glm-5, gpt-4o..."
-                      className="glass-input w-full px-3 py-2 text-sm"
-                    />
+                    <div>
+                      <label className="block text-xs text-slate-300 mb-1">模型</label>
+                      <select
+                        value={activeProviderConfig.model || ''}
+                        onChange={(e) => handleConfigChange('model', e.target.value)}
+                        className="glass-input w-full px-3 py-2 text-sm"
+                      >
+                        {currentProvider.models?.map((model) => (
+                          <option key={model} value={model}>{model}</option>
+                        ))}
+                        <option value="custom">自定义模型</option>
+                      </select>
+                    </div>
+
+                    {activeProviderConfig.model === 'custom' && (
+                      <div>
+                        <label className="block text-xs text-slate-300 mb-1">自定义模型名</label>
+                        <input
+                          type="text"
+                          value={activeProviderConfig.customModel || ''}
+                          onChange={(e) => handleConfigChange('customModel', e.target.value)}
+                          placeholder="例如 glm-5、gpt-4o"
+                          className="glass-input w-full px-3 py-2 text-sm"
+                        />
+                      </div>
+                    )}
                   </div>
-                )}
 
-                {/* Advanced Settings */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Max Tokens</label>
-                    <input
-                      type="number"
-                      value={activeProviderConfig.maxTokens || 8192}
-                      onChange={(e) => handleConfigChange('maxTokens', parseInt(e.target.value))}
-                      className="glass-input w-full px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Temperature</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="2"
-                      value={activeProviderConfig.temperature || 0.7}
-                      onChange={(e) => handleConfigChange('temperature', parseFloat(e.target.value))}
-                      className="glass-input w-full px-3 py-2 text-sm"
-                    />
-                  </div>
-                </div>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-slate-300 mb-1">最大 Token</label>
+                        <input
+                          type="number"
+                          value={activeProviderConfig.maxTokens || 8192}
+                          onChange={(e) => handleConfigChange('maxTokens', parseInt(e.target.value))}
+                          className="glass-input w-full px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-300 mb-1">Temperature</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="2"
+                          value={activeProviderConfig.temperature || 0.7}
+                          onChange={(e) => handleConfigChange('temperature', parseFloat(e.target.value))}
+                          className="glass-input w-full px-3 py-2 text-sm"
+                        />
+                      </div>
+                    </div>
 
-                {/* SDK Type Selection (for custom providers) */}
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">
-                    SDK Type
-                    <span className="ml-2 text-gray-500">(第三方中转端点需手动选择)</span>
-                  </label>
-                  <div className="flex gap-2 mt-1">
-                    <button
-                      onClick={() => handleConfigChange('sdkType', 'openai')}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm transition-all border ${
-                        activeProviderConfig.sdkType === 'openai'
-                          ? 'bg-green-600/20 border-green-500/40 text-green-400'
-                          : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]'
-                      }`}
-                    >
-                      OpenAI 格式 (/v1/chat/completions)
-                    </button>
-                    <button
-                      onClick={() => handleConfigChange('sdkType', 'anthropic')}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm transition-all border ${
-                        activeProviderConfig.sdkType === 'anthropic'
-                          ? 'bg-purple-600/20 border-purple-500/40 text-purple-400'
-                          : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]'
-                      }`}
-                    >
-                      Anthropic 格式 (/v1/messages)
-                    </button>
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
+                      <label className="block text-xs text-slate-300 mb-1">
+                        SDK 请求格式
+                        <span className="ml-2 text-slate-500">第三方中转端点建议手动指定</span>
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                        <button
+                          onClick={() => handleConfigChange('sdkType', 'openai')}
+                          className={`px-3 py-2 rounded-lg text-sm transition-all border ${
+                            activeProviderConfig.sdkType === 'openai'
+                              ? 'bg-sky-600/20 border-sky-500/40 text-sky-300'
+                              : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]'
+                          }`}
+                        >
+                          OpenAI 格式
+                          <div className="text-[11px] mt-1 opacity-80">/v1/chat/completions</div>
+                        </button>
+                        <button
+                          onClick={() => handleConfigChange('sdkType', 'anthropic')}
+                          className={`px-3 py-2 rounded-lg text-sm transition-all border ${
+                            activeProviderConfig.sdkType === 'anthropic'
+                              ? 'bg-amber-600/20 border-amber-500/40 text-amber-200'
+                              : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]'
+                          }`}
+                        >
+                          Anthropic 格式
+                          <div className="text-[11px] mt-1 opacity-80">/v1/messages</div>
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-3 break-all">
+                        当前 Base URL：{activeProviderConfig.baseUrl || '未设置'}
+                        {activeProviderConfig.sdkType
+                          ? `，已手动指定为 ${activeProviderConfig.sdkType.toUpperCase()} SDK`
+                          : '，当前为自动检测'}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    当前 Base URL: {activeProviderConfig.baseUrl} | 
-                    {activeProviderConfig.sdkType 
-                      ? ` 已手动指定为 ${activeProviderConfig.sdkType.toUpperCase()} SDK`
-                      : ' 自动检测'}
-                  </p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* JSON Editor Toggle */}
-          <div className="border-t border-white/[0.08] pt-4">
+          <div className="glass-subtle p-4">
             <button
               onClick={() => setShowJsonEditor(!showJsonEditor)}
-              className="text-sm text-yellow-400 hover:text-yellow-300 flex items-center gap-1"
+              className="text-sm text-yellow-300 hover:text-yellow-200 flex items-center gap-2"
             >
               <span className={`transform transition-transform ${showJsonEditor ? 'rotate-90' : ''}`}>▶</span>
-              Advanced: Edit Full JSON Config
+              高级模式：直接编辑完整 JSON 配置
             </button>
-          </div>
+            <p className="panel-subheading mt-2">适合批量调整供应商列表、默认值和实验性字段。</p>
 
-          {/* JSON Editor */}
-          {showJsonEditor && (
-            <div className="space-y-2">
-              <div className="text-xs text-gray-500 mb-1">
-                Edit full configuration JSON (changes sync automatically)
-              </div>
-              <textarea
-                value={jsonText}
-                onChange={(e) => handleJsonChange(e.target.value)}
-                className="glass-input w-full h-96 px-3 py-2 text-xs font-mono text-green-400 resize-none bg-black/20"
-                spellCheck={false}
-              />
-              
-              {jsonError && (
-                <div className="text-xs text-red-400 bg-red-600/10 p-2 rounded-lg border border-red-500/20">
-                  ⚠️ {jsonError}
+            {showJsonEditor && (
+              <div className="space-y-2 mt-4">
+                <div className="text-xs text-slate-400 mb-1">
+                  直接修改完整配置 JSON，输入框与当前表单会保持同步。
                 </div>
-              )}
-            </div>
-          )}
+                <textarea
+                  value={jsonText}
+                  onChange={(e) => handleJsonChange(e.target.value)}
+                  className="glass-input w-full h-96 px-3 py-2 text-xs font-mono text-green-300 resize-none bg-black/20"
+                  spellCheck={false}
+                />
+
+                {jsonError && (
+                  <div className="text-xs text-red-300 bg-red-600/10 p-2 rounded-lg border border-red-500/20">
+                    JSON 解析失败：{jsonError}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-2 p-4 border-t border-white/[0.08] sticky bottom-0 glass-medium" style={{ borderRadius: '0 0 16px 16px' }}>
+        <div className="flex justify-end gap-2 p-4 border-t border-white/[0.08] glass-medium shrink-0" style={{ borderRadius: '0 0 16px 16px' }}>
           <button
             onClick={onClose}
-            className="glass-btn px-4 py-2 text-sm text-gray-400 hover:text-white"
+            className="glass-btn px-4 py-2 text-sm text-slate-200"
           >
-            Cancel
+            取消
           </button>
           <button
             onClick={handleSave}
@@ -366,7 +371,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                 : 'glass-btn-primary text-white'
             }`}
           >
-            {isSaving ? 'Saving...' : isSaved ? 'Saved ✓' : 'Save All'}
+            {isSaving ? '保存中...' : isSaved ? '已保存' : '保存全部'}
           </button>
         </div>
       </div>

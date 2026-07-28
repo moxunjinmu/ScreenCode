@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useUIStore } from '../../store/uiStore';
 import { useFrameStore } from '../../store/frameStore';
+import { electronAPI } from '../../lib/electronApi';
 import { Frame } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -297,7 +298,7 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
     addFrame(frame);
     onCapture?.(frame);
 
-    window.electronAPI.writeImageToClipboard(base64).catch((err: unknown) => {
+    electronAPI.writeImageToClipboard(base64).catch((err: unknown) => {
       console.error('Clipboard write failed:', err);
     });
   }, [rect, videoRef, addFrame, setRegionCapture, onCapture]);
@@ -364,24 +365,25 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
         <div
           className="absolute flex items-center gap-1.5"
           style={{
-            left: rect.x + rect.width / 2 - 39,
+            left: rect.x + rect.width / 2,
             top: rect.y + rect.height + 8,
+            transform: 'translateX(-50%)',
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <button
             onClick={handleCancel}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-red-600/60 backdrop-blur-md border border-red-500/40 hover:bg-red-500/80 transition-all text-white text-lg shadow-glass"
+            className="glass-btn-danger px-3 py-2 text-xs text-white"
             title="取消"
           >
-            ✕
+            取消
           </button>
           <button
             onClick={handleConfirm}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-green-600/60 backdrop-blur-md border border-green-500/40 hover:bg-green-500/80 transition-all text-white text-lg shadow-glass"
+            className="glass-btn-success px-3 py-2 text-xs text-white"
             title="确认保存"
           >
-            ✓
+            保存
           </button>
         </div>
       )}

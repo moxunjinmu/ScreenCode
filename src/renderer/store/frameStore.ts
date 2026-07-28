@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Frame } from '@shared/types';
 import { FRAME_QUEUE } from '@shared/constants';
+import { electronAPI } from '../lib/electronApi';
 
 interface FrameState {
   frames: Frame[];
@@ -44,7 +45,7 @@ export const useFrameStore = create<FrameState>((set, get) => ({
 
   clearFrames: async () => {
     try {
-      await window.electronAPI.clearFrames();
+      await electronAPI.clearFrames();
     } catch (error) {
       console.error('Failed to clear frames via IPC:', error);
     }

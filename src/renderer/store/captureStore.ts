@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Device } from '@shared/types';
+import { electronAPI } from '../lib/electronApi';
 
 interface CaptureState {
   devices: Device[];
@@ -38,7 +39,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
     
     set({ selectedDeviceId: deviceId, selectedDeviceType: deviceType });
     // 保存到配置
-    await window.electronAPI.setConfig({ lastDeviceId: deviceId });
+    await electronAPI.setConfig({ lastDeviceId: deviceId });
   },
   
   startCapture: async () => {
@@ -78,7 +79,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       set({ stream: newStream, isCapturing: true });
       
       // 通知主进程
-      await window.electronAPI.startCapture();
+      await electronAPI.startCapture();
     } catch (error) {
       console.error('Failed to start capture:', error);
       throw error;
@@ -93,7 +94,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
     }
     
     try {
-      await window.electronAPI.stopCapture();
+      await electronAPI.stopCapture();
     } catch (error) {
       console.error('Failed to stop capture:', error);
     }
@@ -125,7 +126,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       set({ devices: videoDevices });
       
       // 加载上次选择的设备
-      const config = await window.electronAPI.getConfig();
+      const config = await electronAPI.getConfig();
       if (config.lastDeviceId && videoDevices.find(d => d.id === config.lastDeviceId)) {
         const device = videoDevices.find(d => d.id === config.lastDeviceId);
         set({ 

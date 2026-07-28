@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useCaptureStore } from '../../store/captureStore';
 import { useUIStore } from '../../store/uiStore';
 import { useFrameStore } from '../../store/frameStore';
+import { electronAPI } from '../../lib/electronApi';
 import { Frame, DisplayResolution, PRESET_RESOLUTIONS, PRESET_SCALES } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import RegionCaptureOverlay from './RegionCaptureOverlay';
@@ -16,7 +17,6 @@ const CAPTURE_DEBOUNCE_MS = 300;
 
 const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscreen }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const captureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -218,7 +218,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
         addFrame(frame);
 
         // 写入剪贴板
-        await window.electronAPI.writeImageToClipboard(base64Frame);
+        await electronAPI.writeImageToClipboard(base64Frame);
       } catch (error) {
         console.error('Capture frame error:', error);
       }
@@ -239,109 +239,120 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     setRegionCapture(false);
   }, [setRegionCapture]);
 
+  const captureStateText = isCapturing ? '采集中' : selectedDeviceId ? '已选择设备' : '未选择设备';
+  const displayText = displayResolution
+    ? `${displayResolution.width} × ${displayResolution.height}`
+    : sourceResolution
+      ? `${sourceResolution.width} × ${sourceResolution.height}`
+      : '跟随源分辨率';
+
   return (
-    <div ref={containerRef} className={`h-full flex flex-col ${isFullscreen ? '' : ''}`}>
-      {/* 设备选择器 - 全屏模式下隐藏 */}
+    <div className="h-full min-h-0 flex flex-col relative">
       {!isFullscreen && (
-        <div className="flex items-center gap-2 mb-2">
-          <label className="text-sm text-gray-400">设备:</label>
-          <select
-            value={selectedDeviceId || ''}
-            onChange={(e) => handleDeviceChange(e.target.value)}
-            className="glass-input px-2 py-1 text-sm min-w-[200px]"
-          >
-            <option value="">选择设备...</option>
-            {devices.map((device) => (
-              <option key={device.id} value={device.id}>
-                {device.name}
-              </option>
-            ))}
-          </select>
+        <div className="mb-3 glass-subtle p-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="panel-heading">实时预览</h2>
+              <p className="panel-subheading mt-1">先选择采集设备，再通过整帧截图或区域截取整理输入素材。</p>
+            </div>
 
-          {isCapturing && (
-            <span className="px-2 py-1 glass-btn-success text-xs text-green-200 animate-pulse">
-              ● 采集中
-            </span>
-          )}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="status-chip">{captureStateText}</span>
+              <span className="status-chip">显示尺寸 {displayText}</span>
+              <span className="status-chip">双击进入全屏</span>
+              <span className="status-chip">单击可快速截图</span>
+            </div>
+          </div>
 
-          {isLoading && (
-            <span className="px-2 py-1 bg-yellow-600/40 border border-yellow-500/30 text-xs rounded text-yellow-200">
-              加载中...
-            </span>
-          )}
-
-          {selectedDeviceId && (
-            <button
-              onClick={handleStartStop}
-              className={`px-3 py-1 text-xs rounded transition-all ${isCapturing
-                  ? 'glass-btn-danger text-red-200'
-                  : 'glass-btn-primary text-white'
-                }`}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <label className="text-sm text-slate-300">采集设备</label>
+            <select
+              value={selectedDeviceId || ''}
+              onChange={(e) => handleDeviceChange(e.target.value)}
+              className="glass-input px-3 py-2 text-sm min-w-[220px]"
             >
-              {isCapturing ? '停止' : '开始'}
-            </button>
-          )}
+              <option value="">选择设备...</option>
+              {devices.map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.name}
+                </option>
+              ))}
+            </select>
 
-          {/* 截图按钮 */}
-          {stream && (
-            <>
+            {selectedDeviceId && (
               <button
-                onClick={handleCaptureFrame}
-                className="glass-btn-success px-3 py-1 text-xs text-green-200"
-                title="快捷键: Ctrl+Shift+S"
-              >
-                全屏截图
-              </button>
-              <button
-                onClick={() => setRegionCapture(!isRegionCapture)}
-                className={`px-3 py-1 text-xs rounded transition-all ${isRegionCapture
-                    ? 'glass-btn-primary text-white'
-                    : 'glass-btn text-gray-300'
+                onClick={handleStartStop}
+                className={`px-3 py-2 text-sm rounded transition-all ${isCapturing
+                    ? 'glass-btn-danger text-red-100'
+                    : 'glass-btn-primary text-white'
                   }`}
-                title="快捷键: Ctrl+Shift+R"
               >
-                {isRegionCapture ? '取消选择' : '区域截图'}
+                {isCapturing ? '停止预览' : '开始预览'}
               </button>
-            </>
-          )}
+            )}
 
-          {/* 分辨率选择 */}
-          {stream && sourceResolution && (
-            <>
-              <label className="text-sm text-gray-400">分辨率:</label>
-              <select
-                value={selectedPreset}
-                onChange={(e) => setSelectedPreset(e.target.value)}
-                className="glass-input px-2 py-1 text-sm min-w-[120px]"
-              >
-                <option value="source">源 {sourceResolution.width}x{sourceResolution.height}</option>
-                {PRESET_RESOLUTIONS.map((res, idx) => (
-                  <option key={idx} value={idx}>
-                    {res.width}x{res.height}
-                  </option>
-                ))}
-              </select>
+            {isLoading && (
+              <span className="status-chip text-amber-200 border-amber-400/30 bg-amber-500/10">正在连接设备...</span>
+            )}
 
-              <label className="text-sm text-gray-400">缩放:</label>
-              <select
-                value={selectedScale}
-                onChange={(e) => setSelectedScale(parseFloat(e.target.value))}
-                className="glass-input px-2 py-1 text-sm min-w-[80px]"
-              >
-                {PRESET_SCALES.map((scale) => (
-                  <option key={scale} value={scale}>
-                    {Math.round(scale * 100)}%
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
+            {stream && (
+              <>
+                <button
+                  onClick={handleCaptureFrame}
+                  className="glass-btn-success px-3 py-2 text-sm text-green-100"
+                  title="快捷键: Ctrl+Shift+S"
+                >
+                  截取整帧
+                </button>
+                <button
+                  onClick={() => setRegionCapture(!isRegionCapture)}
+                  className={`px-3 py-2 text-sm rounded transition-all ${isRegionCapture
+                      ? 'glass-btn-primary text-white'
+                      : 'glass-btn text-slate-200'
+                    }`}
+                  title="快捷键: Ctrl+Shift+R"
+                >
+                  {isRegionCapture ? '取消区域截取' : '区域截取'}
+                </button>
+              </>
+            )}
+
+            {stream && sourceResolution && (
+              <>
+                <label className="text-sm text-slate-300">分辨率</label>
+                <select
+                  value={selectedPreset}
+                  onChange={(e) => setSelectedPreset(e.target.value)}
+                  className="glass-input px-3 py-2 text-sm min-w-[148px]"
+                >
+                  <option value="source">源分辨率 {sourceResolution.width}×{sourceResolution.height}</option>
+                  {PRESET_RESOLUTIONS.map((res, idx) => (
+                    <option key={idx} value={idx}>
+                      {res.width}×{res.height}
+                    </option>
+                  ))}
+                </select>
+
+                <label className="text-sm text-slate-300">缩放</label>
+                <select
+                  value={selectedScale}
+                  onChange={(e) => setSelectedScale(parseFloat(e.target.value))}
+                  className="glass-input px-3 py-2 text-sm min-w-[92px]"
+                >
+                  {PRESET_SCALES.map((scale) => (
+                    <option key={scale} value={scale}>
+                      {Math.round(scale * 100)}%
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+          </div>
         </div>
       )}
 
-      {/* 视频预览 */}
       <div
-        className={`flex-1 glass-subtle shadow-glass overflow-hidden flex items-center justify-center relative ${isFullscreen ? 'rounded-none' : ''}`}
+        className={`flex-1 min-h-0 glass-subtle shadow-glass overflow-hidden flex items-center justify-center relative ${isFullscreen ? 'rounded-none' : ''}`}
         onDoubleClick={handleDoubleClick}
       >
         {error && (
@@ -350,9 +361,9 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
               <p className="text-red-400 mb-2">{error}</p>
               <button
                 onClick={() => setError(null)}
-                className="text-sm text-gray-400 hover:text-white"
+                className="glass-btn px-3 py-1.5 text-sm text-slate-200"
               >
-                关闭
+                关闭提示
               </button>
             </div>
           </div>
@@ -390,9 +401,9 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
             />
           </>
         ) : (
-          <div className="text-gray-500 text-center">
+          <div className="text-center px-6">
             <svg
-              className="w-16 h-16 mx-auto mb-4 text-gray-600"
+              className="w-16 h-16 mx-auto mb-4 text-slate-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -404,13 +415,19 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                 d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
               />
             </svg>
-            <p className="mb-2">请选择视频采集设备</p>
-            <p className="text-xs">支持 USB 采集卡或屏幕录制</p>
-            <p className="text-xs mt-2 text-gray-600">选择设备后将自动开始预览</p>
+            <p className="text-lg font-medium text-slate-100">请选择视频采集设备</p>
+            <p className="text-sm text-slate-300 mt-2">支持 USB 采集卡或屏幕录制，选择后会自动尝试建立预览。</p>
+            <p className="text-xs mt-3 text-slate-400">推荐先确认设备画面稳定，再开始整理截图。</p>
           </div>
         )}
 
-        {/* 全屏模式下的工具栏 */}
+        {stream && !isFullscreen && (
+          <div className="absolute bottom-4 left-4 flex flex-wrap items-center gap-2">
+            <span className="status-chip bg-slate-950/40 border-white/10">单击视频可快速截图</span>
+            <span className="status-chip bg-slate-950/40 border-white/10">快捷键 Ctrl+Shift+R 开始区域截取</span>
+          </div>
+        )}
+
         {isFullscreen && stream && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 glass-strong shadow-glass-lg rounded-lg">
             <button
@@ -438,10 +455,9 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
         )}
       </div>
 
-      {/* 全屏模式提示 */}
       {isFullscreen && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 glass-strong text-xs text-gray-300">
-          双击视频退出全屏 | ESC 退出 | 单击截图 | Ctrl+Shift+R 区域截图
+          双击视频退出全屏，ESC 也可退出；底部工具栏保留整帧截图和区域截取。
         </div>
       )}
     </div>
