@@ -12,7 +12,8 @@ export const IPC_CHANNELS = {
   FRAME_UPDATE: 'frame:update',
 
   // AI 相关
-  AI_EXTRACT: 'ai:extract',
+  AI_EXTRACT: 'ai:extract',                 // renderer → main (invoke)
+  AI_EXTRACT_TRIGGER: 'ai:extract:trigger', // main → renderer (event)，全局热键触发提取
   AI_RESULT: 'ai:result',
   AI_ERROR: 'ai:error',
   AI_CHAT: 'ai:chat',
@@ -62,3 +63,15 @@ export const IMAGE_PROCESSING = {
 export const FRAME_QUEUE = {
   MAX_FRAMES: 8,
 } as const;
+
+// AI 请求超时（ms）— 传给 SDK，避免使用其默认的 10 分钟超时
+export const AI_TIMEOUT = 25_000;
+
+// Toast 通知展示时长（ms）
+export const TOAST_DURATION = {
+  SUCCESS: 1500,
+  ERROR: 2500,
+} as const;
+
+// 单条聊天消息可携带的最大图片数
+export const MAX_CHAT_IMAGES = 4;

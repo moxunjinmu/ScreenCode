@@ -63,6 +63,12 @@ const electronAPI = {
     return () => ipcRenderer.removeListener(IPC_CHANNELS.CAPTURE_FRAME, listener);
   },
 
+  onExtractCode: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC_CHANNELS.AI_EXTRACT_TRIGGER, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.AI_EXTRACT_TRIGGER, listener);
+  },
+
   onConfigChanged: (callback: (config: AppConfig) => void) => {
     const listener = (_event: unknown, config: AppConfig) => callback(config);
     ipcRenderer.on(IPC_CHANNELS.CONFIG_CHANGED, listener);

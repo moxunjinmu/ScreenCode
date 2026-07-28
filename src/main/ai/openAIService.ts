@@ -1,34 +1,43 @@
 import OpenAI from 'openai';
 import { ClaudeResponse, Frame, ChatRequest } from '@shared/types';
+import { AI_TIMEOUT } from '@shared/constants';
 import { buildMultiFramePrompt } from './promptBuilder';
+import { parseExtractionResponse } from './responseParser';
+import { AIService, AIServiceOptions } from './types';
+
+const DEFAULT_MAX_TOKENS = 8192;
+const DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/coding/paas/v4';
 
 /**
  * OpenAI 兼容 API 服务
  * 支持智谱 AI Coding Plan 等使用 OpenAI 格式的 API
  */
-export class OpenAIService {
+export class OpenAIService implements AIService {
   private client: OpenAI;
   private model: string = 'glm-4.7';
-  private maxTokens: number = 8192;
+  private maxTokens: number;
+  private temperature?: number;
   private baseUrl: string;
 
-  constructor(
-    apiKey: string,
-    model?: string,
-    baseUrl?: string
-  ) {
-    this.baseUrl = baseUrl || 'https://open.bigmodel.cn/api/coding/paas/v4';
+  constructor(options: AIServiceOptions) {
+    this.baseUrl = options.baseUrl || DEFAULT_BASE_URL;
+    this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+    this.temperature = options.temperature;
 
     this.client = new OpenAI({
-      apiKey: apiKey,
+      apiKey: options.apiKey,
       baseURL: this.baseUrl,
+      timeout: options.timeout ?? AI_TIMEOUT,
     });
 
-    if (model) {
-      this.model = model;
+    if (options.model) {
+      this.model = options.model;
     }
 
-    console.log(`[OpenAIService] Initialized with baseUrl: ${this.baseUrl}, model: ${this.model}`);
+    console.log(
+      `[OpenAIService] Initialized: baseUrl=${this.baseUrl}, model=${this.model}, ` +
+      `maxTokens=${this.maxTokens}, temperature=${this.temperature ?? 'default'}`
+    );
   }
 
   /**
@@ -57,6 +66,7 @@ export class OpenAIService {
       const response = await this.client.chat.completions.create({
         model: this.model,
         max_tokens: this.maxTokens,
+        ...(this.temperature !== undefined && { temperature: this.temperature }),
         messages: [
           {
             role: 'system',
@@ -74,10 +84,7 @@ export class OpenAIService {
 
       console.log(`[OpenAIService] Response received, length: ${responseText.length}`);
 
-      // 解析 JSON 响应
-      const result = this.parseResponse(responseText);
-
-      return result;
+      return parseExtractionResponse(responseText);
     } catch (error) {
       console.error('[OpenAIService] API error:', error);
       throw error;
@@ -135,6 +142,7 @@ export class OpenAIService {
       const response = await this.client.chat.completions.create({
         model: this.model,
         max_tokens: this.maxTokens,
+        ...(this.temperature !== undefined && { temperature: this.temperature }),
         messages,
       });
 
@@ -147,47 +155,6 @@ export class OpenAIService {
       console.error('[OpenAIService] Chat error:', error);
       throw error;
     }
-  }
-
-  /**
-   * 解析 API 响应
-   */
-  private parseResponse(text: string): ClaudeResponse {
-    try {
-      // 尝试提取 JSON
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          language: parsed.language || 'unknown',
-          code: parsed.code || '',
-          confidence: parsed.confidence || 0.5,
-          explanation: parsed.explanation,
-        };
-      }
-
-      // 如果没有找到 JSON，返回原始文本作为代码
-      return {
-        language: 'text',
-        code: text,
-        confidence: 0.3,
-      };
-    } catch (error) {
-      console.error('[OpenAIService] Failed to parse response:', error);
-      return {
-        language: 'text',
-        code: text,
-        confidence: 0.3,
-      };
-    }
-  }
-
-  /**
-   * 设置模型
-   */
-  setModel(model: string): void {
-    this.model = model;
-    console.log(`[OpenAIService] Model set to: ${model}`);
   }
 
   /**

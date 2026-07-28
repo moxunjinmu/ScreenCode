@@ -9,40 +9,47 @@ import { useCaptureStore } from './store/captureStore';
 import { useFrameStore } from './store/frameStore';
 import { useAppStore } from './store/appStore';
 import { useUIStore } from './store/uiStore';
+import { electronAPI } from './lib/electronApi';
 import { Frame } from '@shared/types';
+import { FRAME_QUEUE, TOAST_DURATION } from '@shared/constants';
 import { v4 as uuidv4 } from 'uuid';
 
 const App: React.FC = () => {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [chatWidth, setChatWidth] = useState(350);
+  const [chatWidth, setChatWidth] = useState(360);
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { loadDevices, captureFrame, stream } = useCaptureStore();
-  const { addFrame, frames } = useFrameStore();
-  const { setCodeResult, setError, setProcessing } = useAppStore();
+  const { addFrame } = useFrameStore();
+  const { setCodeResult, setError, setProcessing, extractCode } = useAppStore();
   const { isFullscreenPreview, toggleFullscreenPreview, isChatPanelOpen, toggleChatPanel, setChatPanelOpen } = useUIStore();
 
   // 关闭阈值宽度
-  const CLOSE_THRESHOLD = 200;
-  // 最小宽度
-  const MIN_WIDTH = 280;
-  // 最大宽度比例
-  const MAX_WIDTH_RATIO = 0.6;
+  const CLOSE_THRESHOLD = 240;
+  const MIN_WIDTH = 320;
+  const MAX_WIDTH_RATIO = 0.42;
+
+  // 弹出 Toast 并按类型自动消失
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(
+      () => setToast(null),
+      type === 'success' ? TOAST_DURATION.SUCCESS : TOAST_DURATION.ERROR
+    );
+  }, []);
 
   // 截图处理函数
   const handleCaptureFrame = useCallback(async () => {
     if (!stream) {
-      setToast({ message: '请先启动视频采集', type: 'error' });
-      setTimeout(() => setToast(null), 2000);
+      showToast('请先启动视频采集', 'error');
       return;
     }
 
     try {
       const base64Frame = await captureFrame();
       if (!base64Frame) {
-        setToast({ message: '截图失败', type: 'error' });
-        setTimeout(() => setToast(null), 2000);
+        showToast('截图失败', 'error');
         return;
       }
 
@@ -58,46 +65,54 @@ const App: React.FC = () => {
       // 添加到队列
       addFrame(frame);
 
-      setToast({ message: `截图已入队 (${frames.length + 1}/8)`, type: 'success' });
-      setTimeout(() => setToast(null), 1500);
+      // 直接读最新队列长度，避免把 frames 放进依赖导致事件监听反复重建
+      const queued = useFrameStore.getState().frames.length;
+      showToast(`截图已入队 (${queued}/${FRAME_QUEUE.MAX_FRAMES})`, 'success');
     } catch (error) {
       console.error('Capture frame error:', error);
-      setToast({ message: '截图失败', type: 'error' });
-      setTimeout(() => setToast(null), 2000);
+      showToast('截图失败', 'error');
     }
-  }, [stream, captureFrame, addFrame, frames.length]);
+  }, [stream, captureFrame, addFrame, showToast]);
 
   useEffect(() => {
     // 加载设备列表
     loadDevices();
 
-    // 监听截图事件 (来自全局热键)
-    const unsubscribeCapture = window.electronAPI.onCaptureFrame(() => {
+    // 监听截图事件 (来自全局热键 Ctrl+Shift+S)
+    const unsubscribeCapture = electronAPI.onCaptureFrame(() => {
       handleCaptureFrame();
     });
 
+    // 监听代码提取事件 (来自全局热键 Ctrl+Shift+E)
+    const unsubscribeExtract = electronAPI.onExtractCode(() => {
+      if (useFrameStore.getState().frames.length === 0) {
+        showToast('帧队列为空，请先截图', 'error');
+        return;
+      }
+      extractCode();
+    });
+
     // 监听 AI 结果
-    const unsubscribeAI = window.electronAPI.onAIResult((result) => {
+    const unsubscribeAI = electronAPI.onAIResult((result) => {
       setCodeResult(result);
       setProcessing(false);
-      setToast({ message: '代码提取完成', type: 'success' });
-      setTimeout(() => setToast(null), 2000);
+      showToast('代码提取完成', 'success');
     });
 
     // 监听错误
-    const unsubscribeError = window.electronAPI.onError((error) => {
+    const unsubscribeError = electronAPI.onError((error) => {
       setError(error);
       setProcessing(false);
-      setToast({ message: error.message, type: 'error' });
-      setTimeout(() => setToast(null), 3000);
+      showToast(error.message, 'error');
     });
 
     return () => {
       unsubscribeCapture();
+      unsubscribeExtract();
       unsubscribeAI();
       unsubscribeError();
     };
-  }, [loadDevices, setCodeResult, setError, setProcessing, handleCaptureFrame]);
+  }, [loadDevices, setCodeResult, setError, setProcessing, handleCaptureFrame, extractCode, showToast]);
 
   // 拖拽处理
   const handleMouseDown = () => {
@@ -148,37 +163,32 @@ const App: React.FC = () => {
   // 全屏预览模式布局
   if (isFullscreenPreview) {
     return (
-      <div className="h-screen flex text-white">
-        {/* 全屏视频预览 */}
-        <div className="flex-1 relative">
+      <div className="h-screen flex gap-3 p-3 text-white">
+        <div className="flex-1 min-w-0 relative">
           <Preview isFullscreen={true} onToggleFullscreen={toggleFullscreenPreview} />
         </div>
 
-        {/* 打开聊天面板按钮 */}
         {!isChatPanelOpen && (
           <button
             onClick={toggleChatPanel}
-            className="absolute right-0 top-1/2 -translate-y-1/2 bg-primary-600/50 backdrop-blur-md border border-primary-500/30 border-r-0 hover:bg-primary-600/70 text-white px-2 py-4 rounded-l-lg shadow-glass-glow transition-all duration-300 z-10"
+            className="absolute right-6 top-6 glass-btn-primary px-4 py-2 text-sm text-white z-10"
             title="打开聊天面板"
           >
-            ◀
+            打开 AI 对话
           </button>
         )}
 
-        {/* 聊天面板容器（带动画） */}
-        <div
-          className={`transition-all duration-300 ease-in-out overflow-hidden ${isChatPanelOpen ? 'opacity-100' : 'opacity-0 w-0'}`}
-          style={{ width: isChatPanelOpen ? chatWidth : 0 }}
-        >
-          {/* 拖拽分隔条 */}
-          <div
-            onMouseDown={handleMouseDown}
-            className={`w-1 h-full bg-white/[0.10] hover:bg-primary-500/50 cursor-col-resize transition-all float-left ${isDragging ? 'bg-primary-500/60' : ''}`}
-          />
-          <div className="h-full float-right" style={{ width: chatWidth - 4 }}>
-            <ChatPanel width={chatWidth - 4} onClose={toggleChatPanel} />
+        {isChatPanelOpen && (
+          <div className="shrink-0 flex" style={{ width: chatWidth }}>
+            <div
+              onMouseDown={handleMouseDown}
+              className={`w-1 h-full rounded-full bg-white/[0.10] hover:bg-primary-500/50 cursor-col-resize transition-all shrink-0 ${isDragging ? 'bg-primary-500/60' : ''}`}
+            />
+            <div className="h-full shrink-0" style={{ width: chatWidth - 4 }}>
+              <ChatPanel width={chatWidth - 4} onClose={toggleChatPanel} />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Toast 通知 */}
         {toast && <Toast message={toast.message} type={toast.type} />}
@@ -189,55 +199,45 @@ const App: React.FC = () => {
   // 正常布局
   return (
     <Layout>
-      <div ref={containerRef} className="flex h-full">
-        {/* 左侧主区域 */}
-        <div className="flex-1 flex flex-col gap-4 p-4 min-w-0 relative">
-          {/* 实时预览 */}
-          <section className="flex-1 min-h-[200px]">
+      <div ref={containerRef} className="flex h-full min-h-0 gap-3 p-3 xl:gap-4 xl:p-4">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col gap-4 relative">
+          <section className="flex-[1.1] min-h-[250px] min-w-0">
             <Preview />
           </section>
 
-          {/* 缩略图队列 */}
-          <section className="h-24">
+          <section className="h-32 min-h-[128px]">
             <ThumbnailQueue onCaptureFrame={handleCaptureFrame} />
           </section>
 
-          {/* 代码展示 */}
-          <section className="flex-1 min-h-[200px]">
+          <section className="flex-1 min-h-[220px] min-w-0">
             <CodeDisplay />
           </section>
 
-          {/* 打开聊天面板按钮 */}
           {!isChatPanelOpen && (
             <button
               onClick={toggleChatPanel}
-              className="absolute right-0 top-1/2 -translate-y-1/2 bg-primary-600/50 backdrop-blur-md border border-primary-500/30 border-r-0 hover:bg-primary-600/70 text-white px-2 py-4 rounded-l-lg shadow-glass-glow transition-all duration-300 z-10"
+              className="absolute top-4 right-4 glass-btn-primary px-4 py-2 text-sm text-white z-10"
               title="打开聊天面板"
             >
-              ◀
+              打开 AI 对话
             </button>
           )}
         </div>
 
-        {/* 聊天面板容器（带动画） */}
-        <div
-          className={`transition-all duration-300 ease-in-out overflow-hidden flex ${isChatPanelOpen ? 'opacity-100' : 'opacity-0 w-0'}`}
-          style={{ width: isChatPanelOpen ? chatWidth : 0 }}
-        >
-          {/* 拖拽分隔条 */}
-          <div
-            onMouseDown={handleMouseDown}
-            className={`w-1 h-full bg-white/[0.10] hover:bg-primary-500/50 cursor-col-resize transition-all shrink-0 ${isDragging ? 'bg-primary-500/60' : ''}`}
-          />
+        {isChatPanelOpen && (
+          <div className="shrink-0 flex" style={{ width: chatWidth }}>
+            <div
+              onMouseDown={handleMouseDown}
+              className={`w-1 h-full rounded-full bg-white/[0.10] hover:bg-primary-500/50 cursor-col-resize transition-all shrink-0 ${isDragging ? 'bg-primary-500/60' : ''}`}
+            />
 
-          {/* 聊天面板内容 */}
-          <div className="h-full shrink-0" style={{ width: chatWidth - 4 }}>
-            <ChatPanel width={chatWidth - 4} onClose={toggleChatPanel} />
+            <div className="h-full shrink-0" style={{ width: chatWidth - 4 }}>
+              <ChatPanel width={chatWidth - 4} onClose={toggleChatPanel} />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Toast 通知 */}
       {toast && <Toast message={toast.message} type={toast.type} />}
     </Layout>
   );

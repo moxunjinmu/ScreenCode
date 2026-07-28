@@ -1,35 +1,43 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ClaudeResponse, Frame, ClaudeModel, DEFAULT_API_BASE_URL, ChatRequest } from '@shared/types';
+import { AI_TIMEOUT } from '@shared/constants';
 import { buildMultiFramePrompt } from './promptBuilder';
+import { parseExtractionResponse } from './responseParser';
+import { AIService, AIServiceOptions } from './types';
+
+const DEFAULT_MAX_TOKENS = 8192;
 
 /**
  * Claude API 服务
  * 支持最新的 Claude Opus 4.6 和 Sonnet 4.6 模型
  * 支持第三方中转 API
  */
-export class ClaudeService {
+export class ClaudeService implements AIService {
   private client: Anthropic;
   private model: ClaudeModel | string = 'claude-sonnet-4-6';
-  private maxTokens: number = 8192;
+  private maxTokens: number;
+  private temperature?: number;
   private baseUrl: string;
 
-  constructor(
-    apiKey: string,
-    model?: ClaudeModel | string,
-    baseUrl?: string
-  ) {
-    this.baseUrl = baseUrl || DEFAULT_API_BASE_URL;
+  constructor(options: AIServiceOptions) {
+    this.baseUrl = options.baseUrl || DEFAULT_API_BASE_URL;
+    this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+    this.temperature = options.temperature;
 
     this.client = new Anthropic({
-      apiKey: apiKey,
+      apiKey: options.apiKey,
       baseURL: this.baseUrl,
+      timeout: options.timeout ?? AI_TIMEOUT,
     });
 
-    if (model) {
-      this.model = model;
+    if (options.model) {
+      this.model = options.model;
     }
 
-    console.log(`[ClaudeService] Initialized with baseUrl: ${this.baseUrl}, model: ${this.model}`);
+    console.log(
+      `[ClaudeService] Initialized: baseUrl=${this.baseUrl}, model=${this.model}, ` +
+      `maxTokens=${this.maxTokens}, temperature=${this.temperature ?? 'default'}`
+    );
   }
 
   /**
@@ -61,6 +69,7 @@ export class ClaudeService {
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: this.maxTokens,
+        ...(this.temperature !== undefined && { temperature: this.temperature }),
         system: systemPrompt,
         messages: [
           {
@@ -76,10 +85,7 @@ export class ClaudeService {
 
       console.log(`[ClaudeService] Response received, length: ${responseText.length}`);
 
-      // 解析 JSON 响应
-      const result = this.parseResponse(responseText);
-
-      return result;
+      return parseExtractionResponse(responseText);
     } catch (error) {
       console.error('[ClaudeService] API error:', error);
       throw error;
@@ -123,6 +129,7 @@ export class ClaudeService {
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: this.maxTokens,
+        ...(this.temperature !== undefined && { temperature: this.temperature }),
         system: request.systemPrompt || '你是一个有帮助的AI助手，能够识别图片中的代码和文字。',
         messages,
       });
@@ -137,47 +144,6 @@ export class ClaudeService {
       console.error('[ClaudeService] Chat error:', error);
       throw error;
     }
-  }
-
-  /**
-   * 解析 API 响应
-   */
-  private parseResponse(text: string): ClaudeResponse {
-    try {
-      // 尝试提取 JSON
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          language: parsed.language || 'unknown',
-          code: parsed.code || '',
-          confidence: parsed.confidence || 0.5,
-          explanation: parsed.explanation,
-        };
-      }
-
-      // 如果没有找到 JSON，返回原始文本作为代码
-      return {
-        language: 'text',
-        code: text,
-        confidence: 0.3,
-      };
-    } catch (error) {
-      console.error('[ClaudeService] Failed to parse response:', error);
-      return {
-        language: 'text',
-        code: text,
-        confidence: 0.3,
-      };
-    }
-  }
-
-  /**
-   * 设置模型
-   */
-  setModel(model: ClaudeModel | string): void {
-    this.model = model;
-    console.log(`[ClaudeService] Model set to: ${model}`);
   }
 
   /**

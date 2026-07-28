@@ -1,3 +1,5 @@
+/// <reference types="@electron-forge/plugin-vite/forge-vite-env" />
+
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage } from 'electron';
 import path from 'path';
 import { IPC_CHANNELS, SHORTCUTS } from '@shared/constants';
@@ -35,6 +37,7 @@ function createWindow() {
   console.log('=== Electron Main Process ===');
   console.log('__dirname:', __dirname);
   console.log('preload path:', preloadPath);
+  console.log('dev server url:', typeof MAIN_WINDOW_VITE_DEV_SERVER_URL === 'string' ? MAIN_WINDOW_VITE_DEV_SERVER_URL : '');
   
   mainWindow = new BrowserWindow({
     width: 800,
@@ -50,14 +53,20 @@ function createWindow() {
     trafficLightPosition: { x: 15, y: 15 },
   });
 
-  // 开发模式加载开发服务器
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:52000');
-    // 打开开发者工具
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
     mainWindow.webContents.openDevTools({ mode: 'right' });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/main_window/index.html'));
+    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('[mainWindow] did-fail-load:', { errorCode, errorDescription, validatedURL });
+  });
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[mainWindow] render-process-gone:', details);
+  });
 
   // 窗口准备好后显示
   mainWindow.once('ready-to-show', () => {
@@ -77,8 +86,10 @@ function registerShortcuts() {
   });
 
   // 代码提取快捷键
+  // 注意：AI_EXTRACT 是 renderer → main 的 invoke 通道，不能复用为事件推送，
+  // 否则渲染进程无人接收。此处走独立的 AI_EXTRACT_TRIGGER 事件通道。
   globalShortcut.register(SHORTCUTS.EXTRACT_CODE, () => {
-    mainWindow?.webContents.send(IPC_CHANNELS.AI_EXTRACT);
+    mainWindow?.webContents.send(IPC_CHANNELS.AI_EXTRACT_TRIGGER);
   });
 
   // 打开主窗口快捷键

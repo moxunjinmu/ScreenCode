@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useFrameStore } from '../../store/frameStore';
 import { useCaptureStore } from '../../store/captureStore';
+import { FRAME_QUEUE } from '@shared/constants';
 
 interface ThumbnailQueueProps {
   onCaptureFrame: () => void;
@@ -17,12 +18,10 @@ const FullscreenPreview: React.FC<{
       className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
       onClick={onClose}
     >
-      {/* 关闭提示 */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 text-gray-400 text-sm">
-        点击任意处关闭 | 帧 {index + 1}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 status-chip bg-black/40">
+        查看帧 {index + 1}，点击空白处关闭
       </div>
 
-      {/* 图片 */}
       <img
         src={imageUrl}
         alt={`帧 ${index + 1} 全屏预览`}
@@ -30,12 +29,11 @@ const FullscreenPreview: React.FC<{
         onClick={(e) => e.stopPropagation()}
       />
 
-      {/* 关闭按钮 */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full glass-heavy bg-red-600/50 hover:bg-red-500/70 text-white text-xl transition-all"
+        className="absolute top-4 right-4 glass-btn-danger px-3 py-2 text-sm text-white"
       >
-        ✕
+        关闭
       </button>
     </div>
   );
@@ -78,19 +76,22 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
 
   return (
     <>
-      <div className="h-full flex flex-col">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm text-gray-400">
-            帧队列 ({frames.length}/8)
+      <div className="h-full glass-subtle p-3 flex flex-col">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+          <div>
+            <h3 className="panel-heading">帧队列</h3>
+            <p className="panel-subheading mt-1">保留关键画面，选中的帧会作为代码提取与 AI 对话的输入素材。</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="status-chip">已缓存 {frames.length}/{FRAME_QUEUE.MAX_FRAMES} 帧</span>
             {selectedFrameIds.length > 0 && (
-              <span className="ml-2 text-primary-400">已选 {selectedFrameIds.length}</span>
+              <span className="status-chip text-sky-200 border-sky-400/30 bg-sky-500/10">已选 {selectedFrameIds.length} 帧</span>
             )}
-          </h3>
-          <div className="flex items-center gap-2">
             {!isEmpty() && (
               <button
                 onClick={clearFrames}
-                className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                className="glass-btn-danger px-3 py-1.5 text-xs text-red-100"
               >
                 清空
               </button>
@@ -98,24 +99,24 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
             <button
               onClick={onCaptureFrame}
               disabled={!stream || isFull()}
-              className={`px-3 py-1 text-xs rounded transition-all ${
+              className={`px-3 py-1.5 text-xs rounded transition-all ${
                 !stream || isFull()
-                  ? 'bg-white/[0.04] text-gray-500 cursor-not-allowed border border-white/[0.06]'
+                  ? 'bg-white/[0.04] text-slate-500 cursor-not-allowed border border-white/[0.06]'
                   : 'glass-btn-primary text-white'
               }`}
               title={!stream ? '请先启动视频采集' : isFull() ? '队列已满' : '截图 (Ctrl+Shift+S)'}
             >
-              📷 截图
+              添加截图
             </button>
           </div>
         </div>
 
         <div className="flex-1 flex gap-2 overflow-x-auto">
           {isEmpty() ? (
-            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+            <div className="flex-1 rounded-xl border border-dashed border-white/10 bg-white/[0.03] flex items-center justify-center text-sm">
               <div className="text-center">
-                <p>按 <kbd className="glass-kbd">Ctrl+Shift+S</kbd> 截图</p>
-                <p className="text-xs mt-1 text-gray-600">或点击上方按钮</p>
+                <p className="text-slate-200">按 <kbd className="glass-kbd px-1.5 py-0.5">Ctrl+Shift+S</kbd> 抓取当前画面</p>
+                <p className="text-xs mt-2 text-slate-400">也可以在预览区单击截图，或使用上方按钮补充关键帧。</p>
               </div>
             </div>
           ) : (
@@ -126,65 +127,61 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
                   <div
                     key={frame.id}
                     onClick={(e) => handleToggleSelect(frame.id, e)}
-                    className={`relative flex-shrink-0 w-20 h-full bg-white/[0.06] backdrop-blur-sm rounded-lg overflow-hidden border-2 transition-all cursor-pointer group ${
+                    className={`relative flex-shrink-0 w-32 h-full rounded-xl overflow-hidden border transition-all cursor-pointer group ${
                       isSelected
-                        ? 'border-primary-500/60 ring-2 ring-primary-500/30 shadow-glass-glow'
-                        : 'border-white/[0.08] hover:border-primary-500/40 hover:shadow-glass-glow'
+                        ? 'border-primary-500/60 ring-2 ring-primary-500/20 shadow-glass-glow bg-sky-500/5'
+                        : 'border-white/[0.08] hover:border-primary-500/40 bg-white/[0.03]'
                     }`}
                   >
-                    <img
-                      src={`data:image/jpeg;base64,${frame.data}`}
-                      alt={`帧 ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+                    <div className="relative h-[calc(100%-34px)]">
+                      <img
+                        src={`data:image/jpeg;base64,${frame.data}`}
+                        alt={`帧 ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
 
-                    {/* 选中指示器 */}
-                    {isSelected && (
-                      <div className="absolute top-1 left-1 w-4 h-4 bg-primary-500/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-glass-glow">
-                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
+                      {isSelected && (
+                        <div className="absolute top-2 left-2 px-2 py-1 rounded-full bg-sky-500/80 text-[11px] font-medium text-white shadow-glass-glow">
+                          已选
+                        </div>
+                      )}
+
+                      <div className="absolute inset-x-0 bottom-0 px-2 py-1.5 bg-gradient-to-t from-slate-950/90 to-transparent text-[11px] text-slate-200">
+                        帧 {index + 1}
                       </div>
-                    )}
-
-                    {/* 序号 */}
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/40 backdrop-blur-sm text-xs text-center py-0.5">
-                      {index + 1}
                     </div>
 
-                    {/* 删除按钮 */}
-                    <button
-                      onClick={(e) => handleRemove(frame.id, e)}
-                      className="absolute top-0 right-0 w-5 h-5 bg-red-500/70 backdrop-blur-sm hover:bg-red-400/90 rounded-bl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all text-xs z-10"
-                      title="删除帧"
-                    >
-                      ✕
-                    </button>
-
-                    {/* 放大图标 */}
-                    <div
-                      onClick={(e) => handlePreview(frame, index, e)}
-                      className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ zIndex: 1 }}
-                    >
-                      <span className="text-2xl">🔍</span>
+                    <div className="h-[34px] px-2 flex items-center justify-between bg-slate-950/35 border-t border-white/[0.06] text-[11px] text-slate-300">
+                      <button
+                        onClick={(e) => handlePreview(frame, index, e)}
+                        className="hover:text-white transition-colors"
+                      >
+                        查看
+                      </button>
+                      <button
+                        onClick={(e) => handleRemove(frame.id, e)}
+                        className="hover:text-red-300 transition-colors"
+                        title="删除帧"
+                      >
+                        删除
+                      </button>
                     </div>
                   </div>
                 );
               })}
 
-              {/* 空占位符 */}
               {!isFull() && (
                 <button
                   onClick={onCaptureFrame}
                   disabled={!stream}
-                  className={`flex-shrink-0 w-20 h-full border-2 border-dashed rounded-lg flex items-center justify-center transition-all ${
+                  className={`flex-shrink-0 w-32 h-full border border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${
                     stream
-                      ? 'border-white/[0.10] hover:border-primary-500/40 hover:bg-white/[0.04] text-gray-400 hover:text-primary-400'
-                      : 'border-white/[0.06] text-gray-600 cursor-not-allowed'
+                      ? 'border-white/[0.10] hover:border-primary-500/40 hover:bg-white/[0.04] text-slate-300'
+                      : 'border-white/[0.06] text-slate-500 cursor-not-allowed'
                   }`}
                 >
-                  <span className="text-2xl">+</span>
+                  <span className="text-sm font-medium">继续添加</span>
+                  <span className="text-[11px] mt-1 text-slate-400">保留更多关键帧</span>
                 </button>
               )}
             </>

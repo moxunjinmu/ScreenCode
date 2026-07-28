@@ -1,22 +1,15 @@
 import { IpcMain } from 'electron';
 import { IPC_CHANNELS } from '@shared/constants';
-import { ClaudeResponse, Frame, ChatRequest } from '@shared/types';
+import { ClaudeResponse, Frame, ChatRequest, ProviderConfig } from '@shared/types';
 import { ClaudeService } from './claudeService';
 import { OpenAIService } from './openAIService';
+import { AIService, AIServiceOptions } from './types';
 import { getMainWindow } from '../index';
 import { getActiveProviderConfig } from '../config/store';
 
-// 服务实例
-let claudeService: ClaudeService | null = null;
-let openAIService: OpenAIService | null = null;
-
-// 统一的服务接口
-interface AIService {
-  extractCode(frames: Frame[]): Promise<ClaudeResponse>;
-  chat(request: ChatRequest): Promise<{ content: string }>;
-  getModel(): string;
-  getBaseUrl(): string;
-}
+// 缓存的服务实例及其对应的配置签名
+let cachedService: AIService | null = null;
+let cachedSignature = '';
 
 // 设置 AI 相关的 IPC 处理器
 export function setupAIHandlers(ipcMain: IpcMain) {
@@ -52,35 +45,51 @@ function isOpenAICompatible(baseUrl: string, sdkType?: 'anthropic' | 'openai'): 
 }
 
 /**
- * 获取或创建 AI 服务实例（根据 API 类型自动选择）
+ * 计算配置签名 — 任一字段变化都必须重建服务实例。
+ * 尤其是 apiKey：SDK 客户端在构造时固化凭据，仅比对 model/baseUrl 会导致
+ * 用户更新 Key 后仍用旧 Key 发起请求。
+ */
+function buildSignature(config: ProviderConfig): string {
+  const model = config.customModel || config.model;
+  return [
+    config.apiKey,
+    config.baseUrl,
+    model,
+    config.maxTokens,
+    config.temperature,
+    config.sdkType,
+  ].join('|');
+}
+
+/**
+ * 获取或创建 AI 服务实例（根据 API 类型自动选择，配置变更时自动重建）
  */
 function getAIService(): AIService {
   const providerConfig = getActiveProviderConfig();
-  const apiKey = providerConfig.apiKey;
-  const baseUrl = providerConfig.baseUrl;
-  const model = providerConfig.customModel || providerConfig.model;
-  const sdkType = providerConfig.sdkType;
+  const signature = buildSignature(providerConfig);
 
-  // 判断是否使用 OpenAI 格式
-  if (isOpenAICompatible(baseUrl, sdkType)) {
-    // 使用 OpenAI 服务
-    if (!openAIService ||
-        openAIService.getModel() !== model ||
-        openAIService.getBaseUrl() !== baseUrl) {
-      console.log(`[AI] Creating OpenAI service with baseUrl: ${baseUrl}, model: ${model}, sdkType: ${sdkType || 'auto'}`);
-      openAIService = new OpenAIService(apiKey, model, baseUrl);
-    }
-    return openAIService;
-  } else {
-    // 使用 Anthropic 服务
-    if (!claudeService ||
-        claudeService.getModel() !== model ||
-        claudeService.getBaseUrl() !== baseUrl) {
-      console.log(`[AI] Creating Claude service with baseUrl: ${baseUrl}, model: ${model}, sdkType: ${sdkType || 'auto'}`);
-      claudeService = new ClaudeService(apiKey, model, baseUrl);
-    }
-    return claudeService;
+  if (cachedService && signature === cachedSignature) {
+    return cachedService;
   }
+
+  const options: AIServiceOptions = {
+    apiKey: providerConfig.apiKey,
+    baseUrl: providerConfig.baseUrl,
+    model: providerConfig.customModel || providerConfig.model,
+    maxTokens: providerConfig.maxTokens,
+    temperature: providerConfig.temperature,
+  };
+
+  const useOpenAI = isOpenAICompatible(providerConfig.baseUrl, providerConfig.sdkType);
+  console.log(
+    `[AI] Creating ${useOpenAI ? 'OpenAI' : 'Claude'} service: ` +
+    `baseUrl=${options.baseUrl}, model=${options.model}, sdkType=${providerConfig.sdkType || 'auto'}`
+  );
+
+  cachedService = useOpenAI ? new OpenAIService(options) : new ClaudeService(options);
+  cachedSignature = signature;
+
+  return cachedService;
 }
 
 /**
@@ -146,12 +155,13 @@ async function extractCode(frames: Frame[]): Promise<ClaudeResponse> {
 }
 
 /**
- * 重置服务（用于更新 API Key、模型或 Base URL）
+ * 强制重置服务实例。
+ * 常规配置变更由 getAIService 的签名比对自动处理，此处仅供外部显式失效使用。
  */
 export function resetService(): void {
   console.log('[AI] Resetting AI services');
-  claudeService = null;
-  openAIService = null;
+  cachedService = null;
+  cachedSignature = '';
 }
 
 /**

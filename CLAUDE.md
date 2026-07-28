@@ -71,13 +71,19 @@ src/
 
 ### 关键模块
 
-**帧处理流水线** (`src/main/processor/`):
+**帧处理流水线** (`src/main/processor/`) — ⚠️ 当前整体未接入数据流:
 - `ringBuffer.ts`: 泛型环形缓冲区，最多 8 帧
 - `frameDiff.ts`: 帧差分（当前返回固定值 0.3，待实现像素级对比）
 - `imageCompressor.ts`: Sharp 压缩（1080p → 768px, JPEG Q=85, lanczos3）
+- **已知问题**：渲染进程从不调用 `FRAME_ADD`，帧队列实际只存在于 `frameStore`（渲染进程），
+  `extractCode` 直接把渲染进程的原始帧送往 API。**Sharp 压缩尚未实际执行**，
+  发送给模型的是 canvas 原始分辨率 JPEG。待第二批优化接入。
 
 **AI 服务** (`src/main/ai/`):
-- `index.ts`: 服务调度层，`isOpenAICompatible(baseUrl)` 自动路由 SDK
+- `index.ts`: 服务调度层，`isOpenAICompatible(baseUrl, sdkType)` 路由 SDK；
+  按配置签名（apiKey/baseUrl/model/maxTokens/temperature/sdkType）缓存与重建服务实例
+- `types.ts`: `AIService` 统一接口 + `AIServiceOptions` 构造参数
+- `responseParser.ts`: 共享的提取结果解析（JSON 优先，失败降级为纯文本）
 - `claudeService.ts`: Anthropic SDK 封装
 - `openAIService.ts`: OpenAI SDK 封装
 - `promptBuilder.ts`: 结构化多帧 Prompt，含帧元数据和时序关系
@@ -96,6 +102,7 @@ src/
 | `CONFIG_GET` / `CONFIG_SET` | renderer → main | invoke | 配置读写 |
 | `CONFIG_CHANGED` | main → renderer | event | 配置变更推送 |
 | `AI_EXTRACT` | renderer → main | invoke | 代码提取 |
+| `AI_EXTRACT_TRIGGER` | main → renderer | event | 全局热键触发提取（不可与 `AI_EXTRACT` 复用） |
 | `AI_CHAT` | renderer → main | invoke | AI 聊天 |
 | `AI_RESULT` / `AI_ERROR` | main → renderer | event | AI 结果/错误 |
 | `CAPTURE_START` / `CAPTURE_STOP` | renderer → main | invoke | 视频采集控制 |
@@ -154,7 +161,9 @@ interface ProviderConfig {
 
 **截图入队**: Ctrl+Shift+S → 捕获帧 → 帧差分(<5%丢弃) → Sharp压缩 → RingBuffer → Toast通知
 
-**代码提取**: Ctrl+Shift+E → 取RingBuffer所有帧 → 构建结构化Prompt → AI API → 解析JSON `{language, code, confidence}`
+**代码提取**: Ctrl+Shift+E → 主进程发 `AI_EXTRACT_TRIGGER` → 渲染进程 `appStore.extractCode()`
+（热键与「提取代码」按钮共用此入口）→ 取 frameStore 所有帧 → 构建结构化Prompt → AI API
+→ 解析JSON `{language, code, confidence}` → 经 `AI_RESULT` 事件回流
 
 **会话管理**: 多会话(新建/切换/删除)，标题取首条消息前20字符，数据存于内存(Zustand)
 
@@ -168,7 +177,7 @@ interface ProviderConfig {
 | 构建 | Electron Forge + Vite |
 | 前端 | React 18 + TypeScript + TailwindCSS |
 | 状态 | Zustand (5个Store) |
-| 图像 | Sharp Native (降低 token 成本 65%) |
+| 图像 | Sharp Native（⚠️ 已集成但未接入流水线，压缩尚未实际生效） |
 | AI | @anthropic-ai/sdk + openai (双SDK自动路由) |
 | 存储 | electron-store |
 
@@ -177,12 +186,14 @@ interface ProviderConfig {
 | 约束 | 值 | 来源 |
 |------|-----|------|
 | Ring Buffer 最大容量 | 8 帧 | `FRAME_QUEUE.MAX_FRAMES` |
-| 帧差分阈值 | 5% | `frameDiffThreshold` |
-| 图像压缩目标宽度 | 768px | `compressionWidth` |
-| JPEG 质量 | 85 | `compressionQuality` |
-| AI API 超时 | 25 秒 | `AI_TIMEOUT` |
-| Toast 通知时长 | 1.5 秒 | `TOAST_DURATION` |
+| 帧差分阈值 | 5% | `frameDiffThreshold`（⚠️ 当前未生效，`frameDiff` 返回固定值） |
+| 图像压缩目标宽度 | 768px | `compressionWidth`（⚠️ 当前未生效，压缩未接入） |
+| JPEG 质量 | 85 | `compressionQuality`（⚠️ 同上；截图实际由 canvas 以 0.85 编码） |
+| AI API 超时 | 25 秒 | `AI_TIMEOUT`，构造 SDK 时传入 |
+| Toast 通知时长 | 成功 1.5s / 失败 2.5s | `TOAST_DURATION.SUCCESS` / `.ERROR` |
 | 聊天图片上限 | 4 张/消息 | `MAX_CHAT_IMAGES` |
+
+所有常量定义于 `src/shared/constants.ts`，禁止在组件内硬编码。
 
 ## 开发注意事项
 
