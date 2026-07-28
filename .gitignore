@@ -45,3 +45,14 @@ temp/
 # Example files
 example/
 triadic-iteration.zip
+
+# Claude Code 本地配置（含 autoYes 等个人偏好，不应共享）
+.claude.json
+.claude/settings.local.json
+
+# MCP 工具产物
+.playwright-mcp/
+
+# 调试期截图与页面快照
+screencode-*.png
+playwright-*.md
