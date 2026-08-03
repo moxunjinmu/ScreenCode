@@ -328,8 +328,9 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                   value={selectedPreset}
                   onChange={(e) => setSelectedPreset(e.target.value)}
                   className="input capture-resolution-select px-2 py-1 text-sm"
+                  title={`源分辨率 ${sourceResolution.width}×${sourceResolution.height}`}
                 >
-                  <option value="source">源分辨率 {sourceResolution.width}×{sourceResolution.height}</option>
+                  <option value="source">源分辨率</option>
                   {PRESET_RESOLUTIONS.map((res, idx) => (
                     <option key={idx} value={idx}>
                       {res.width}×{res.height}

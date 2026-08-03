@@ -689,6 +689,7 @@ body.is-resizing-pane {
   color: var(--text-muted);
   font-size: 12px;
   overflow-x: auto;
+  white-space: nowrap;
 }
 
 .capture-device-select {
@@ -697,7 +698,7 @@ body.is-resizing-pane {
 }
 
 .capture-resolution-select {
-  min-width: 184px;
+  min-width: 96px;
 }
 
 .capture-scale-select {
