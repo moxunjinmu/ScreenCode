@@ -9,8 +9,11 @@ interface CodeDisplayProps {
 
 const CodeDisplay: React.FC<CodeDisplayProps> = ({ embedded = false }) => {
   const { codeResult, isProcessing, extractCode } = useAppStore();
-  const { frames, isEmpty } = useFrameStore();
+  const { frames, selectedFrameIds } = useFrameStore();
   const [copied, setCopied] = useState(false);
+
+  const extractDisabled = selectedFrameIds.length === 0 || isProcessing;
+  const extractLabel = isProcessing ? '正在提取' : `提取选中 ${selectedFrameIds.length} 帧`;
 
   const handleCopy = async () => {
     if (codeResult?.code) {
@@ -32,7 +35,6 @@ const CodeDisplay: React.FC<CodeDisplayProps> = ({ embedded = false }) => {
         </h3>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="chip">待处理帧 {frames.length}</span>
           {codeResult && (
             <>
               <span className="chip">
@@ -46,6 +48,15 @@ const CodeDisplay: React.FC<CodeDisplayProps> = ({ embedded = false }) => {
               </span>
             </>
           )}
+          <button
+            type="button"
+            onClick={extractCode}
+            disabled={extractDisabled}
+            className="btn-primary px-3 py-1.5 text-sm"
+            title={selectedFrameIds.length === 0 ? '请先在帧队列中选择要提取的帧' : undefined}
+          >
+            {extractLabel}
+          </button>
         </div>
       </div>
 
@@ -111,13 +122,13 @@ const CodeDisplay: React.FC<CodeDisplayProps> = ({ embedded = false }) => {
                 <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
                   <button
                     onClick={extractCode}
-                    disabled={isEmpty()}
+                    disabled={extractDisabled}
                     className="btn-primary px-3 py-1.5 text-sm"
                   >
-                    提取代码
+                    {extractLabel}
                   </button>
-                  {!isEmpty() && (
-                    <span className="chip">已准备 {frames.length} 帧，可直接开始提取</span>
+                  {frames.length > 0 && (
+                    <span className="chip">已选 {selectedFrameIds.length}/{frames.length} 帧</span>
                   )}
                 </div>
               </div>

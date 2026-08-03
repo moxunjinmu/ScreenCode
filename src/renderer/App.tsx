@@ -19,7 +19,7 @@ const App: React.FC = () => {
   const { containerRef, paneRatio, isDragging, startDragging, resizeBy } = useResizablePane();
 
   const loadDevices = useCaptureStore((state) => state.loadDevices);
-  const { setCodeResult, setError, setProcessing, extractCode, isProcessing } = useAppStore();
+  const { setCodeResult, setError, setProcessing, extractCode } = useAppStore();
   const {
     isFullscreenPreview,
     toggleFullscreenPreview,
@@ -89,11 +89,7 @@ const App: React.FC = () => {
       >
         <section className="workspace-pane capture-workspace" aria-label="采集与帧队列">
           <Preview />
-          <ThumbnailQueue
-            onCaptureFrame={captureFrame}
-            onExtractCode={handleExtractCode}
-            isProcessing={isProcessing}
-          />
+          <ThumbnailQueue onCaptureFrame={captureFrame} />
         </section>
 
         <div

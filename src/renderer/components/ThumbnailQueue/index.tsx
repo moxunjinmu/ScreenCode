@@ -6,8 +6,6 @@ import { FRAME_QUEUE } from '@shared/constants';
 
 interface ThumbnailQueueProps {
   onCaptureFrame: () => void;
-  onExtractCode: () => void;
-  isProcessing: boolean;
 }
 
 // 全屏预览组件
@@ -42,7 +40,7 @@ const FullscreenPreview: React.FC<{
   );
 };
 
-const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame, onExtractCode, isProcessing }) => {
+const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
   const { frames, clearFrames, isFull, isEmpty, selectedFrameIds, toggleFrameSelection, removeFrame } = useFrameStore();
   const { stream } = useCaptureStore();
   const [previewFrame, setPreviewFrame] = useState<{ data: string; index: number } | null>(null);
@@ -194,19 +192,6 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame, onExtra
                 )}
               </>
             )}
-          </div>
-        )}
-
-        {!collapsed && (
-          <div className="frame-queue-footer">
-            <button
-              type="button"
-              onClick={onExtractCode}
-              disabled={selectedFrameIds.length === 0 || isProcessing}
-              className="btn-primary extract-button px-4 py-2 text-sm"
-            >
-              {isProcessing ? '正在提取' : `提取选中 ${selectedFrameIds.length} 帧`}
-            </button>
           </div>
         )}
       </div>

@@ -776,18 +776,6 @@ body.is-resizing-pane {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
-.frame-queue-footer {
-  display: flex;
-  flex: 0 0 58px;
-  align-items: center;
-  justify-content: center;
-  border-top: 1px solid var(--border);
-}
-
-.extract-button {
-  min-width: 250px;
-}
-
 /* ===== Output Workspace ===== */
 .output-workspace {
   display: grid;
@@ -1132,17 +1120,6 @@ body.is-resizing-pane {
   .frame-card {
     width: 96px !important;
     min-width: 96px;
-  }
-
-  .frame-queue-footer {
-    flex-basis: 46px;
-  }
-
-  .extract-button {
-    min-width: 220px;
-    min-height: 34px;
-    padding-top: 6px;
-    padding-bottom: 6px;
   }
 }
 
