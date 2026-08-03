@@ -20,6 +20,14 @@
 
 ![Graphite Capture 800×600 紧凑设计稿](assets/graphite-capture-compact.png)
 
+### 0.3 Neo Utility 现代配色候选（2026-08-03）
+
+![Neo Utility 暖黑与酸性青柠设计稿](assets/neo-utility-ui-concept-v2.png)
+
+该候选稿基于现代桌面生产力工具的低干扰设计趋势：暖灰近黑底、极少边框、
+酸性青柠作为唯一主流程强调色，AI 状态仅使用少量柔紫色。该图用于产品方向确认，
+不代表已替换第 3、4 章的正式 Token。
+
 ## 1. 目标与范围
 
 ### 1.1 要解决的问题
