@@ -17,7 +17,10 @@ import { electronAPI } from './lib/electronApi';
 const App: React.FC = () => {
   const { toast, showToast } = useToast();
   const captureFrame = useFrameCapture(showToast);
-  const { containerRef, paneRatio, isDragging, startDragging, resizeBy } = useResizablePane();
+  const { containerRef, paneRatio, isDragging, startDragging, resizeBy } = useResizablePane(
+    // 拖过最小宽度继续拖 → 收起输出面板
+    useCallback(() => useUIStore.getState().setOutputCollapsed(true), []),
+  );
 
   const loadDevices = useCaptureStore((state) => state.loadDevices);
   const { setCodeResult, setError, setProcessing, extractCode } = useAppStore();
