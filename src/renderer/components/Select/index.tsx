@@ -62,7 +62,8 @@ const Select: React.FC<SelectProps> = ({
       left: rect.left,
       top: openUp ? undefined : rect.bottom + 4,
       bottom: openUp ? window.innerHeight - rect.top + 4 : undefined,
-      minWidth: rect.width,
+      // 弹层宽度严格跟随触发器，超长选项在 CSS 侧省略号截断
+      width: rect.width,
       maxHeight,
     });
   }, []);
