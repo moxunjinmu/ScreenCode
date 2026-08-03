@@ -647,24 +647,17 @@ body.is-resizing-pane {
 .capture-toolbar {
   z-index: 2;
   display: grid;
-  gap: 10px;
-  min-height: 92px;
+  min-height: 56px;
   padding: 12px 16px;
   background: var(--surface-1);
   border-bottom: 1px solid var(--border);
 }
 
-.capture-toolbar-head,
 .capture-control-row,
 .capture-controls,
 .capture-toolbar-secondary {
   display: flex;
   align-items: center;
-}
-
-.capture-toolbar-head {
-  min-width: 0;
-  justify-content: space-between;
 }
 
 .capture-control-row {
@@ -1010,10 +1003,6 @@ body.is-resizing-pane {
 
 /* ===== Breakpoints ===== */
 @media (max-width: 1120px) {
-  .capture-toolbar {
-    min-height: 84px;
-  }
-
   .capture-control-row {
     width: 100%;
   }
@@ -1085,11 +1074,10 @@ body.is-resizing-pane {
   }
 
   .capture-toolbar {
-    min-height: 64px;
+    min-height: 46px;
     padding: 8px;
   }
 
-  .capture-toolbar-head,
   .capture-toolbar-secondary label,
   .capture-resolution-state {
     display: none;

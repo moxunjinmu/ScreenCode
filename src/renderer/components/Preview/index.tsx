@@ -257,10 +257,6 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     <div className={`preview-workspace h-full min-h-0 flex flex-col relative${isFullscreen ? ' is-fullscreen' : ''}`}>
       {!isFullscreen && (
         <div className="capture-toolbar">
-          <div className="capture-toolbar-head">
-            <h2 className="panel-title">实时预览</h2>
-          </div>
-
           <div className="capture-control-row">
             <div className="capture-controls">
               <select
@@ -292,14 +288,6 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
 
               {stream && (
                 <>
-                  <button
-                    onClick={handleCaptureFrame}
-                    className="btn px-3 py-1 text-sm"
-                    title="快捷键: Ctrl+Shift+S"
-                  >
-                    <Camera size={14} />
-                    截取整帧
-                  </button>
                   <button
                     onClick={() => setRegionCapture(!isRegionCapture)}
                     className={`${isRegionCapture ? 'btn-primary' : 'btn'} px-3 py-1 text-sm`}
