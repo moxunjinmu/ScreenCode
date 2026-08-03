@@ -43,11 +43,10 @@ export function useResizablePane(onCollapse?: () => void) {
       const rawRatio = (rect.right - event.clientX) / rect.width;
 
       // 拖过最小宽度并继续超出阈值：收起面板并结束拖拽。
-      // 先结束拖拽（摘掉 data-resizing 的 transition: none），
-      // 下一帧再收起，保证收起走贝塞尔过渡而不是瞬变
+      // 过渡由 CSS 保证（data-resizing 的 transition: none 对 is-collapsed 例外）
       if (onCollapse && rawRatio < getMinRatio() - COLLAPSE_OVERSHOOT / rect.width) {
         stopDragging();
-        requestAnimationFrame(() => onCollapse());
+        onCollapse();
         return;
       }
 

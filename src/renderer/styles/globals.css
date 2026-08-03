@@ -717,8 +717,8 @@ code,
     border-color var(--motion-page) var(--ease-out);
 }
 
-/* 拖拽调宽时禁用过渡，避免跟手延迟 */
-.workspace-shell[data-resizing='true'] .output-pane {
+/* 拖拽调宽时禁用过渡，避免跟手延迟；收起状态例外，保证拖拽触发收起仍有动画 */
+.workspace-shell[data-resizing='true'] .output-pane:not(.is-collapsed) {
   transition: none;
 }
 
