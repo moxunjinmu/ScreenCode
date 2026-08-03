@@ -35,6 +35,10 @@ interface UIState {
   setWorkspaceView: (view: WorkspaceView) => void;
   setOutputView: (view: OutputView) => void;
 
+  // 宽屏下右侧输出面板的收起/展开
+  isOutputCollapsed: boolean;
+  setOutputCollapsed: (collapsed: boolean) => void;
+
   // 显示分辨率
   displayResolution: DisplayResolution | null;
   setDisplayResolution: (resolution: DisplayResolution | null) => void;
@@ -98,6 +102,10 @@ export const useUIStore = create<UIState>((set, get) => ({
     activeOutputView: view,
     activeWorkspaceView: view,
   }),
+
+  // 输出面板收起状态
+  isOutputCollapsed: false,
+  setOutputCollapsed: (collapsed) => set({ isOutputCollapsed: collapsed }),
 
   // 显示分辨率
   displayResolution: null,

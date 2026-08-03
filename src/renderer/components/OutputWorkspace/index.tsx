@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, Code2 } from 'lucide-react';
+import { Bot, Code2, PanelRightClose } from 'lucide-react';
 import ChatPanel from '../ChatPanel';
 import CodeDisplay from '../CodeDisplay';
 import { useChatStore } from '../../store/chatStore';
@@ -12,6 +12,7 @@ import { useUIStore } from '../../store/uiStore';
 const OutputWorkspace: React.FC = () => {
   const activeOutputView = useUIStore((state) => state.activeOutputView);
   const setOutputView = useUIStore((state) => state.setOutputView);
+  const setOutputCollapsed = useUIStore((state) => state.setOutputCollapsed);
   const messageCount = useChatStore((state) => state.messages.length);
 
   return (
@@ -38,6 +39,16 @@ const OutputWorkspace: React.FC = () => {
           <span>AI 对话</span>
           <span className="ai-state-dot" aria-hidden="true" />
           {messageCount > 0 && <span className="tab-badge">{messageCount}</span>}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setOutputCollapsed(true)}
+          className="btn output-collapse-btn p-1"
+          title="收起面板"
+          aria-label="收起面板"
+        >
+          <PanelRightClose size={14} />
         </button>
       </div>
 

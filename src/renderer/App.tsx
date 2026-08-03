@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
+import { PanelRightOpen } from 'lucide-react';
 import Layout from './components/Layout';
 import Preview from './components/Preview';
 import ThumbnailQueue from './components/ThumbnailQueue';
@@ -25,6 +26,8 @@ const App: React.FC = () => {
     toggleFullscreenPreview,
     activeWorkspaceView,
     setWorkspaceView,
+    isOutputCollapsed,
+    setOutputCollapsed,
   } = useUIStore();
 
   const handleExtractCode = useCallback(() => {
@@ -37,9 +40,10 @@ const App: React.FC = () => {
       showToast('请先选择要提取的帧', 'error');
       return;
     }
+    setOutputCollapsed(false);
     setWorkspaceView('code');
     void extractCode();
-  }, [extractCode, setWorkspaceView, showToast]);
+  }, [extractCode, setWorkspaceView, setOutputCollapsed, showToast]);
 
   useEffect(() => {
     loadDevices();
@@ -52,6 +56,7 @@ const App: React.FC = () => {
     const unsubscribeAI = electronAPI.onAIResult((result) => {
       setCodeResult(result);
       setProcessing(false);
+      setOutputCollapsed(false);
       setWorkspaceView('code');
       showToast('代码提取完成', 'success');
     });
@@ -68,7 +73,7 @@ const App: React.FC = () => {
       unsubscribeAI();
       unsubscribeError();
     };
-  }, [captureFrame, handleExtractCode, setCodeResult, setError, setProcessing, setWorkspaceView, showToast]);
+  }, [captureFrame, handleExtractCode, setCodeResult, setError, setProcessing, setWorkspaceView, setOutputCollapsed, showToast]);
 
   if (isFullscreenPreview) {
     return (
@@ -93,7 +98,7 @@ const App: React.FC = () => {
         </section>
 
         <div
-          className="workspace-resizer"
+          className={`workspace-resizer${isOutputCollapsed ? ' is-collapsed' : ''}`}
           role="separator"
           aria-label="调整输出工作区宽度"
           aria-orientation="vertical"
@@ -116,12 +121,26 @@ const App: React.FC = () => {
         </div>
 
         <section
-          className="workspace-pane output-pane"
+          className={`workspace-pane output-pane${isOutputCollapsed ? ' is-collapsed' : ''}`}
           aria-label="代码结果与 AI 对话"
           style={{ flexBasis: `${paneRatio * 100}%` }}
         >
           <OutputWorkspace />
         </section>
+
+        {isOutputCollapsed && (
+          <div className="output-expand-rail">
+            <button
+              type="button"
+              onClick={() => setOutputCollapsed(false)}
+              className="btn p-1"
+              title="展开面板"
+              aria-label="展开面板"
+            >
+              <PanelRightOpen size={14} />
+            </button>
+          </div>
+        )}
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type} />}

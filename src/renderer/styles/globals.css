@@ -734,6 +734,36 @@ code,
   transition: width var(--motion-control) ease-out, background-color var(--motion-control) ease-out;
 }
 
+/* 输出面板收起（仅宽屏生效，紧凑模式由 tab 切页控制） */
+@media (min-width: 901px) {
+  .output-pane.is-collapsed,
+  .workspace-resizer.is-collapsed {
+    display: none;
+  }
+}
+
+.output-collapse-btn {
+  align-self: center;
+  min-height: 26px;
+  margin-left: auto;
+}
+
+.output-expand-rail {
+  display: flex;
+  flex: 0 0 34px;
+  justify-content: center;
+  padding-top: 8px;
+  background: var(--surface-1);
+  border-left: 1px solid var(--border);
+}
+
+@media (max-width: 900px) {
+  .output-collapse-btn,
+  .output-expand-rail {
+    display: none;
+  }
+}
+
 .workspace-resizer:hover span,
 .workspace-resizer:focus-visible span,
 .workspace-shell[data-resizing='true'] .workspace-resizer span {
