@@ -711,6 +711,21 @@ code,
   flex: 0 0 auto;
   min-width: 360px;
   border-left: 1px solid var(--border);
+  transition:
+    flex-basis var(--motion-page) var(--ease-out),
+    min-width var(--motion-page) var(--ease-out),
+    border-color var(--motion-page) var(--ease-out);
+}
+
+/* 拖拽调宽时禁用过渡，避免跟手延迟 */
+.workspace-shell[data-resizing='true'] .output-pane {
+  transition: none;
+}
+
+.output-pane.is-collapsed {
+  min-width: 0;
+  overflow: hidden;
+  border-left-color: transparent;
 }
 
 .workspace-resizer {
@@ -734,9 +749,8 @@ code,
   transition: width var(--motion-control) ease-out, background-color var(--motion-control) ease-out;
 }
 
-/* 输出面板收起（仅宽屏生效，紧凑模式由 tab 切页控制） */
+/* 收起时隐藏分隔条（仅宽屏生效，紧凑模式由 tab 切页控制） */
 @media (min-width: 901px) {
-  .output-pane.is-collapsed,
   .workspace-resizer.is-collapsed {
     display: none;
   }
@@ -755,6 +769,14 @@ code,
   padding-top: 8px;
   background: var(--surface-1);
   border-left: 1px solid var(--border);
+  animation: railEnter var(--motion-page) var(--ease-out) both;
+}
+
+@keyframes railEnter {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
 }
 
 @media (max-width: 900px) {

@@ -126,7 +126,7 @@ const App: React.FC = () => {
         <section
           className={`workspace-pane output-pane${isOutputCollapsed ? ' is-collapsed' : ''}`}
           aria-label="代码结果与 AI 对话"
-          style={{ flexBasis: `${paneRatio * 100}%` }}
+          style={{ flexBasis: isOutputCollapsed ? 0 : `${paneRatio * 100}%` }}
         >
           <OutputWorkspace />
         </section>
