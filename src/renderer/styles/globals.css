@@ -756,17 +756,28 @@ code,
   }
 }
 
+.output-collapse-btn,
+.output-expand-btn {
+  width: 26px;
+  min-height: 26px;
+  padding: 0;
+}
+
 .output-collapse-btn {
   align-self: center;
-  min-height: 26px;
   margin-left: auto;
+}
+
+.output-expand-btn {
+  align-self: flex-start;
 }
 
 .output-expand-rail {
   display: flex;
   flex: 0 0 34px;
-  justify-content: center;
-  padding-top: 8px;
+  justify-content: flex-end;
+  /* 与 output-tabs 47px 行高 + 12px 右内边距对齐，展开按钮与收起按钮同位 */
+  padding: 10px 12px 0 0;
   background: var(--surface-1);
   border-left: 1px solid var(--border);
   animation: railEnter var(--motion-page) var(--ease-out) both;

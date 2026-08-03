@@ -136,7 +136,7 @@ const App: React.FC = () => {
             <button
               type="button"
               onClick={() => setOutputCollapsed(false)}
-              className="btn p-1"
+              className="btn output-expand-btn"
               title="展开面板"
               aria-label="展开面板"
             >

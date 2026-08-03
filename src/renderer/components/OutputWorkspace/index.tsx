@@ -44,7 +44,7 @@ const OutputWorkspace: React.FC = () => {
         <button
           type="button"
           onClick={() => setOutputCollapsed(true)}
-          className="btn output-collapse-btn p-1"
+          className="btn output-collapse-btn"
           title="收起面板"
           aria-label="收起面板"
         >
