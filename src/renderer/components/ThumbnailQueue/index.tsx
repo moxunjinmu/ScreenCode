@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Camera, ChevronDown, ChevronUp, Eye, Trash2 } from 'lucide-react';
 import { useFrameStore } from '../../store/frameStore';
 import { useCaptureStore } from '../../store/captureStore';
 import { FRAME_QUEUE } from '@shared/constants';
@@ -15,10 +16,10 @@ const FullscreenPreview: React.FC<{
 }> = ({ imageUrl, index, onClose }) => {
   return (
     <div
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center"
       onClick={onClose}
     >
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 status-chip bg-black/40">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 hint px-3 py-1.5 rounded-sm bg-black/60 text-white">
         查看帧 {index + 1}，点击空白处关闭
       </div>
 
@@ -31,7 +32,7 @@ const FullscreenPreview: React.FC<{
 
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 glass-btn-danger px-3 py-2 text-sm text-white"
+        className="absolute top-4 right-4 btn-danger px-3 py-1.5 text-sm"
       >
         关闭
       </button>
@@ -43,6 +44,18 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
   const { frames, clearFrames, isFull, isEmpty, selectedFrameIds, toggleFrameSelection, removeFrame } = useFrameStore();
   const { stream } = useCaptureStore();
   const [previewFrame, setPreviewFrame] = useState<{ data: string; index: number } | null>(null);
+  // 整体折叠（仅留单行 header），无需持久化（规范 6.5）；
+  // 视口高度不足（< 680px，如 800×600 默认窗口）时自动折叠兜底，避免主区垂直溢出
+  const [collapsed, setCollapsed] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-height: 679px)').matches,
+  );
+
+  React.useEffect(() => {
+    const mq = window.matchMedia('(max-height: 679px)');
+    const onChange = (e: MediaQueryListEvent) => setCollapsed(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const handlePreview = (frame: { data: string; id: string }, index: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -76,22 +89,19 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
 
   return (
     <>
-      <div className="h-full glass-subtle p-3 flex flex-col">
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-          <div>
-            <h3 className="panel-heading">帧队列</h3>
-            <p className="panel-subheading mt-1">保留关键画面，选中的帧会作为代码提取与 AI 对话的输入素材。</p>
-          </div>
+      <div className={`panel flex flex-col ${collapsed ? '' : 'h-40'}`}>
+        <div className="panel-header">
+          <h3 className="panel-title">帧队列</h3>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="status-chip">已缓存 {frames.length}/{FRAME_QUEUE.MAX_FRAMES} 帧</span>
+            <span className="chip">已缓存 {frames.length}/{FRAME_QUEUE.MAX_FRAMES} 帧</span>
             {selectedFrameIds.length > 0 && (
-              <span className="status-chip text-sky-200 border-sky-400/30 bg-sky-500/10">已选 {selectedFrameIds.length} 帧</span>
+              <span className="chip chip-active">已选 {selectedFrameIds.length} 帧</span>
             )}
             {!isEmpty() && (
               <button
                 onClick={clearFrames}
-                className="glass-btn-danger px-3 py-1.5 text-xs text-red-100"
+                className="btn-danger px-3 py-1 text-xs"
               >
                 清空
               </button>
@@ -99,94 +109,101 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
             <button
               onClick={onCaptureFrame}
               disabled={!stream || isFull()}
-              className={`px-3 py-1.5 text-xs rounded transition-all ${
-                !stream || isFull()
-                  ? 'bg-white/[0.04] text-slate-500 cursor-not-allowed border border-white/[0.06]'
-                  : 'glass-btn-primary text-white'
-              }`}
+              className="btn-primary px-3 py-1 text-xs"
               title={!stream ? '请先启动视频采集' : isFull() ? '队列已满' : '截图 (Ctrl+Shift+S)'}
             >
+              <Camera size={14} />
               添加截图
+            </button>
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="btn p-1"
+              title={collapsed ? '展开帧队列' : '折叠帧队列'}
+            >
+              {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
             </button>
           </div>
         </div>
 
-        <div className="flex-1 flex gap-2 overflow-x-auto">
-          {isEmpty() ? (
-            <div className="flex-1 rounded-xl border border-dashed border-white/10 bg-white/[0.03] flex items-center justify-center text-sm">
-              <div className="text-center">
-                <p className="text-slate-200">按 <kbd className="glass-kbd px-1.5 py-0.5">Ctrl+Shift+S</kbd> 抓取当前画面</p>
-                <p className="text-xs mt-2 text-slate-400">也可以在预览区单击截图，或使用上方按钮补充关键帧。</p>
+        {!collapsed && (
+          <div className="flex-1 min-h-0 flex gap-2 overflow-x-auto p-3 pt-2">
+            {isEmpty() ? (
+              <div className="flex-1 rounded-md border border-dashed border-border bg-surface-2 flex items-center justify-center text-sm">
+                <div className="text-center">
+                  <p className="hint">按 <kbd className="kbd">Ctrl+Shift+S</kbd> 抓取当前画面</p>
+                  <p className="hint mt-1">也可以在预览区单击截图，或使用上方按钮补充关键帧。</p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <>
-              {frames.map((frame, index) => {
-                const isSelected = selectedFrameIds.includes(frame.id);
-                return (
-                  <div
-                    key={frame.id}
-                    onClick={(e) => handleToggleSelect(frame.id, e)}
-                    className={`relative flex-shrink-0 w-32 h-full rounded-xl overflow-hidden border transition-all cursor-pointer group ${
-                      isSelected
-                        ? 'border-primary-500/60 ring-2 ring-primary-500/20 shadow-glass-glow bg-sky-500/5'
-                        : 'border-white/[0.08] hover:border-primary-500/40 bg-white/[0.03]'
-                    }`}
-                  >
-                    <div className="relative h-[calc(100%-34px)]">
-                      <img
-                        src={`data:image/jpeg;base64,${frame.data}`}
-                        alt={`帧 ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+            ) : (
+              <>
+                {frames.map((frame, index) => {
+                  const isSelected = selectedFrameIds.includes(frame.id);
+                  return (
+                    <div
+                      key={frame.id}
+                      onClick={(e) => handleToggleSelect(frame.id, e)}
+                      className={`relative flex-shrink-0 w-36 h-full rounded-md overflow-hidden border transition-colors cursor-pointer group ${
+                        isSelected
+                          ? 'border-accent-border bg-accent-subtle'
+                          : 'border-border hover:border-accent-border bg-surface-2'
+                      }`}
+                    >
+                      <div className="relative h-[calc(100%-34px)]">
+                        <img
+                          src={`data:image/jpeg;base64,${frame.data}`}
+                          alt={`帧 ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
 
-                      {isSelected && (
-                        <div className="absolute top-2 left-2 px-2 py-1 rounded-full bg-sky-500/80 text-[11px] font-medium text-white shadow-glass-glow">
-                          已选
+                        {isSelected && (
+                          <div className="absolute top-1 left-1 chip chip-active">
+                            已选
+                          </div>
+                        )}
+
+                        <div className="absolute inset-x-0 bottom-0 px-2 py-1.5 bg-gradient-to-t from-black/80 to-transparent text-[11px] text-white">
+                          帧 {index + 1}
                         </div>
-                      )}
+                      </div>
 
-                      <div className="absolute inset-x-0 bottom-0 px-2 py-1.5 bg-gradient-to-t from-slate-950/90 to-transparent text-[11px] text-slate-200">
-                        帧 {index + 1}
+                      <div className="h-[34px] px-2 flex items-center justify-between bg-surface-1 border-t border-border text-muted">
+                        <button
+                          onClick={(e) => handlePreview(frame, index, e)}
+                          className="p-1 hover:text-text transition-colors"
+                          title="查看帧"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => handleRemove(frame.id, e)}
+                          className="p-1 hover:text-danger transition-colors"
+                          title="删除帧"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
+                  );
+                })}
 
-                    <div className="h-[34px] px-2 flex items-center justify-between bg-slate-950/35 border-t border-white/[0.06] text-[11px] text-slate-300">
-                      <button
-                        onClick={(e) => handlePreview(frame, index, e)}
-                        className="hover:text-white transition-colors"
-                      >
-                        查看
-                      </button>
-                      <button
-                        onClick={(e) => handleRemove(frame.id, e)}
-                        className="hover:text-red-300 transition-colors"
-                        title="删除帧"
-                      >
-                        删除
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {!isFull() && (
-                <button
-                  onClick={onCaptureFrame}
-                  disabled={!stream}
-                  className={`flex-shrink-0 w-32 h-full border border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${
-                    stream
-                      ? 'border-white/[0.10] hover:border-primary-500/40 hover:bg-white/[0.04] text-slate-300'
-                      : 'border-white/[0.06] text-slate-500 cursor-not-allowed'
-                  }`}
-                >
-                  <span className="text-sm font-medium">继续添加</span>
-                  <span className="text-[11px] mt-1 text-slate-400">保留更多关键帧</span>
-                </button>
-              )}
-            </>
-          )}
-        </div>
+                {!isFull() && (
+                  <button
+                    onClick={onCaptureFrame}
+                    disabled={!stream}
+                    className={`flex-shrink-0 w-36 h-full border border-dashed rounded-md flex flex-col items-center justify-center transition-colors ${
+                      stream
+                        ? 'border-border hover:border-accent-border hover:bg-surface-2 text-muted'
+                        : 'border-border text-dim cursor-not-allowed'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">继续添加</span>
+                    <span className="hint mt-1">保留更多关键帧</span>
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 全屏预览 */}

@@ -30,8 +30,8 @@ const ChatPanelDock: React.FC<ChatPanelDockProps> = ({
         role="separator"
         aria-orientation="vertical"
         aria-label="调整聊天面板宽度"
-        className={`w-1 h-full rounded-full cursor-col-resize transition-all shrink-0 ${
-          isDragging ? 'bg-primary-500/60' : 'bg-white/[0.10] hover:bg-primary-500/50'
+        className={`w-1 h-full rounded-sm cursor-col-resize transition-colors shrink-0 ${
+          isDragging ? 'bg-accent' : 'bg-border-strong hover:bg-accent'
         }`}
       />
       <div className="h-full shrink-0" style={{ width: panelWidth }}>

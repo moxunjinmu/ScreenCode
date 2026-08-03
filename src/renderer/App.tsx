@@ -77,23 +77,12 @@ const App: React.FC = () => {
     />
   );
 
-  const openChatButton = !isChatPanelOpen && (
-    <button
-      onClick={toggleChatPanel}
-      className="absolute top-4 right-4 glass-btn-primary px-4 py-2 text-sm text-white z-10"
-      title="打开聊天面板"
-    >
-      打开 AI 对话
-    </button>
-  );
-
   // 全屏预览布局
   if (isFullscreenPreview) {
     return (
-      <div ref={containerRef} className="h-screen flex gap-3 p-3 text-white">
+      <div ref={containerRef} className="h-screen flex gap-3 p-3">
         <div className="flex-1 min-w-0 relative">
           <Preview isFullscreen onToggleFullscreen={toggleFullscreenPreview} />
-          {openChatButton}
         </div>
 
         {chatDock}
@@ -103,24 +92,22 @@ const App: React.FC = () => {
     );
   }
 
-  // 正常布局
+  // 正常布局（垂直比例按规范 6.10 / 第 10 章问题 3：flex-[2] / 160px / flex-[1.4]）
   return (
     <Layout>
-      <div ref={containerRef} className="flex h-full min-h-0 gap-3 p-3 xl:gap-4 xl:p-4">
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col gap-4 relative">
-          <section className="flex-[1.1] min-h-[250px] min-w-0">
+      <div ref={containerRef} className="flex h-full min-h-0 gap-3 p-3">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col gap-3 relative overflow-y-auto">
+          <section className="flex-[2] min-h-[220px] min-w-0">
             <Preview />
           </section>
 
-          <section className="h-32 min-h-[128px]">
+          <section className="shrink-0">
             <ThumbnailQueue onCaptureFrame={captureFrame} />
           </section>
 
-          <section className="flex-1 min-h-[220px] min-w-0">
+          <section className="flex-[1.4] min-h-[180px] min-w-0">
             <CodeDisplay />
           </section>
-
-          {openChatButton}
         </div>
 
         {chatDock}

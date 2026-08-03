@@ -8,14 +8,13 @@ interface ToastProps {
 const Toast: React.FC<ToastProps> = ({ message, type }) => {
   return (
     <div className="fixed bottom-4 right-4 z-50 animate-toast">
+      {/* 规范 6.9：左侧 3px 语义色边框 + 中性底，替代整块染色 */}
       <div
-        className={`glass-heavy shadow-glass-glow px-4 py-3 flex items-center gap-3 ${
-          type === 'success'
-            ? 'bg-green-600/30 border-green-500/30 text-green-200'
-            : 'bg-red-600/30 border-red-500/30 text-red-200'
+        className={`overlay px-4 py-3 flex items-center gap-3 border-l-[3px] ${
+          type === 'success' ? 'border-l-success' : 'border-l-danger'
         }`}
       >
-        <span className={`w-2.5 h-2.5 rounded-full ${type === 'success' ? 'bg-green-300' : 'bg-red-300'}`} />
+        <span className={`w-2.5 h-2.5 rounded-full ${type === 'success' ? 'bg-success' : 'bg-danger'}`} />
         <span className="text-sm">{message}</span>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { useFrameStore } from '../../store/frameStore';
 
@@ -21,58 +22,57 @@ const CodeDisplay: React.FC = () => {
 
   return (
     <div className="h-full min-h-0 flex flex-col">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-        <div>
-          <h3 className="panel-heading">代码结果</h3>
-          <p className="panel-subheading mt-1">整理好的帧会发往模型识别，结果会在这里汇总展示。</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <h3 className="panel-title">代码结果</h3>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="status-chip">待处理帧 {frames.length}</span>
+          <span className="chip">待处理帧 {frames.length}</span>
           {codeResult && (
             <>
-              <span className="status-chip">
-                语言 <span className="text-primary-300 font-medium">{codeResult.language}</span>
+              <span className="chip">
+                语言 <span className="text-accent-text font-medium">{codeResult.language}</span>
               </span>
-              <span className="status-chip">
+              <span className="chip">
                 置信度 <span className={
-                  codeResult.confidence > 0.8 ? 'text-green-400' :
-                  codeResult.confidence > 0.5 ? 'text-yellow-400' : 'text-red-400'
+                  codeResult.confidence > 0.8 ? 'text-success' :
+                  codeResult.confidence > 0.5 ? 'text-accent-text' : 'text-danger'
                 }>{(codeResult.confidence * 100).toFixed(0)}%</span>
               </span>
             </>
           )}
         </div>
       </div>
-      
-      <div className="flex-1 min-h-0 glass-subtle shadow-glass overflow-hidden flex flex-col">
+
+      <div className="flex-1 min-h-0 panel overflow-hidden flex flex-col">
         {codeResult ? (
           <>
-            <div className="flex-1 overflow-auto p-4">
+            <div className="flex-1 overflow-auto p-3 bg-surface-code">
               {codeResult.explanation && (
-                <div className="mb-4 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
+                <div className="mb-3 card px-3 py-2 text-sm text-muted">
                   {codeResult.explanation}
                 </div>
               )}
 
-              <pre className="text-slate-200 whitespace-pre-wrap break-all font-mono text-sm leading-relaxed">
+              <pre className="whitespace-pre-wrap break-all font-mono text-sm leading-relaxed">
                 {codeResult.code}
               </pre>
             </div>
 
-            <div className="flex items-center justify-between gap-3 p-3 border-t border-white/[0.08] bg-slate-950/20">
-              <span className="text-xs text-slate-400">建议在复制前快速复核缩进、边界条件和识别遗漏。</span>
+            <div className="flex items-center justify-between gap-3 p-3 border-t border-border">
+              <span className="hint">建议在复制前快速复核缩进、边界条件和识别遗漏。</span>
               <button
                 onClick={handleCopy}
-                className="glass-btn-primary px-4 py-1.5 text-sm flex items-center gap-2 text-white"
+                className="btn-primary px-3 py-1.5 text-sm"
               >
                 {copied ? (
                   <>
-                    <span>已复制</span>
+                    <Check size={14} />
+                    已复制
                   </>
                 ) : (
                   <>
-                    <span>复制代码</span>
+                    <Copy size={14} />
+                    复制代码
                   </>
                 )}
               </button>
@@ -82,44 +82,38 @@ const CodeDisplay: React.FC = () => {
           <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
             {isProcessing ? (
               <div>
-                <div className="animate-spin w-12 h-12 border-[3px] border-primary-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                <p className="text-primary-300 font-medium">正在提取代码...</p>
-                <p className="text-xs mt-2 text-slate-400">通常需要 10 到 20 秒，期间可以继续调整帧队列。</p>
+                <div className="animate-spin w-12 h-12 border-[3px] border-accent border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p className="text-accent-text font-medium">正在提取代码...</p>
+                <p className="hint mt-2">通常需要 10 到 20 秒，期间可以继续调整帧队列。</p>
               </div>
             ) : (
               <div>
-                <svg 
-                  className="w-16 h-16 mx-auto mb-4 text-slate-500" 
-                  fill="none" 
-                  stroke="currentColor" 
+                <svg
+                  className="w-16 h-16 mx-auto mb-4 text-dim"
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={1.5} 
-                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" 
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
                   />
                 </svg>
-                <p className="text-lg font-medium text-slate-100">把关键画面送去识别</p>
-                <p className="text-sm text-slate-300 mt-2">优先保留字体清晰、滚动连续的帧，能显著提升识别质量。</p>
+                <p className="text-lg font-medium">把关键画面送去识别，提取代码。</p>
                 <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
                   <button
                     onClick={extractCode}
                     disabled={isEmpty()}
-                    className="glass-btn-primary px-4 py-2 disabled:opacity-40 disabled:cursor-not-allowed text-sm text-white"
+                    className="btn-primary px-3 py-1.5 text-sm"
                   >
                     提取代码
                   </button>
-                  <span className="text-xs text-slate-400">
-                    或按 <kbd className="glass-kbd px-1.5 py-0.5">Ctrl+Shift+E</kbd>
-                  </span>
+                  {!isEmpty() && (
+                    <span className="chip">已准备 {frames.length} 帧，可直接开始提取</span>
+                  )}
                 </div>
-                {!isEmpty() && (
-                  <p className="text-xs mt-3 text-primary-300">
-                    当前已准备 {frames.length} 帧，可直接开始提取。
-                  </p>
-                )}
               </div>
             )}
           </div>

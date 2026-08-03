@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { PanelRightClose, Plus, Send } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 import { useFrameStore } from '../../store/frameStore';
 import { electronAPI } from '../../lib/electronApi';
@@ -94,7 +95,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
     try {
       // 使用最新的消息列表（包含刚添加的 userMessage）
       const allMessages = [...messages, userMessage];
-      
+
       console.log('[ChatPanel] All messages to send:', {
         total: allMessages.length,
         withImages: allMessages.filter(m => m.images && m.images.length > 0).length,
@@ -152,87 +153,81 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
   };
 
   return (
-    <div className="h-full min-h-0 flex flex-col glass-medium border border-white/[0.08] overflow-hidden" style={{ width }}>
-      <div className="px-4 py-3 border-b border-white/[0.08] relative bg-slate-950/15">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2 min-w-0">
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="glass-btn px-3 py-1.5 text-xs text-slate-200 mt-0.5"
-                title="收起聊天面板"
-              >
-                收起
-              </button>
-            )}
-
-            <div className="min-w-0">
-              <div className="relative">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowSessionList(!showSessionList); }}
-                  className="panel-heading flex items-center gap-2 hover:text-primary-300 transition-colors"
-                >
-                  AI 对话
-                  <span className="text-xs text-slate-400">{showSessionList ? '收起会话' : '切换会话'}</span>
-                </button>
-
-                {showSessionList && (
-                  <div
-                    className="absolute top-full left-0 mt-2 w-64 glass-heavy shadow-glass-lg z-20 max-h-60 overflow-y-auto p-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {sessions.map((session) => (
-                      <div
-                        key={session.id}
-                        className={`flex items-center justify-between gap-2 px-3 py-2 text-sm cursor-pointer group rounded-lg transition-all ${
-                          session.id === activeSessionId
-                            ? 'bg-primary-600/20 border border-primary-500/20 text-white'
-                            : 'text-gray-300 hover:bg-white/[0.06]'
-                        }`}
-                      >
-                        <span
-                          className="truncate flex-1"
-                          onClick={() => { switchSession(session.id); setShowSessionList(false); }}
-                        >
-                          {session.title}
-                        </span>
-                        {sessions.length > 1 && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); deleteSession(session.id); }}
-                            className="text-slate-500 hover:text-red-300 opacity-0 group-hover:opacity-100 text-xs"
-                          >
-                            删除
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <p className="panel-subheading mt-1">围绕截图做 OCR、补全和解释，支持多轮追问。</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="status-chip max-w-[170px] truncate">{currentModel || 'AI 模型未配置'}</span>
+    <div className="h-full min-h-0 flex flex-col panel overflow-hidden" style={{ width }}>
+      <div className="panel-header relative">
+        <div className="flex items-center gap-2 min-w-0">
+          {onClose && (
             <button
-              onClick={() => { createSession(); setShowSessionList(false); }}
-              className="glass-btn px-3 py-1.5 text-xs text-slate-200"
-              title="新建会话"
+              onClick={onClose}
+              className="btn p-1"
+              title="收起面板"
             >
-              新建会话
+              <PanelRightClose size={14} />
             </button>
+          )}
+
+          <div className="relative min-w-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowSessionList(!showSessionList); }}
+              className="panel-title flex items-center gap-2 hover:text-accent-text transition-colors"
+            >
+              AI 对话
+              <span className="hint">{showSessionList ? '收起会话' : '切换会话'}</span>
+            </button>
+
+            {showSessionList && (
+              <div
+                className="absolute top-full left-0 mt-2 w-64 overlay z-20 max-h-60 overflow-y-auto p-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {sessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className={`flex items-center justify-between gap-2 px-3 py-2 text-sm cursor-pointer group rounded-sm transition-colors ${
+                      session.id === activeSessionId
+                        ? 'bg-accent-subtle border border-accent-border text-accent-text'
+                        : 'text-muted hover:bg-surface-3'
+                    }`}
+                  >
+                    <span
+                      className="truncate flex-1"
+                      onClick={() => { switchSession(session.id); setShowSessionList(false); }}
+                    >
+                      {session.title}
+                    </span>
+                    {sessions.length > 1 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteSession(session.id); }}
+                        className="text-dim hover:text-danger opacity-0 group-hover:opacity-100 text-xs"
+                      >
+                        删除
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="chip max-w-[170px] truncate">{currentModel || 'AI 模型未配置'}</span>
+          <button
+            onClick={() => { createSession(); setShowSessionList(false); }}
+            className="btn p-1"
+            title="新建会话"
+          >
+            <Plus size={14} />
+          </button>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-sm">
             <div className="text-center max-w-[240px]">
-              <p className="text-slate-100 font-medium">把帧队列中的截图加入消息，再补一句明确指令。</p>
-              <p className="text-xs text-slate-400 mt-2">例如“识别这段 TypeScript 并补全缺失的 import”，支持多图 OCR。</p>
+              <p className="font-medium">把帧队列中的截图加入消息，再补一句明确指令。</p>
+              <p className="hint mt-2">例如“识别这段 TypeScript 并补全缺失的 import”，支持多图 OCR。</p>
             </div>
           </div>
         ) : (
@@ -244,8 +239,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
               <div
                 className={`max-w-[85%] px-3 py-2 ${
                   msg.role === 'user'
-                    ? 'glass-msg-user text-white'
-                    : 'glass-msg-assistant text-gray-200'
+                    ? 'msg-user'
+                    : 'msg-assistant'
                 }`}
               >
                 {/* 图片 */}
@@ -256,7 +251,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
                         key={idx}
                         src={`data:image/jpeg;base64,${img}`}
                         alt={`图${idx + 1}`}
-                        className="w-20 h-20 object-cover rounded"
+                        className="w-20 h-20 object-cover rounded-sm"
                       />
                     ))}
                   </div>
@@ -269,10 +264,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
         )}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="glass-msg-assistant px-3 py-2">
+            <div className="msg-assistant px-3 py-2">
               <div className="flex items-center gap-2">
-                <div className="animate-spin w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full" />
-                <span className="text-sm text-slate-300">正在整理回复...</span>
+                <div className="animate-spin w-4 h-4 border-2 border-accent border-t-transparent rounded-full" />
+                <span className="text-sm text-muted">正在整理回复...</span>
               </div>
             </div>
           </div>
@@ -281,17 +276,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
       </div>
 
       {frames.length > 0 && (
-        <div className="px-4 py-3 border-t border-white/[0.08] bg-slate-950/10">
+        <div className="px-3 py-2 border-t border-border">
           <div className="flex items-center justify-between gap-2 mb-2">
             <div>
-              <div className="text-xs text-slate-300">从帧队列添加</div>
-              <div className={`text-[11px] mt-1 ${isImageLimitReached ? 'text-amber-300' : 'text-slate-500'}`}>
+              <div className="text-xs text-muted">从帧队列添加</div>
+              <div className={`hint mt-1 ${isImageLimitReached ? 'text-accent-text' : ''}`}>
                 {isImageLimitReached
                   ? `已达上限 ${MAX_CHAT_IMAGES} 张，移除后可继续添加。`
                   : `点击缩略图即可加入当前消息，最多 ${MAX_CHAT_IMAGES} 张。`}
               </div>
             </div>
-            <span className="status-chip">{frames.length} 帧可选</span>
+            <span className="chip">{frames.length} 帧可选</span>
           </div>
           <div className="flex gap-2 overflow-x-auto">
             {frames.map((frame) => (
@@ -299,10 +294,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
                 key={frame.id}
                 src={`data:image/jpeg;base64,${frame.data}`}
                 alt="帧"
-                className={`w-14 h-14 object-cover rounded-lg transition-opacity ${
+                className={`w-14 h-14 object-cover rounded-md border transition-colors ${
                   isImageLimitReached
-                    ? 'opacity-40 cursor-not-allowed'
-                    : 'cursor-pointer hover:ring-2 hover:ring-primary-500/40'
+                    ? 'opacity-40 cursor-not-allowed border-transparent'
+                    : 'cursor-pointer border-transparent hover:border-accent'
                 }`}
                 title={isImageLimitReached ? `最多添加 ${MAX_CHAT_IMAGES} 张图片` : '加入当前消息'}
                 onClick={() => handleAddFromQueue(frame.data)}
@@ -313,19 +308,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
       )}
 
       {selectedImages.length > 0 && (
-        <div className="px-4 py-3 border-t border-white/[0.08]">
-          <div className="text-xs text-slate-300 mb-2">待发送图片</div>
+        <div className="px-3 py-2 border-t border-border">
+          <div className="text-xs text-muted mb-2">待发送图片</div>
           <div className="flex gap-2 flex-wrap">
             {selectedImages.map((img, idx) => (
               <div key={idx} className="relative">
                 <img
                   src={`data:image/jpeg;base64,${img}`}
                   alt={`选${idx + 1}`}
-                  className="w-16 h-16 object-cover rounded-lg"
+                  className="w-16 h-16 object-cover rounded-md"
                 />
                 <button
                   onClick={() => useChatStore.getState().removeSelectedImage(idx)}
-                  className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-red-500 rounded-full text-white text-[10px]"
+                  className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-danger rounded-full text-white text-[10px]"
                 >
                   移除
                 </button>
@@ -335,27 +330,28 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
         </div>
       )}
 
-      <div className="p-4 border-t border-white/[0.08] bg-slate-950/15">
+      <div className="p-3 border-t border-border">
         <div className="flex gap-2">
           <textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="输入你的问题或处理要求，例如：请合并这几张图里的函数并补全遗漏的类型。"
-            className="glass-input flex-1 px-3 py-3 text-sm resize-none"
+            className="input flex-1 px-3 py-2 text-sm resize-none"
             rows={3}
             disabled={isLoading}
           />
         </div>
         <div className="flex justify-between items-center mt-2">
-          <span className="text-xs text-slate-400">
+          <span className="hint">
             已选图片 {selectedImages.length}/{MAX_CHAT_IMAGES}，Enter 发送，Shift+Enter 换行
           </span>
           <button
             onClick={handleSend}
             disabled={isLoading || (!inputText.trim() && selectedImages.length === 0)}
-            className="glass-btn-primary px-4 py-1.5 text-sm text-white disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn-primary px-3 py-1.5 text-sm"
           >
+            <Send size={14} />
             {isLoading ? '发送中...' : '发送'}
           </button>
         </div>
