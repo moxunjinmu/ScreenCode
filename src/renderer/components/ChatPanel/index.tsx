@@ -8,11 +8,12 @@ import { MAX_CHAT_IMAGES } from '@shared/constants';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ChatPanelProps {
-  width: number;
+  width?: number;
   onClose?: () => void;
+  embedded?: boolean;
 }
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose, embedded = false }) => {
   const {
     messages,
     isLoading,
@@ -54,7 +55,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
 
   // 滚动到底部
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const shouldReduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    messagesEndRef.current?.scrollIntoView({ behavior: shouldReduceMotion ? 'auto' : 'smooth' });
   }, [messages]);
 
   // 点击外部关闭会话列表
@@ -153,7 +155,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
   };
 
   return (
-    <div className="h-full min-h-0 flex flex-col panel overflow-hidden" style={{ width }}>
+    <div
+      className={`chat-panel h-full min-h-0 flex flex-col overflow-hidden${embedded ? '' : ' panel'}`}
+      style={width ? { width } : undefined}
+    >
       <div className="panel-header relative">
         <div className="flex items-center gap-2 min-w-0">
           {onClose && (
@@ -234,7 +239,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose }) => {
           messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`chat-message flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
                 className={`max-w-[85%] px-3 py-2 ${

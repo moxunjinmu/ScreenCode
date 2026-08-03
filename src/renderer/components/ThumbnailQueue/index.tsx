@@ -6,6 +6,8 @@ import { FRAME_QUEUE } from '@shared/constants';
 
 interface ThumbnailQueueProps {
   onCaptureFrame: () => void;
+  onExtractCode: () => void;
+  isProcessing: boolean;
 }
 
 // 全屏预览组件
@@ -16,7 +18,7 @@ const FullscreenPreview: React.FC<{
 }> = ({ imageUrl, index, onClose }) => {
   return (
     <div
-      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center"
+      className="frame-preview-backdrop fixed inset-0 bg-black/80 z-50 flex items-center justify-center"
       onClick={onClose}
     >
       <div className="absolute top-4 left-1/2 -translate-x-1/2 hint px-3 py-1.5 rounded-sm bg-black/60 text-white">
@@ -26,7 +28,7 @@ const FullscreenPreview: React.FC<{
       <img
         src={imageUrl}
         alt={`帧 ${index + 1} 全屏预览`}
-        className="max-w-full max-h-full object-contain"
+        className="frame-preview-image max-w-full max-h-full object-contain"
         onClick={(e) => e.stopPropagation()}
       />
 
@@ -40,22 +42,12 @@ const FullscreenPreview: React.FC<{
   );
 };
 
-const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
+const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame, onExtractCode, isProcessing }) => {
   const { frames, clearFrames, isFull, isEmpty, selectedFrameIds, toggleFrameSelection, removeFrame } = useFrameStore();
   const { stream } = useCaptureStore();
   const [previewFrame, setPreviewFrame] = useState<{ data: string; index: number } | null>(null);
-  // 整体折叠（仅留单行 header），无需持久化（规范 6.5）；
-  // 视口高度不足（< 680px，如 800×600 默认窗口）时自动折叠兜底，避免主区垂直溢出
-  const [collapsed, setCollapsed] = useState<boolean>(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-height: 679px)').matches,
-  );
-
-  React.useEffect(() => {
-    const mq = window.matchMedia('(max-height: 679px)');
-    const onChange = (e: MediaQueryListEvent) => setCollapsed(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
+  // 整体折叠仅保留单行 header；紧凑模式已有固定布局，因此不再按窗口高度强制折叠。
+  const [collapsed, setCollapsed] = useState(false);
 
   const handlePreview = (frame: { data: string; id: string }, index: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -89,7 +81,7 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
 
   return (
     <>
-      <div className={`panel flex flex-col ${collapsed ? '' : 'h-40'}`}>
+      <div className={`frame-queue panel flex flex-col${collapsed ? ' is-collapsed' : ''}`}>
         <div className="panel-header">
           <h3 className="panel-title">帧队列</h3>
 
@@ -126,7 +118,7 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
         </div>
 
         {!collapsed && (
-          <div className="flex-1 min-h-0 flex gap-2 overflow-x-auto p-3 pt-2">
+          <div className="frame-list flex-1 min-h-0 flex gap-2 overflow-x-auto p-3 pt-2">
             {isEmpty() ? (
               <div className="flex-1 rounded-md border border-dashed border-border bg-surface-2 flex items-center justify-center text-sm">
                 <div className="text-center">
@@ -142,7 +134,7 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
                     <div
                       key={frame.id}
                       onClick={(e) => handleToggleSelect(frame.id, e)}
-                      className={`relative flex-shrink-0 w-36 h-full rounded-md overflow-hidden border transition-colors cursor-pointer group ${
+                      className={`frame-card relative flex-shrink-0 w-36 h-full rounded-md overflow-hidden border cursor-pointer group${isSelected ? ' is-selected' : ''} ${
                         isSelected
                           ? 'border-accent-border bg-accent-subtle'
                           : 'border-border hover:border-accent-border bg-surface-2'
@@ -202,6 +194,19 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {!collapsed && (
+          <div className="frame-queue-footer">
+            <button
+              type="button"
+              onClick={onExtractCode}
+              disabled={isEmpty() || isProcessing}
+              className="btn-primary extract-button px-4 py-2 text-sm"
+            >
+              {isProcessing ? '正在提取' : `提取 ${frames.length} 帧`}
+            </button>
           </div>
         )}
       </div>

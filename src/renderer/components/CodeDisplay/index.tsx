@@ -3,7 +3,11 @@ import { Check, Copy } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { useFrameStore } from '../../store/frameStore';
 
-const CodeDisplay: React.FC = () => {
+interface CodeDisplayProps {
+  embedded?: boolean;
+}
+
+const CodeDisplay: React.FC<CodeDisplayProps> = ({ embedded = false }) => {
   const { codeResult, isProcessing, extractCode } = useAppStore();
   const { frames, isEmpty } = useFrameStore();
   const [copied, setCopied] = useState(false);
@@ -21,9 +25,11 @@ const CodeDisplay: React.FC = () => {
   };
 
   return (
-    <div className="h-full min-h-0 flex flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <h3 className="panel-title">代码结果</h3>
+    <div className="code-display h-full min-h-0 flex flex-col">
+      <div className="code-result-header">
+        <h3 className="panel-title">
+          {isProcessing ? '正在识别' : codeResult ? '识别结果' : '等待提取'}
+        </h3>
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="chip">待处理帧 {frames.length}</span>
@@ -43,10 +49,10 @@ const CodeDisplay: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 panel overflow-hidden flex flex-col">
+      <div className={`code-result-body flex-1 min-h-0 overflow-hidden flex flex-col${embedded ? '' : ' panel'}`}>
         {codeResult ? (
           <>
-            <div className="flex-1 overflow-auto p-3 bg-surface-code">
+            <div className="code-editor flex-1 overflow-auto p-3 bg-surface-code">
               {codeResult.explanation && (
                 <div className="mb-3 card px-3 py-2 text-sm text-muted">
                   {codeResult.explanation}
@@ -79,7 +85,7 @@ const CodeDisplay: React.FC = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+          <div className="state-view flex-1 flex flex-col items-center justify-center text-center px-6" data-state={isProcessing ? 'processing' : 'empty'}>
             {isProcessing ? (
               <div>
                 <div className="animate-spin w-12 h-12 border-[3px] border-accent border-t-transparent rounded-full mx-auto mb-4"></div>

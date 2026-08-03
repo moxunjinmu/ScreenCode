@@ -247,7 +247,6 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     setRegionCapture(false);
   }, [setRegionCapture]);
 
-  const captureStateText = isCapturing ? '采集中' : selectedDeviceId ? '已选择设备' : '未选择设备';
   const displayText = displayResolution
     ? `${displayResolution.width} × ${displayResolution.height}`
     : sourceResolution
@@ -255,19 +254,19 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
       : '跟随源分辨率';
 
   return (
-    <div className="h-full min-h-0 flex flex-col relative">
+    <div className={`preview-workspace h-full min-h-0 flex flex-col relative${isFullscreen ? ' is-fullscreen' : ''}`}>
       {!isFullscreen && (
-        <div className="mb-3 panel">
-          <div className="panel-header flex-wrap">
+        <div className="capture-toolbar">
+          <div className="capture-toolbar-head">
             <h2 className="panel-title">实时预览</h2>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`chip${isCapturing ? ' chip-active' : ''}`}>{captureStateText}</span>
-
+          <div className="capture-control-row">
+            <div className="capture-controls">
               <select
                 value={selectedDeviceId || ''}
                 onChange={(e) => handleDeviceChange(e.target.value)}
-                className="input px-2 py-1 text-sm min-w-[200px]"
+                className="input capture-device-select px-2 py-1 text-sm"
                 title="采集设备"
               >
                 <option value="">选择设备...</option>
@@ -281,9 +280,9 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
               {selectedDeviceId && (
                 <button
                   onClick={handleStartStop}
-                  className={`${isCapturing ? 'btn-danger' : 'btn-primary'} px-3 py-1 text-sm`}
+                  className="btn px-3 py-1 text-sm"
                 >
-                  {isCapturing ? '停止预览' : '开始预览'}
+                  {isCapturing ? '暂停预览' : '恢复预览'}
                 </button>
               )}
 
@@ -295,7 +294,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                 <>
                   <button
                     onClick={handleCaptureFrame}
-                    className="btn-success px-3 py-1 text-sm"
+                    className="btn px-3 py-1 text-sm"
                     title="快捷键: Ctrl+Shift+S"
                   >
                     <Camera size={14} />
@@ -319,50 +318,50 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                 </>
               )}
             </div>
+
+            {stream && sourceResolution && (
+              <div className="capture-toolbar-secondary">
+                <span className="capture-resolution-state">显示 {displayText}</span>
+
+                <label className="text-sm text-muted">分辨率</label>
+                <select
+                  value={selectedPreset}
+                  onChange={(e) => setSelectedPreset(e.target.value)}
+                  className="input capture-resolution-select px-2 py-1 text-sm"
+                >
+                  <option value="source">源分辨率 {sourceResolution.width}×{sourceResolution.height}</option>
+                  {PRESET_RESOLUTIONS.map((res, idx) => (
+                    <option key={idx} value={idx}>
+                      {res.width}×{res.height}
+                    </option>
+                  ))}
+                </select>
+
+                <label className="text-sm text-muted">缩放</label>
+                <select
+                  value={selectedScale}
+                  onChange={(e) => setSelectedScale(parseFloat(e.target.value))}
+                  className="input capture-scale-select px-2 py-1 text-sm"
+                >
+                  {PRESET_SCALES.map((scale) => (
+                    <option key={scale} value={scale}>
+                      {Math.round(scale * 100)}%
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
-
-          {stream && sourceResolution && (
-            <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-t border-border">
-              <span className="chip">显示尺寸 {displayText}</span>
-
-              <label className="text-sm text-muted">分辨率</label>
-              <select
-                value={selectedPreset}
-                onChange={(e) => setSelectedPreset(e.target.value)}
-                className="input px-2 py-1 text-sm min-w-[148px]"
-              >
-                <option value="source">源分辨率 {sourceResolution.width}×{sourceResolution.height}</option>
-                {PRESET_RESOLUTIONS.map((res, idx) => (
-                  <option key={idx} value={idx}>
-                    {res.width}×{res.height}
-                  </option>
-                ))}
-              </select>
-
-              <label className="text-sm text-muted">缩放</label>
-              <select
-                value={selectedScale}
-                onChange={(e) => setSelectedScale(parseFloat(e.target.value))}
-                className="input px-2 py-1 text-sm min-w-[92px]"
-              >
-                {PRESET_SCALES.map((scale) => (
-                  <option key={scale} value={scale}>
-                    {Math.round(scale * 100)}%
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
       )}
 
       <div
-        className={`flex-1 min-h-0 panel overflow-hidden flex items-center justify-center relative ${isFullscreen ? 'rounded-none' : ''} ${stream ? 'bg-black' : ''}`}
+        className={`preview-stage flex-1 min-h-0 overflow-hidden flex items-center justify-center relative${isFullscreen ? ' is-fullscreen' : ''}${stream ? ' has-stream' : ''}`}
         onDoubleClick={handleDoubleClick}
       >
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
-            <div className="text-center">
+          <div className="preview-error-state absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+            <div className="text-center state-enter">
               <p className="text-red-400 mb-2">{error}</p>
               <button
                 onClick={() => setError(null)}
@@ -406,7 +405,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
             />
           </>
         ) : (
-          <div className="text-center px-6">
+          <div className="preview-empty-state text-center px-6 state-enter">
             <svg
               className="w-16 h-16 mx-auto mb-4 text-dim"
               fill="none"

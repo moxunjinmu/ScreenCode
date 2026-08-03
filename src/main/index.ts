@@ -42,6 +42,7 @@ function createWindow() {
     width: 800,
     height: 600,
     show: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,
@@ -54,7 +55,10 @@ function createWindow() {
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-    mainWindow.webContents.openDevTools({ mode: 'right' });
+    // 默认保持真实应用视口；需要调试时显式设置环境变量再打开 DevTools。
+    if (process.env.SCREENCODE_OPEN_DEVTOOLS === '1') {
+      mainWindow.webContents.openDevTools({ mode: 'right' });
+    }
   } else {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }

@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { DisplayResolution } from '@shared/types';
 
+export type WorkspaceView = 'capture' | 'code' | 'chat';
+export type OutputView = Exclude<WorkspaceView, 'capture'>;
+
 interface SelectionRect {
   x: number;
   y: number;
@@ -26,10 +29,11 @@ interface UIState {
   endSelection: () => void;
   clearSelection: () => void;
 
-  // 聊天面板开关
-  isChatPanelOpen: boolean;
-  toggleChatPanel: () => void;
-  setChatPanelOpen: (value: boolean) => void;
+  // 工作区导航：宽屏显示双栏，紧凑模式根据 activeWorkspaceView 切页
+  activeWorkspaceView: WorkspaceView;
+  activeOutputView: OutputView;
+  setWorkspaceView: (view: WorkspaceView) => void;
+  setOutputView: (view: OutputView) => void;
 
   // 显示分辨率
   displayResolution: DisplayResolution | null;
@@ -83,10 +87,17 @@ export const useUIStore = create<UIState>((set, get) => ({
     selectionStart: null
   }),
 
-  // 聊天面板开关
-  isChatPanelOpen: false,
-  toggleChatPanel: () => set((state) => ({ isChatPanelOpen: !state.isChatPanelOpen })),
-  setChatPanelOpen: (value) => set({ isChatPanelOpen: value }),
+  // 工作区导航
+  activeWorkspaceView: 'capture',
+  activeOutputView: 'code',
+  setWorkspaceView: (view) => set({
+    activeWorkspaceView: view,
+    ...(view === 'capture' ? {} : { activeOutputView: view }),
+  }),
+  setOutputView: (view) => set({
+    activeOutputView: view,
+    activeWorkspaceView: view,
+  }),
 
   // 显示分辨率
   displayResolution: null,

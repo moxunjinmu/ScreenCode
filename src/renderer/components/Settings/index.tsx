@@ -31,6 +31,27 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const [showJsonEditor, setShowJsonEditor] = useState(false);
   const [jsonText, setJsonText] = useState('');
   const [jsonError, setJsonError] = useState('');
+  const [isRendered, setIsRendered] = useState(isOpen);
+
+  // 关闭时延迟卸载，让遮罩和面板有完整的退出过渡。
+  useEffect(() => {
+    if (isOpen) {
+      setIsRendered(true);
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => setIsRendered(false), 180);
+    return () => window.clearTimeout(timer);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -149,17 +170,28 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     setIsSaving(false);
   };
 
-  if (!isOpen || !config) return null;
+  if (!isRendered || !config) return null;
 
   const currentProvider = providers.find(p => p.id === activeProviderId);
 
   return (
     // 全屏遮罩：唯一保留 backdrop-blur 的位置（规范 2.3），背后确实是主界面内容
-    <div className="fixed inset-0 z-50 bg-slate-950/78 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="overlay w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div
+      className="settings-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
+      data-state={isOpen ? 'open' : 'closed'}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="settings-modal overlay w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+      >
         <div className="flex items-center justify-between p-3 border-b border-border sticky top-0 bg-surface-1 z-10">
           <div>
-            <h2 className="panel-title">应用设置</h2>
+            <h2 id="settings-title" className="panel-title">应用设置</h2>
             <p className="hint mt-1">统一管理模型供应商、接口参数和完整配置 JSON。</p>
           </div>
           <button

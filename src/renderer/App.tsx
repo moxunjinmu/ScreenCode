@@ -1,9 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import Layout from './components/Layout';
 import Preview from './components/Preview';
 import ThumbnailQueue from './components/ThumbnailQueue';
-import CodeDisplay from './components/CodeDisplay';
-import ChatPanelDock from './components/ChatPanelDock';
+import OutputWorkspace from './components/OutputWorkspace';
 import Toast from './components/Toast';
 import { useCaptureStore } from './store/captureStore';
 import { useFrameStore } from './store/frameStore';
@@ -11,46 +10,44 @@ import { useAppStore } from './store/appStore';
 import { useUIStore } from './store/uiStore';
 import { useToast } from './hooks/useToast';
 import { useFrameCapture } from './hooks/useFrameCapture';
-import { useChatPanelResize } from './hooks/useChatPanelResize';
+import { useResizablePane } from './hooks/useResizablePane';
 import { electronAPI } from './lib/electronApi';
 
 const App: React.FC = () => {
   const { toast, showToast } = useToast();
   const captureFrame = useFrameCapture(showToast);
-  const { containerRef, width: chatWidth, isDragging, startDragging } = useChatPanelResize();
+  const { containerRef, paneRatio, isDragging, startDragging, resizeBy } = useResizablePane();
 
   const loadDevices = useCaptureStore((state) => state.loadDevices);
-  const { setCodeResult, setError, setProcessing, extractCode } = useAppStore();
+  const { setCodeResult, setError, setProcessing, extractCode, isProcessing } = useAppStore();
   const {
     isFullscreenPreview,
     toggleFullscreenPreview,
-    isChatPanelOpen,
-    toggleChatPanel,
+    activeWorkspaceView,
+    setWorkspaceView,
   } = useUIStore();
+
+  const handleExtractCode = useCallback(() => {
+    if (useFrameStore.getState().frames.length === 0) {
+      showToast('帧队列为空，请先截图', 'error');
+      return;
+    }
+    setWorkspaceView('code');
+    void extractCode();
+  }, [extractCode, setWorkspaceView, showToast]);
 
   useEffect(() => {
     loadDevices();
   }, [loadDevices]);
 
-  // 订阅主进程事件
   useEffect(() => {
-    // 全局热键 Ctrl+Shift+S
-    const unsubscribeCapture = electronAPI.onCaptureFrame(() => {
-      captureFrame();
-    });
-
-    // 全局热键 Ctrl+Shift+E
-    const unsubscribeExtract = electronAPI.onExtractCode(() => {
-      if (useFrameStore.getState().frames.length === 0) {
-        showToast('帧队列为空，请先截图', 'error');
-        return;
-      }
-      extractCode();
-    });
+    const unsubscribeCapture = electronAPI.onCaptureFrame(captureFrame);
+    const unsubscribeExtract = electronAPI.onExtractCode(handleExtractCode);
 
     const unsubscribeAI = electronAPI.onAIResult((result) => {
       setCodeResult(result);
       setProcessing(false);
+      setWorkspaceView('code');
       showToast('代码提取完成', 'success');
     });
 
@@ -66,51 +63,64 @@ const App: React.FC = () => {
       unsubscribeAI();
       unsubscribeError();
     };
-  }, [captureFrame, extractCode, setCodeResult, setError, setProcessing, showToast]);
+  }, [captureFrame, handleExtractCode, setCodeResult, setError, setProcessing, setWorkspaceView, showToast]);
 
-  const chatDock = isChatPanelOpen && (
-    <ChatPanelDock
-      width={chatWidth}
-      isDragging={isDragging}
-      onStartDragging={startDragging}
-      onClose={toggleChatPanel}
-    />
-  );
-
-  // 全屏预览布局
   if (isFullscreenPreview) {
     return (
-      <div ref={containerRef} className="h-screen flex gap-3 p-3">
-        <div className="flex-1 min-w-0 relative">
-          <Preview isFullscreen onToggleFullscreen={toggleFullscreenPreview} />
-        </div>
-
-        {chatDock}
-
+      <div className="fullscreen-workspace">
+        <Preview isFullscreen onToggleFullscreen={toggleFullscreenPreview} />
         {toast && <Toast message={toast.message} type={toast.type} />}
       </div>
     );
   }
 
-  // 正常布局（垂直比例按规范 6.10 / 第 10 章问题 3：flex-[2] / 160px / flex-[1.4]）
   return (
     <Layout>
-      <div ref={containerRef} className="flex h-full min-h-0 gap-3 p-3">
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col gap-3 relative overflow-y-auto">
-          <section className="flex-[2] min-h-[220px] min-w-0">
-            <Preview />
-          </section>
+      <div
+        ref={containerRef}
+        className="workspace-shell"
+        data-compact-view={activeWorkspaceView}
+        data-resizing={isDragging ? 'true' : 'false'}
+      >
+        <section className="workspace-pane capture-workspace" aria-label="采集与帧队列">
+          <Preview />
+          <ThumbnailQueue
+            onCaptureFrame={captureFrame}
+            onExtractCode={handleExtractCode}
+            isProcessing={isProcessing}
+          />
+        </section>
 
-          <section className="shrink-0">
-            <ThumbnailQueue onCaptureFrame={captureFrame} />
-          </section>
-
-          <section className="flex-[1.4] min-h-[180px] min-w-0">
-            <CodeDisplay />
-          </section>
+        <div
+          className="workspace-resizer"
+          role="separator"
+          aria-label="调整输出工作区宽度"
+          aria-orientation="vertical"
+          aria-valuemin={36}
+          aria-valuemax={48}
+          aria-valuenow={Math.round(paneRatio * 100)}
+          tabIndex={0}
+          onMouseDown={startDragging}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowLeft') {
+              event.preventDefault();
+              resizeBy(1);
+            } else if (event.key === 'ArrowRight') {
+              event.preventDefault();
+              resizeBy(-1);
+            }
+          }}
+        >
+          <span aria-hidden="true" />
         </div>
 
-        {chatDock}
+        <section
+          className="workspace-pane output-pane"
+          aria-label="代码结果与 AI 对话"
+          style={{ flexBasis: `${paneRatio * 100}%` }}
+        >
+          <OutputWorkspace />
+        </section>
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type} />}
