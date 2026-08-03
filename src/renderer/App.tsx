@@ -28,8 +28,13 @@ const App: React.FC = () => {
   } = useUIStore();
 
   const handleExtractCode = useCallback(() => {
-    if (useFrameStore.getState().frames.length === 0) {
+    const { frames, selectedFrameIds } = useFrameStore.getState();
+    if (frames.length === 0) {
       showToast('帧队列为空，请先截图', 'error');
+      return;
+    }
+    if (selectedFrameIds.length === 0) {
+      showToast('请先选择要提取的帧', 'error');
       return;
     }
     setWorkspaceView('code');

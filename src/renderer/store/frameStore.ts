@@ -27,11 +27,20 @@ export const useFrameStore = create<FrameState>((set, get) => ({
   selectedFrameIds: [],
 
   addFrame: (frame) => {
-    const { frames, maxFrames } = get();
+    const { frames, maxFrames, selectedFrameIds } = get();
     if (frames.length >= maxFrames) {
-      set({ frames: [frame, ...frames.slice(0, maxFrames - 1)] });
+      // 队列已满：顶掉最旧帧，同步清理其选中态；新帧默认选中
+      const evictedId = frames[maxFrames - 1]?.id;
+      set({
+        frames: [frame, ...frames.slice(0, maxFrames - 1)],
+        selectedFrameIds: [frame.id, ...selectedFrameIds.filter((id) => id !== evictedId)],
+      });
     } else {
-      set({ frames: [frame, ...frames] });
+      // 新帧默认选中，提取以选中帧为准
+      set({
+        frames: [frame, ...frames],
+        selectedFrameIds: [...selectedFrameIds, frame.id],
+      });
     }
   },
 

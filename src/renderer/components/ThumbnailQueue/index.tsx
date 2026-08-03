@@ -202,10 +202,10 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame, onExtra
             <button
               type="button"
               onClick={onExtractCode}
-              disabled={isEmpty() || isProcessing}
+              disabled={selectedFrameIds.length === 0 || isProcessing}
               className="btn-primary extract-button px-4 py-2 text-sm"
             >
-              {isProcessing ? '正在提取' : `提取 ${frames.length} 帧`}
+              {isProcessing ? '正在提取' : `提取选中 ${selectedFrameIds.length} 帧`}
             </button>
           </div>
         )}
