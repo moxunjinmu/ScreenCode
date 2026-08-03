@@ -248,12 +248,6 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     setRegionCapture(false);
   }, [setRegionCapture]);
 
-  const displayText = displayResolution
-    ? `${displayResolution.width} × ${displayResolution.height}`
-    : sourceResolution
-      ? `${sourceResolution.width} × ${sourceResolution.height}`
-      : '跟随源分辨率';
-
   return (
     <div className={`preview-workspace h-full min-h-0 flex flex-col relative${isFullscreen ? ' is-fullscreen' : ''}`}>
       {!isFullscreen && (
@@ -308,8 +302,6 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
 
             {stream && sourceResolution && (
               <div className="capture-toolbar-secondary">
-                <span className="capture-resolution-state">显示 {displayText}</span>
-
                 <label className="text-sm text-muted">分辨率</label>
                 <Select
                   value={selectedPreset}

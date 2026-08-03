@@ -806,10 +806,6 @@ body.is-resizing-pane {
   min-width: 84px;
 }
 
-.capture-resolution-state {
-  flex: 0 0 auto;
-}
-
 .preview-stage {
   isolation: isolate;
   background: #0c0d0a;
@@ -1186,8 +1182,7 @@ body.is-resizing-pane {
     padding: 8px;
   }
 
-  .capture-toolbar-secondary label,
-  .capture-resolution-state {
+  .capture-toolbar-secondary label {
     display: none;
   }
 
