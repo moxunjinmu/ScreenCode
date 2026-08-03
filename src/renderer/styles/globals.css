@@ -728,6 +728,15 @@ code,
   border-left-color: transparent;
 }
 
+/* 收起/展开过渡期间内容宽度冻结为像素值，面板裁切滑出而内容不重排 */
+.output-pane[data-frozen='true'] {
+  overflow: hidden;
+}
+
+.output-pane[data-frozen='true'] .output-workspace {
+  width: var(--frozen-pane-width);
+}
+
 .workspace-resizer {
   position: relative;
   z-index: 5;

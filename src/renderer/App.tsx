@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { PanelRightOpen } from 'lucide-react';
 import Layout from './components/Layout';
 import Preview from './components/Preview';
@@ -32,6 +32,23 @@ const App: React.FC = () => {
     isOutputCollapsed,
     setOutputCollapsed,
   } = useUIStore();
+
+  // 收起/展开过渡期间冻结内容宽度，避免文字随宽度缩减重排折行。
+  // 状态变化的那一拍记录面板像素宽，过渡结束（展开完成）后解除冻结。
+  const [frozenPaneWidth, setFrozenPaneWidth] = useState<number | null>(null);
+  const [prevCollapsed, setPrevCollapsed] = useState(isOutputCollapsed);
+  if (prevCollapsed !== isOutputCollapsed) {
+    setPrevCollapsed(isOutputCollapsed);
+    const containerWidth = containerRef.current?.clientWidth ?? 0;
+    setFrozenPaneWidth(containerWidth > 0 ? Math.round(paneRatio * containerWidth) : null);
+  }
+
+  const paneStyle: React.CSSProperties = {
+    flexBasis: isOutputCollapsed ? 0 : `${paneRatio * 100}%`,
+  };
+  if (frozenPaneWidth !== null) {
+    (paneStyle as Record<string, string>)['--frozen-pane-width'] = `${frozenPaneWidth}px`;
+  }
 
   const handleExtractCode = useCallback(() => {
     const { frames, selectedFrameIds } = useFrameStore.getState();
@@ -126,7 +143,14 @@ const App: React.FC = () => {
         <section
           className={`workspace-pane output-pane${isOutputCollapsed ? ' is-collapsed' : ''}`}
           aria-label="代码结果与 AI 对话"
-          style={{ flexBasis: isOutputCollapsed ? 0 : `${paneRatio * 100}%` }}
+          data-frozen={frozenPaneWidth !== null ? 'true' : 'false'}
+          style={paneStyle}
+          onTransitionEnd={(e) => {
+            // 展开过渡完成后解除宽度冻结（收起期间保持冻结，供下次展开复用）
+            if (e.propertyName === 'flex-basis' && !isOutputCollapsed) {
+              setFrozenPaneWidth(null);
+            }
+          }}
         >
           <OutputWorkspace />
         </section>
