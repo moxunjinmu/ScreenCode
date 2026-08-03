@@ -34,10 +34,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="app-shell">
       <header className="topbar select-none">
-        <div className="brand-lockup" aria-label="ScreenCode 1.0.0">
+        <div className="brand-lockup" aria-label="ScreenCode 1.1.0">
           <span className="brand-mark" aria-hidden="true" />
           <span className="brand-name">ScreenCode</span>
-          <span className="version-badge">v1.0.0</span>
+          <span className="version-badge">v1.1.0</span>
         </div>
 
         <div className="topbar-actions">
