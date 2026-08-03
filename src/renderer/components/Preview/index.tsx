@@ -7,6 +7,7 @@ import { electronAPI } from '../../lib/electronApi';
 import { Frame, DisplayResolution, PRESET_RESOLUTIONS, PRESET_SCALES } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import RegionCaptureOverlay from './RegionCaptureOverlay';
+import Select from '../Select';
 
 interface PreviewProps {
   isFullscreen?: boolean;
@@ -259,19 +260,17 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
         <div className="capture-toolbar">
           <div className="capture-control-row">
             <div className="capture-controls">
-              <select
+              <Select
                 value={selectedDeviceId || ''}
-                onChange={(e) => handleDeviceChange(e.target.value)}
-                className="input capture-device-select px-2 py-1 text-sm"
+                options={devices.map((device) => ({ value: device.id, label: device.name }))}
+                onChange={(deviceId) => {
+                  if (deviceId) void handleDeviceChange(deviceId);
+                }}
+                placeholder="选择设备..."
+                className="capture-device-select text-sm"
                 title="采集设备"
-              >
-                <option value="">选择设备...</option>
-                {devices.map((device) => (
-                  <option key={device.id} value={device.id}>
-                    {device.name}
-                  </option>
-                ))}
-              </select>
+                ariaLabel="采集设备"
+              />
 
               {selectedDeviceId && (
                 <button
@@ -312,32 +311,32 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                 <span className="capture-resolution-state">显示 {displayText}</span>
 
                 <label className="text-sm text-muted">分辨率</label>
-                <select
+                <Select
                   value={selectedPreset}
-                  onChange={(e) => setSelectedPreset(e.target.value)}
-                  className="input capture-resolution-select px-2 py-1 text-sm"
+                  options={[
+                    { value: 'source', label: '源分辨率' },
+                    ...PRESET_RESOLUTIONS.map((res, idx) => ({
+                      value: String(idx),
+                      label: `${res.width}×${res.height}`,
+                    })),
+                  ]}
+                  onChange={setSelectedPreset}
+                  className="capture-resolution-select text-sm"
                   title={`源分辨率 ${sourceResolution.width}×${sourceResolution.height}`}
-                >
-                  <option value="source">源分辨率</option>
-                  {PRESET_RESOLUTIONS.map((res, idx) => (
-                    <option key={idx} value={idx}>
-                      {res.width}×{res.height}
-                    </option>
-                  ))}
-                </select>
+                  ariaLabel="预览分辨率"
+                />
 
                 <label className="text-sm text-muted">缩放</label>
-                <select
-                  value={selectedScale}
-                  onChange={(e) => setSelectedScale(parseFloat(e.target.value))}
-                  className="input capture-scale-select px-2 py-1 text-sm"
-                >
-                  {PRESET_SCALES.map((scale) => (
-                    <option key={scale} value={scale}>
-                      {Math.round(scale * 100)}%
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  value={String(selectedScale)}
+                  options={PRESET_SCALES.map((scale) => ({
+                    value: String(scale),
+                    label: `${Math.round(scale * 100)}%`,
+                  }))}
+                  onChange={(v) => setSelectedScale(parseFloat(v))}
+                  className="capture-scale-select text-sm"
+                  ariaLabel="预览缩放"
+                />
               </div>
             )}
           </div>

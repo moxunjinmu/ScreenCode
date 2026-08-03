@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ApiProvider, ProviderConfig, DEFAULT_PROVIDERS } from '@shared/types';
 import { electronAPI } from '../../lib/electronApi';
+import Select from '../Select';
 
 interface SettingsProps {
   isOpen: boolean;
@@ -269,16 +270,16 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
                     <div>
                       <label className="block text-sm text-muted mb-1">模型</label>
-                      <select
+                      <Select
                         value={activeProviderConfig.model || ''}
-                        onChange={(e) => handleConfigChange('model', e.target.value)}
-                        className="input w-full px-3 py-2 text-sm"
-                      >
-                        {currentProvider.models?.map((model) => (
-                          <option key={model} value={model}>{model}</option>
-                        ))}
-                        <option value="custom">自定义模型</option>
-                      </select>
+                        options={[
+                          ...(currentProvider.models?.map((model) => ({ value: model, label: model })) ?? []),
+                          { value: 'custom', label: '自定义模型' },
+                        ]}
+                        onChange={(model) => handleConfigChange('model', model)}
+                        className="w-full text-sm"
+                        ariaLabel="模型"
+                      />
                     </div>
 
                     {activeProviderConfig.model === 'custom' && (
