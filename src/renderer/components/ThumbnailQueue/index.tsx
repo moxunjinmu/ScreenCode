@@ -187,7 +187,6 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
                     }`}
                   >
                     <span className="text-sm font-medium">继续添加</span>
-                    <span className="hint mt-1">保留更多关键帧</span>
                   </button>
                 )}
               </>

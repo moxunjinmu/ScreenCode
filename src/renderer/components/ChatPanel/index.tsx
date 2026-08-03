@@ -232,7 +232,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose, embedded = false 
           <div className="h-full flex items-center justify-center text-sm">
             <div className="text-center max-w-[240px]">
               <p className="font-medium">把帧队列中的截图加入消息，再补一句明确指令。</p>
-              <p className="hint mt-2">例如“识别这段 TypeScript 并补全缺失的 import”，支持多图 OCR。</p>
             </div>
           </div>
         ) : (
@@ -283,15 +282,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose, embedded = false 
       {frames.length > 0 && (
         <div className="px-3 py-2 border-t border-border">
           <div className="flex items-center justify-between gap-2 mb-2">
-            <div>
-              <div className="text-xs text-muted">从帧队列添加</div>
-              <div className={`hint mt-1 ${isImageLimitReached ? 'text-accent-text' : ''}`}>
-                {isImageLimitReached
-                  ? `已达上限 ${MAX_CHAT_IMAGES} 张，移除后可继续添加。`
-                  : `点击缩略图即可加入当前消息，最多 ${MAX_CHAT_IMAGES} 张。`}
-              </div>
-            </div>
-            <span className="chip">{frames.length} 帧可选</span>
+            {isImageLimitReached && (
+              <div className="hint text-accent-text">已达上限 {MAX_CHAT_IMAGES} 张，移除后可继续添加。</div>
+            )}
+            <span className="chip ml-auto">{frames.length} 帧可选</span>
           </div>
           <div className="flex gap-2 overflow-x-auto">
             {frames.map((frame) => (
