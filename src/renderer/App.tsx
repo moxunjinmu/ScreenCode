@@ -52,6 +52,32 @@ const App: React.FC = () => {
     );
   }
 
+  // 展开解冻兜底：transitionend 可能因过渡被打断而不触发（如展开中途进入全屏预览，
+  // 面板被 display:none 取消过渡），到时自动解冻，避免内容宽度被永久锁死。
+  // 收起方向不设兜底——收起后需保持冻结宽度供下次展开复用（设计如此）。
+  useEffect(() => {
+    if (frozenPaneWidth === null || isOutputCollapsed) return undefined;
+    const rootStyle = getComputedStyle(document.documentElement);
+    const duration =
+      parseFloat(rootStyle.getPropertyValue("--motion-page")) || 220;
+    const timer = setTimeout(() => setFrozenPaneWidth(null), duration + 60);
+    return () => clearTimeout(timer);
+  }, [frozenPaneWidth, isOutputCollapsed]);
+
+  // 冻结期间窗口缩放时同步更新冻结宽度，防止展开还原时因旧像素值与面板实际宽度不一致而跳动
+  const hasFrozenPaneWidth = frozenPaneWidth !== null;
+  useEffect(() => {
+    if (!hasFrozenPaneWidth) return undefined;
+    const handleResize = () => {
+      const containerWidth = containerRef.current?.clientWidth ?? 0;
+      if (containerWidth > 0) {
+        setFrozenPaneWidth(Math.round(paneRatio * containerWidth));
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [hasFrozenPaneWidth, paneRatio, containerRef]);
+
   const paneStyle: React.CSSProperties = {
     flexBasis: isOutputCollapsed ? 0 : `${paneRatio * 100}%`,
   };

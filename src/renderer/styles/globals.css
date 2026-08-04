@@ -770,6 +770,8 @@ code,
   min-width: 0;
   overflow: hidden;
   border-left-color: transparent;
+  /* 收起是退场动画：改用平缓的标准曲线，避免 --ease-out 初速过猛「嗖一下」消失 */
+  transition-timing-function: var(--ease-standard);
 }
 
 /* 收起/展开过渡期间内容宽度冻结为像素值，面板裁切滑出而内容不重排 */
@@ -1171,12 +1173,32 @@ body.is-resizing-pane {
   transform: translate3d(0, 0, 0) scale(1);
 }
 
+/* 帧全屏预览进出场：常驻挂载 + data-state 过渡，关闭时播放缩小淡出而非直接卸载 */
 .frame-preview-backdrop {
-  animation: backdropEnter var(--motion-state) ease-out both;
+  transition:
+    opacity var(--motion-page) ease-out,
+    visibility 0s linear var(--motion-page);
+}
+
+.frame-preview-backdrop[data-state="open"] {
+  transition-delay: 0s;
+}
+
+.frame-preview-backdrop[data-state="closed"] {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .frame-preview-image {
-  animation: fullscreenEnter var(--motion-page) var(--ease-out) both;
+  transition:
+    transform var(--motion-page) var(--ease-out),
+    opacity var(--motion-page) ease-out;
+}
+
+.frame-preview-backdrop[data-state="closed"] .frame-preview-image {
+  opacity: 0;
+  transform: scale(0.995);
 }
 
 /* ===== Motion ===== */
@@ -1188,26 +1210,6 @@ body.is-resizing-pane {
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes fullscreenEnter {
-  from {
-    opacity: 0;
-    transform: scale(0.995);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes backdropEnter {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
 

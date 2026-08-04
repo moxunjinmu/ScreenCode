@@ -1,22 +1,24 @@
-import React, { useState } from 'react';
-import { Camera, ChevronDown, ChevronUp, Eye, Trash2 } from 'lucide-react';
-import { useFrameStore } from '../../store/frameStore';
-import { useCaptureStore } from '../../store/captureStore';
-import { FRAME_QUEUE } from '@shared/constants';
+import React, { useState } from "react";
+import { Camera, ChevronDown, ChevronUp, Eye, Trash2 } from "lucide-react";
+import { useFrameStore } from "../../store/frameStore";
+import { useCaptureStore } from "../../store/captureStore";
+import { FRAME_QUEUE } from "@shared/constants";
 
 interface ThumbnailQueueProps {
   onCaptureFrame: () => void;
 }
 
-// 全屏预览组件
+// 全屏预览组件（常驻挂载，通过 data-state 控制进出场过渡，关闭时不卸载避免闪断）
 const FullscreenPreview: React.FC<{
   imageUrl: string;
   index: number;
+  open: boolean;
   onClose: () => void;
-}> = ({ imageUrl, index, onClose }) => {
+}> = ({ imageUrl, index, open, onClose }) => {
   return (
     <div
-      className="frame-preview-backdrop fixed inset-0 bg-black/80 z-50 flex items-center justify-center"
+      className="flex fixed inset-0 z-50 justify-center items-center frame-preview-backdrop bg-black/80"
+      data-state={open ? "open" : "closed"}
       onClick={onClose}
     >
       <div className="absolute top-4 left-1/2 -translate-x-1/2 hint px-3 py-1.5 rounded-sm bg-black/60 text-white">
@@ -26,7 +28,7 @@ const FullscreenPreview: React.FC<{
       <img
         src={imageUrl}
         alt={`帧 ${index + 1} 全屏预览`}
-        className="frame-preview-image max-w-full max-h-full object-contain"
+        className="object-contain max-w-full max-h-full frame-preview-image"
         onClick={(e) => e.stopPropagation()}
       />
 
@@ -41,15 +43,33 @@ const FullscreenPreview: React.FC<{
 };
 
 const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
-  const { frames, clearFrames, isFull, isEmpty, selectedFrameIds, toggleFrameSelection, removeFrame } = useFrameStore();
+  const {
+    frames,
+    clearFrames,
+    isFull,
+    isEmpty,
+    selectedFrameIds,
+    toggleFrameSelection,
+    removeFrame,
+  } = useFrameStore();
   const { stream } = useCaptureStore();
-  const [previewFrame, setPreviewFrame] = useState<{ data: string; index: number } | null>(null);
+  const [previewFrame, setPreviewFrame] = useState<{
+    data: string;
+    index: number;
+  } | null>(null);
+  // 开合状态与帧数据分离：关闭时保留帧数据播放退场动画，下次打开再替换
+  const [previewOpen, setPreviewOpen] = useState(false);
   // 整体折叠仅保留单行 header；紧凑模式已有固定布局，因此不再按窗口高度强制折叠。
   const [collapsed, setCollapsed] = useState(false);
 
-  const handlePreview = (frame: { data: string; id: string }, index: number, e: React.MouseEvent) => {
+  const handlePreview = (
+    frame: { data: string; id: string },
+    index: number,
+    e: React.MouseEvent,
+  ) => {
     e.stopPropagation();
     setPreviewFrame({ data: frame.data, index });
+    setPreviewOpen(true);
   };
 
   const handleToggleSelect = (frameId: string, e: React.MouseEvent) => {
@@ -63,35 +83,41 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
   };
 
   const closePreview = () => {
-    setPreviewFrame(null);
+    setPreviewOpen(false);
   };
 
   // ESC 键关闭预览
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && previewFrame) {
+      if (e.key === "Escape" && previewOpen) {
         closePreview();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [previewFrame]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [previewOpen]);
 
   return (
     <>
-      <div className={`frame-queue panel flex flex-col${collapsed ? ' is-collapsed' : ''}`}>
+      <div
+        className={`frame-queue panel flex flex-col${collapsed ? "is-collapsed" : ""}`}
+      >
         <div className="panel-header">
           <h3 className="panel-title">帧队列</h3>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="chip">已缓存 {frames.length}/{FRAME_QUEUE.MAX_FRAMES} 帧</span>
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="chip">
+              已缓存 {frames.length}/{FRAME_QUEUE.MAX_FRAMES} 帧
+            </span>
             {selectedFrameIds.length > 0 && (
-              <span className="chip chip-active">已选 {selectedFrameIds.length} 帧</span>
+              <span className="chip chip-active">
+                已选 {selectedFrameIds.length} 帧
+              </span>
             )}
             {!isEmpty() && (
               <button
                 onClick={clearFrames}
-                className="btn-danger px-3 py-1 text-xs"
+                className="px-3 py-1 text-xs btn-danger"
               >
                 清空
               </button>
@@ -99,16 +125,22 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
             <button
               onClick={onCaptureFrame}
               disabled={!stream || isFull()}
-              className="btn-primary px-3 py-1 text-xs"
-              title={!stream ? '请先启动视频采集' : isFull() ? '队列已满' : '截图 (Ctrl+Shift+S)'}
+              className="px-3 py-1 text-xs btn-primary"
+              title={
+                !stream
+                  ? "请先启动视频采集"
+                  : isFull()
+                    ? "队列已满"
+                    : "截图 (Ctrl+Shift+S)"
+              }
             >
               <Camera size={14} />
               添加截图
             </button>
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className="btn p-1"
-              title={collapsed ? '展开帧队列' : '折叠帧队列'}
+              className="p-1 btn"
+              title={collapsed ? "展开帧队列" : "折叠帧队列"}
             >
               {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
             </button>
@@ -116,12 +148,16 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
         </div>
 
         {!collapsed && (
-          <div className="frame-list flex-1 min-h-0 flex gap-2 overflow-x-auto p-3 pt-2">
+          <div className="flex overflow-x-auto flex-1 gap-2 p-3 pt-2 min-h-0 frame-list">
             {isEmpty() ? (
-              <div className="flex-1 rounded-md border border-dashed border-border bg-surface-2 flex items-center justify-center text-sm">
+              <div className="flex flex-1 justify-center items-center text-sm rounded-md border border-dashed border-border bg-surface-2">
                 <div className="text-center">
-                  <p className="hint">按 <kbd className="kbd">Ctrl+Shift+S</kbd> 抓取当前画面</p>
-                  <p className="hint mt-1">也可以在预览区单击截图，或使用上方按钮补充关键帧。</p>
+                  <p className="hint">
+                    按 <kbd className="kbd">Ctrl+Shift+S</kbd> 抓取当前画面
+                  </p>
+                  <p className="mt-1 hint">
+                    也可以在预览区单击截图，或使用上方按钮补充关键帧。
+                  </p>
                 </div>
               </div>
             ) : (
@@ -132,17 +168,17 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
                     <div
                       key={frame.id}
                       onClick={(e) => handleToggleSelect(frame.id, e)}
-                      className={`frame-card relative flex-shrink-0 w-36 h-full rounded-md overflow-hidden border cursor-pointer group${isSelected ? ' is-selected' : ''} ${
+                      className={`frame-card relative flex-shrink-0 w-36 h-full rounded-md overflow-hidden border cursor-pointer group${isSelected ? "is-selected" : ""} ${
                         isSelected
-                          ? 'border-accent-border bg-accent-subtle'
-                          : 'border-border hover:border-accent-border bg-surface-2'
+                          ? "border-accent-border bg-accent-subtle"
+                          : "border-border hover:border-accent-border bg-surface-2"
                       }`}
                     >
                       <div className="relative h-[calc(100%-34px)]">
                         <img
                           src={`data:image/jpeg;base64,${frame.data}`}
                           alt={`帧 ${index + 1}`}
-                          className="w-full h-full object-cover"
+                          className="object-cover w-full h-full"
                         />
 
                         {isSelected && (
@@ -159,14 +195,14 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
                       <div className="h-[34px] px-2 flex items-center justify-between bg-surface-1 border-t border-border text-muted">
                         <button
                           onClick={(e) => handlePreview(frame, index, e)}
-                          className="p-1 hover:text-text transition-colors"
+                          className="p-1 transition-colors hover:text-text"
                           title="查看帧"
                         >
                           <Eye size={14} />
                         </button>
                         <button
                           onClick={(e) => handleRemove(frame.id, e)}
-                          className="p-1 hover:text-danger transition-colors"
+                          className="p-1 transition-colors hover:text-danger"
                           title="删除帧"
                         >
                           <Trash2 size={14} />
@@ -182,8 +218,8 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
                     disabled={!stream}
                     className={`flex-shrink-0 w-36 h-full border border-dashed rounded-md flex flex-col items-center justify-center transition-colors ${
                       stream
-                        ? 'border-border hover:border-accent-border hover:bg-surface-2 text-muted'
-                        : 'border-border text-dim cursor-not-allowed'
+                        ? "border-border hover:border-accent-border hover:bg-surface-2 text-muted"
+                        : "cursor-not-allowed border-border text-dim"
                     }`}
                   >
                     <span className="text-sm font-medium">继续添加</span>
@@ -195,14 +231,15 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
         )}
       </div>
 
-      {/* 全屏预览 */}
-      {previewFrame && (
-        <FullscreenPreview
-          imageUrl={`data:image/jpeg;base64,${previewFrame.data}`}
-          index={previewFrame.index}
-          onClose={closePreview}
-        />
-      )}
+      {/* 全屏预览：常驻挂载，关闭时播放退场过渡 */}
+      <FullscreenPreview
+        imageUrl={
+          previewFrame ? `data:image/jpeg;base64,${previewFrame.data}` : ""
+        }
+        index={previewFrame?.index ?? 0}
+        open={previewOpen}
+        onClose={closePreview}
+      />
     </>
   );
 };

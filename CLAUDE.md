@@ -177,6 +177,15 @@ interface ProviderConfig {
 **全屏预览**: 双击画面/按钮进入，Esc 或再次双击退出。采集面板（`capture-workspace`）切为 `fixed inset:0` 覆盖层但组件不卸载（视频流不中断），
 进出全屏由 App.tsx 的 FLIP 形变驱动（WAAPI，时长取 `--motion-layout`，贝塞尔缓动取 `--ease-out`），在窗口槽位矩形与全屏矩形之间平滑缩放过渡，CSS 中不挂关键帧动画
 
+**帧全屏预览**: 点击缩略图的「查看」按钮打开，Esc 或点击空白处关闭。预览浮层（`frame-preview-backdrop`）常驻挂载，通过 `data-state="open|closed"` 触发进出场过渡（`--motion-page` 透明度+微缩放），关闭时不卸载避免闪断；ESC 监听改读 `previewOpen` 状态
+
+**右侧输出面板（code/chat 共享）**: 收起/展开由 `flex-basis` + `min-width` 过渡驱动（`--motion-page` + `--ease-out`）。
+- 展开曲线 `--ease-out`（进场更利落），收起曲线 `--ease-standard`（退场更平缓，避免「嗖一下」消失）
+- 过渡期间冻结内容宽度为像素值（`--frozen-pane-width`），防止内容随宽度变化重排
+- 冻结期间窗口缩放时同步更新冻结宽度，避免还原时像素值与实际宽度不一致导致跳动
+- 展开解冻用 `transitionend` + `setTimeout(--motion-page + 60ms)` 双保险，避免中途过渡被打断导致永久锁死
+- 拖过最小宽度并继续拖出 `COLLAPSE_OVERSHOOT=72px` 触发收起；拖拽期间 `data-resizing="true"` 禁用过渡（收起状态例外）
+
 ## 技术栈
 
 | 层次 | 技术 |
