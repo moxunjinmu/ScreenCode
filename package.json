@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "electron-forge start",
     "build": "electron-forge make",
-    "package": "electron-forge package",
+    "package": "electron-forge package && node scripts/rename-package.js",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit"
   },

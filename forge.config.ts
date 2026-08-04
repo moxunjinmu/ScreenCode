@@ -8,6 +8,11 @@ import { MakerRpm } from '@electron-forge/maker-rpm';
 import fs from 'fs';
 import path from 'path';
 
+// 版本号（取自 package.json）与打包日期（YYYYMMDD），用于产物文件名
+const appVersion = (JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf-8')) as { version: string }).version;
+const now = new Date();
+const buildDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+
 // 获取模块的所有依赖（递归）
 function getAllDependencies(moduleName: string, deps = new Set<string>()): Set<string> {
   if (deps.has(moduleName)) return deps;
@@ -121,6 +126,8 @@ const config: ForgeConfig = {
       name: 'ScreenCode',
       authors: 'ScreenCode Team',
       description: 'Screen capture and code extraction tool',
+      // 安装包文件名带版本号和打包日期，如 ScreenCode-1.1.0-20260804 Setup.exe
+      setupExe: `ScreenCode-${appVersion}-${buildDate} Setup.exe`,
     }),
     new MakerZIP({}, ['darwin']),
     new MakerRpm({}),
