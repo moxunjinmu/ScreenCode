@@ -21,11 +21,13 @@
   --motion-control: 140ms;
   --motion-state: 180ms;
   --motion-page: 220ms;
+  /* 全屏切换 FLIP 形变时长（App.tsx 中经 getComputedStyle 读取） */
+  --motion-layout: 300ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-:root[data-theme='light'] {
+:root[data-theme="light"] {
   color-scheme: light;
   --surface-0: #f5f4ef;
   --surface-1: #fbfaf7;
@@ -35,25 +37,25 @@
   --text: #171714;
   --text-muted: #66665f;
   --text-dim: #8a8982;
-  --border: rgba(23, 23, 20, 0.10);
+  --border: rgba(23, 23, 20, 0.1);
   --border-strong: rgba(23, 23, 20, 0.18);
 
   --accent: #f97316;
   --accent-hover: #ea580c;
   --accent-ink: #171714;
   --accent-text: #c2410c;
-  --accent-subtle: rgba(249, 115, 22, 0.10);
+  --accent-subtle: rgba(249, 115, 22, 0.1);
   --accent-border: rgba(194, 65, 12, 0.35);
   --ai: #7c5cfc;
 
   --success: #65a30d;
   --success-text: #4d7c0f;
-  --success-subtle: rgba(101, 163, 13, 0.10);
+  --success-subtle: rgba(101, 163, 13, 0.1);
   --success-border: rgba(77, 124, 15, 0.35);
   --success-ink: #ffffff;
   --danger: #dc2626;
   --danger-text: #b91c1c;
-  --danger-subtle: rgba(220, 38, 38, 0.10);
+  --danger-subtle: rgba(220, 38, 38, 0.1);
   --danger-border: rgba(185, 28, 28, 0.35);
   --danger-ink: #ffffff;
 
@@ -66,7 +68,7 @@
   --scroll-thumb-hover: rgba(23, 23, 20, 0.24);
 }
 
-:root[data-theme='dark'] {
+:root[data-theme="dark"] {
   color-scheme: dark;
   --surface-0: #10110e;
   --surface-1: #171814;
@@ -84,18 +86,18 @@
   --accent-ink: #171714;
   --accent-text: #fdba74;
   --accent-subtle: rgba(249, 115, 22, 0.16);
-  --accent-border: rgba(249, 115, 22, 0.40);
+  --accent-border: rgba(249, 115, 22, 0.4);
   --ai: #9b87ff;
 
   --success: #9ad84a;
   --success-text: #9ad84a;
   --success-subtle: rgba(154, 216, 74, 0.14);
-  --success-border: rgba(154, 216, 74, 0.40);
+  --success-border: rgba(154, 216, 74, 0.4);
   --success-ink: #171714;
   --danger: #f87171;
   --danger-text: #fca5a5;
   --danger-subtle: rgba(248, 113, 113, 0.14);
-  --danger-border: rgba(248, 113, 113, 0.40);
+  --danger-border: rgba(248, 113, 113, 0.4);
   --danger-ink: #171714;
 
   --chrome: #171814;
@@ -104,7 +106,7 @@
   --modal-mask: rgba(4, 5, 3, 0.72);
   --row-hover: rgba(255, 255, 255, 0.025);
   --scroll-thumb: rgba(241, 242, 234, 0.12);
-  --scroll-thumb-hover: rgba(241, 242, 234, 0.20);
+  --scroll-thumb-hover: rgba(241, 242, 234, 0.2);
 }
 
 /* ===== Base ===== */
@@ -121,14 +123,21 @@ body,
 body {
   overflow: hidden;
   color: var(--text);
-  font-family: 'Segoe UI Variable', 'SF Pro Display', 'IBM Plex Sans', 'PingFang SC',
-    'Microsoft YaHei UI', sans-serif;
+  font-family:
+    "Segoe UI Variable", "SF Pro Display", "IBM Plex Sans", "PingFang SC",
+    "Microsoft YaHei UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   background:
-    radial-gradient(ellipse 70% 52% at 100% 0%, var(--ambient-ai), transparent 62%),
+    radial-gradient(
+      ellipse 70% 52% at 100% 0%,
+      var(--ambient-ai),
+      transparent 62%
+    ),
     linear-gradient(180deg, var(--top-sheen), transparent 160px),
     var(--surface-0);
-  transition: color var(--motion-state) ease-out, background-color var(--motion-state) ease-out;
+  transition:
+    color var(--motion-state) ease-out,
+    background-color var(--motion-state) ease-out;
 }
 
 * {
@@ -144,25 +153,28 @@ textarea {
 }
 
 button:not(:disabled),
-[role='button']:not([aria-disabled='true']) {
+[role="button"]:not([aria-disabled="true"]) {
   cursor: pointer;
 }
 
 button:focus-visible,
-[role='button']:focus-visible,
-[role='separator']:focus-visible,
+[role="button"]:focus-visible,
+[role="separator"]:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--surface-0), 0 0 0 4px var(--accent);
+  box-shadow:
+    0 0 0 2px var(--surface-0),
+    0 0 0 4px var(--accent);
 }
 
 pre,
 code,
 .font-mono {
-  font-family: 'Cascadia Code', 'SF Mono', Consolas, 'Microsoft YaHei UI', monospace;
+  font-family:
+    "Cascadia Code", "SF Mono", Consolas, "Microsoft YaHei UI", monospace;
   tab-size: 2;
 }
 
@@ -307,7 +319,9 @@ code,
     background: var(--surface-1);
     border: 1px solid var(--border);
     border-radius: var(--r-sm);
-    transition: border-color var(--motion-control) ease-out, box-shadow var(--motion-control) ease-out;
+    transition:
+      border-color var(--motion-control) ease-out,
+      box-shadow var(--motion-control) ease-out;
   }
 
   .input::placeholder {
@@ -337,7 +351,10 @@ code,
     background: var(--surface-1);
     border: 1px solid var(--border);
     border-radius: var(--r-sm);
-    transition: border-color var(--motion-control) ease-out, background-color var(--motion-control) ease-out, box-shadow var(--motion-control) ease-out;
+    transition:
+      border-color var(--motion-control) ease-out,
+      background-color var(--motion-control) ease-out,
+      box-shadow var(--motion-control) ease-out;
   }
 
   .select-trigger:hover:not(:disabled) {
@@ -454,7 +471,7 @@ code,
   .chip-active::before {
     width: 6px;
     height: 6px;
-    content: '';
+    content: "";
     background: currentColor;
     border-radius: 999px;
   }
@@ -474,7 +491,7 @@ code,
   .kbd {
     padding: 1px 5px;
     color: var(--text-muted);
-    font-family: 'Cascadia Code', Consolas, monospace;
+    font-family: "Cascadia Code", Consolas, monospace;
     font-size: 0.6875rem;
     background: var(--surface-3);
     border: 1px solid var(--border);
@@ -514,7 +531,9 @@ code,
   padding: 0 18px;
   background: var(--chrome);
   border-bottom: 1px solid var(--border);
-  transition: background-color var(--motion-state) ease-out, border-color var(--motion-state) ease-out;
+  transition:
+    background-color var(--motion-state) ease-out,
+    border-color var(--motion-state) ease-out;
 }
 
 .brand-lockup,
@@ -576,7 +595,9 @@ code,
   font-size: 12px;
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  transition: color var(--motion-state) ease-out, border-color var(--motion-state) ease-out;
+  transition:
+    color var(--motion-state) ease-out,
+    border-color var(--motion-state) ease-out;
 }
 
 .global-state-dot,
@@ -589,7 +610,9 @@ code,
 
 .global-state-dot {
   background: var(--text-dim);
-  transition: background-color var(--motion-state) ease-out, box-shadow var(--motion-state) ease-out;
+  transition:
+    background-color var(--motion-state) ease-out,
+    box-shadow var(--motion-state) ease-out;
 }
 
 .global-state.is-capturing .global-state-dot {
@@ -634,7 +657,9 @@ code,
   font-size: 12px;
   background: transparent;
   border: 0;
-  transition: color var(--motion-control) ease-out, background-color var(--motion-control) ease-out;
+  transition:
+    color var(--motion-control) ease-out,
+    background-color var(--motion-control) ease-out;
 }
 
 .compact-navigation-tab::after {
@@ -643,11 +668,13 @@ code,
   bottom: -1px;
   left: 28%;
   height: 2px;
-  content: '';
+  content: "";
   background: var(--accent);
   opacity: 0;
   transform: scaleX(0.45);
-  transition: opacity var(--motion-state) ease-out, transform var(--motion-state) var(--ease-out);
+  transition:
+    opacity var(--motion-state) ease-out,
+    transform var(--motion-state) var(--ease-out);
 }
 
 .compact-navigation-tab.is-active {
@@ -707,6 +734,23 @@ code,
   overflow: hidden;
 }
 
+/* 全屏预览：采集面板 fixed 覆盖整个窗口（组件不卸载，画面不中断）。
+   z-index 低于 Toast(z-50)，保证全屏下提示仍可见。 */
+.workspace-shell.is-fullscreen-preview .workspace-resizer,
+.workspace-shell.is-fullscreen-preview .output-pane,
+.workspace-shell.is-fullscreen-preview .output-expand-rail,
+.workspace-shell.is-fullscreen-preview .frame-queue {
+  display: none;
+}
+
+/* 进出全屏的形变动画由 App.tsx FLIP（WAAPI + 贝塞尔缓动）驱动，此处不挂关键帧动画 */
+.workspace-shell.is-fullscreen-preview .capture-workspace {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: #090a08;
+}
+
 .output-pane {
   flex: 0 0 auto;
   min-width: 360px;
@@ -718,7 +762,7 @@ code,
 }
 
 /* 拖拽调宽时禁用过渡，避免跟手延迟；收起状态例外，保证拖拽触发收起仍有动画 */
-.workspace-shell[data-resizing='true'] .output-pane:not(.is-collapsed) {
+.workspace-shell[data-resizing="true"] .output-pane:not(.is-collapsed) {
   transition: none;
 }
 
@@ -729,11 +773,11 @@ code,
 }
 
 /* 收起/展开过渡期间内容宽度冻结为像素值，面板裁切滑出而内容不重排 */
-.output-pane[data-frozen='true'] {
+.output-pane[data-frozen="true"] {
   overflow: hidden;
 }
 
-.output-pane[data-frozen='true'] .output-workspace {
+.output-pane[data-frozen="true"] .output-workspace {
   width: var(--frozen-pane-width);
 }
 
@@ -755,7 +799,9 @@ code,
   height: 42px;
   background: var(--border-strong);
   border-radius: 999px;
-  transition: width var(--motion-control) ease-out, background-color var(--motion-control) ease-out;
+  transition:
+    width var(--motion-control) ease-out,
+    background-color var(--motion-control) ease-out;
 }
 
 /* 收起时隐藏分隔条（仅宽屏生效，紧凑模式由 tab 切页控制） */
@@ -808,7 +854,7 @@ code,
 
 .workspace-resizer:hover span,
 .workspace-resizer:focus-visible span,
-.workspace-shell[data-resizing='true'] .workspace-resizer span {
+.workspace-shell[data-resizing="true"] .workspace-resizer span {
   width: 3px;
   background: var(--accent);
 }
@@ -888,11 +934,7 @@ body.is-resizing-pane {
 }
 
 .preview-stage video {
-  transition: opacity var(--motion-state) ease-out, transform var(--motion-page) var(--ease-out);
-}
-
-.preview-stage video:hover {
-  transform: scale(1.002);
+  transition: opacity var(--motion-state) ease-out;
 }
 
 .preview-empty-state,
@@ -975,7 +1017,9 @@ body.is-resizing-pane {
   font-size: 12px;
   background: transparent;
   border: 0;
-  transition: color var(--motion-control) ease-out, background-color var(--motion-control) ease-out;
+  transition:
+    color var(--motion-control) ease-out,
+    background-color var(--motion-control) ease-out;
 }
 
 .workspace-tab::after {
@@ -984,11 +1028,13 @@ body.is-resizing-pane {
   bottom: -1px;
   left: 10px;
   height: 2px;
-  content: '';
+  content: "";
   background: var(--accent);
   opacity: 0;
   transform: scaleX(0.55);
-  transition: opacity var(--motion-state) ease-out, transform var(--motion-state) var(--ease-out);
+  transition:
+    opacity var(--motion-state) ease-out,
+    transform var(--motion-state) var(--ease-out);
 }
 
 .workspace-tab:hover,
@@ -1091,16 +1137,18 @@ body.is-resizing-pane {
   background: var(--modal-mask);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  transition: opacity var(--motion-state) ease-out, visibility 0s linear var(--motion-state);
+  transition:
+    opacity var(--motion-state) ease-out,
+    visibility 0s linear var(--motion-state);
 }
 
-.settings-backdrop[data-state='closed'] {
+.settings-backdrop[data-state="closed"] {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
 }
 
-.settings-backdrop[data-state='open'] {
+.settings-backdrop[data-state="open"] {
   visibility: visible;
   opacity: 1;
   transition-delay: 0s;
@@ -1108,29 +1156,19 @@ body.is-resizing-pane {
 
 .settings-modal {
   transform: translate3d(0, 10px, 0) scale(0.985);
-  transition: transform var(--motion-page) var(--ease-out), opacity var(--motion-state) ease-out;
+  transition:
+    transform var(--motion-page) var(--ease-out),
+    opacity var(--motion-state) ease-out;
 }
 
-.settings-backdrop[data-state='closed'] .settings-modal {
+.settings-backdrop[data-state="closed"] .settings-modal {
   opacity: 0;
   transform: translate3d(0, 8px, 0) scale(0.99);
 }
 
-.settings-backdrop[data-state='open'] .settings-modal {
+.settings-backdrop[data-state="open"] .settings-modal {
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
-}
-
-.fullscreen-workspace {
-  width: 100%;
-  height: 100%;
-  background: #090a08;
-  animation: fullscreenEnter var(--motion-page) var(--ease-out) both;
-}
-
-.fullscreen-workspace .preview-stage {
-  width: 100%;
-  height: 100%;
 }
 
 .frame-preview-backdrop {
@@ -1143,38 +1181,77 @@ body.is-resizing-pane {
 
 /* ===== Motion ===== */
 @keyframes workspaceEnter {
-  from { opacity: 0; transform: translate3d(0, 4px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+  from {
+    opacity: 0;
+    transform: translate3d(0, 4px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 @keyframes fullscreenEnter {
-  from { opacity: 0; transform: scale(0.995); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes backdropEnter {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes stateEnter {
-  from { opacity: 0; transform: translate3d(0, 5px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+  from {
+    opacity: 0;
+    transform: translate3d(0, 5px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 @keyframes messageEnter {
-  from { opacity: 0; transform: translate3d(0, 7px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+  from {
+    opacity: 0;
+    transform: translate3d(0, 7px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 @keyframes frameEnter {
-  from { opacity: 0; transform: translate3d(0, 6px, 0) scale(0.985); }
-  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 @keyframes statusPulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--accent-subtle); }
-  50% { box-shadow: 0 0 0 5px transparent; }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--accent-subtle);
+  }
+  50% {
+    box-shadow: 0 0 0 5px transparent;
+  }
 }
 
 /* ===== Breakpoints ===== */
@@ -1234,9 +1311,9 @@ body.is-resizing-pane {
     transform: translate3d(8px, 0, 0);
   }
 
-  .workspace-shell[data-compact-view='capture'] .capture-workspace,
-  .workspace-shell[data-compact-view='code'] .output-pane,
-  .workspace-shell[data-compact-view='chat'] .output-pane {
+  .workspace-shell[data-compact-view="capture"] .capture-workspace,
+  .workspace-shell[data-compact-view="code"] .output-pane,
+  .workspace-shell[data-compact-view="chat"] .output-pane {
     z-index: 2;
     visibility: visible;
     opacity: 1;

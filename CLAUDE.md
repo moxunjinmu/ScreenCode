@@ -174,6 +174,9 @@ interface ProviderConfig {
 
 **区域截图**: 点击按钮/Ctrl+Shift+R → 拖拽选区 → 编辑模式(红色边框+8方向手柄，可拖拽移动/resize) → ✓确认保存 / ✕取消
 
+**全屏预览**: 双击画面/按钮进入，Esc 或再次双击退出。采集面板（`capture-workspace`）切为 `fixed inset:0` 覆盖层但组件不卸载（视频流不中断），
+进出全屏由 App.tsx 的 FLIP 形变驱动（WAAPI，时长取 `--motion-layout`，贝塞尔缓动取 `--ease-out`），在窗口槽位矩形与全屏矩形之间平滑缩放过渡，CSS 中不挂关键帧动画
+
 ## 技术栈
 
 | 层次 | 技术 |
