@@ -967,7 +967,13 @@ body.is-resizing-pane {
 }
 
 .frame-queue.is-collapsed {
-  height: 41px;
+  height: 45px;
+}
+
+/* 收起时按钮区禁止换行、溢出裁剪，避免第二行按钮被 hidden 遮蔽 */
+.frame-queue.is-collapsed .panel-header > .flex {
+  flex-wrap: nowrap !important;
+  overflow: hidden;
 }
 
 .frame-list {
@@ -1354,7 +1360,7 @@ body.is-resizing-pane {
   }
 
   .frame-queue.is-collapsed {
-    height: 35px;
+    height: 39px;
   }
 
   .frame-queue .panel-header {
