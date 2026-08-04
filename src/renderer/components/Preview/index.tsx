@@ -361,15 +361,16 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
               muted
               playsInline
               className={`${isRegionCapture ? 'cursor-crosshair' : 'cursor-pointer'} object-contain`}
-              style={displayResolution ? {
-                width: `${displayResolution.width}px`,
-                height: `${displayResolution.height}px`,
-                maxWidth: '100%',
-                maxHeight: '100%',
-              } : {
-                width: '100%',
-                height: '100%',
-              }}
+              style={isFullscreen
+                ? { width: '100%', height: '100%' }
+                : displayResolution
+                  ? {
+                      width: `${displayResolution.width}px`,
+                      height: `${displayResolution.height}px`,
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                    }
+                  : { width: '100%', height: '100%' }}
               onClick={(e) => {
                 // 如果不在区域截图模式，单击截图
                 if (!isRegionCapture && e.detail === 1) {

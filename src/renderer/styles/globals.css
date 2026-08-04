@@ -872,6 +872,14 @@ body.is-resizing-pane {
   grid-template-rows: auto minmax(0, 1fr);
 }
 
+/* 全屏预览：工作区需撑满 fixed inset:0 的父级，避免视频顶部留黑和底部溢出。
+   capture-workspace 已 fixed 占满，preview-workspace 自身也要 h-full 撑到边缘。 */
+.preview-workspace.is-fullscreen {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
 .capture-toolbar {
   z-index: 2;
   display: grid;
@@ -929,6 +937,12 @@ body.is-resizing-pane {
 .preview-stage {
   isolation: isolate;
   background: #0c0d0a;
+}
+
+/* 全屏时舞台强制占满父级；视频在父级内 object-contain 等比缩放，不会溢出 */
+.preview-stage.is-fullscreen {
+  position: absolute;
+  inset: 0;
 }
 
 .preview-stage.has-stream {
