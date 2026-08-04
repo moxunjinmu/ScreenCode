@@ -100,7 +100,7 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
   return (
     <>
       <div
-        className={`frame-queue panel flex flex-col${collapsed ? "is-collapsed" : ""}`}
+        className={`frame-queue panel flex flex-col${collapsed ? " is-collapsed" : ""}`}
       >
         <div className="panel-header">
           <h3 className="panel-title">帧队列</h3>
@@ -168,7 +168,7 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
                     <div
                       key={frame.id}
                       onClick={(e) => handleToggleSelect(frame.id, e)}
-                      className={`frame-card relative flex-shrink-0 w-36 h-full rounded-md overflow-hidden border cursor-pointer group${isSelected ? "is-selected" : ""} ${
+                      className={`frame-card relative flex-shrink-0 w-36 h-full rounded-md overflow-hidden border cursor-pointer group${isSelected ? " is-selected" : ""} ${
                         isSelected
                           ? "border-accent-border bg-accent-subtle"
                           : "border-border hover:border-accent-border bg-surface-2"

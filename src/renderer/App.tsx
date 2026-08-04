@@ -209,7 +209,7 @@ const App: React.FC = () => {
     <Layout>
       <div
         ref={containerRef}
-        className={`workspace-shell${isFullscreenPreview ? "is-fullscreen-preview" : ""}`}
+        className={`workspace-shell${isFullscreenPreview ? " is-fullscreen-preview" : ""}`}
         data-compact-view={activeWorkspaceView}
         data-resizing={isDragging ? "true" : "false"}
       >
@@ -226,7 +226,7 @@ const App: React.FC = () => {
         </section>
 
         <div
-          className={`workspace-resizer${isOutputCollapsed ? "is-collapsed" : ""}`}
+          className={`workspace-resizer${isOutputCollapsed ? " is-collapsed" : ""}`}
           role="separator"
           aria-label="调整输出工作区宽度"
           aria-orientation="vertical"
@@ -249,7 +249,7 @@ const App: React.FC = () => {
         </div>
 
         <section
-          className={`workspace-pane output-pane${isOutputCollapsed ? "is-collapsed" : ""}`}
+          className={`workspace-pane output-pane${isOutputCollapsed ? " is-collapsed" : ""}`}
           aria-label="代码结果与 AI 对话"
           data-frozen={frozenPaneWidth !== null ? "true" : "false"}
           style={paneStyle}
