@@ -24,6 +24,18 @@ if (process.platform === 'win32') {
   }
 }
 
+// Squirrel 安装/更新/卸载事件：直接退出，不创建窗口
+const SQUIRREL_EVENTS = ['--squirrel-install', '--squirrel-updated', '--squirrel-uninstall', '--squirrel-obsolete'];
+if (process.platform === 'win32' && process.argv.some((arg) => SQUIRREL_EVENTS.includes(arg))) {
+  app.quit();
+}
+
+// 单实例锁：第二个实例直接退出，聚焦已有窗口
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+
 // 主窗口引用
 let mainWindow: BrowserWindow | null = null;
 
@@ -110,7 +122,21 @@ function registerShortcuts() {
 }
 
 // 应用准备就绪
-app.whenReady().then(() => {
+if (gotSingleInstanceLock) {
+  // 第二个实例启动时，聚焦已有主窗口
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.show();
+      mainWindow.focus();
+    } else {
+      createWindow();
+    }
+  });
+
+  app.whenReady().then(() => {
   // 创建窗口
   createWindow();
 
@@ -136,7 +162,8 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
-});
+  });
+}
 
 // 所有窗口关闭时退出应用（macOS 除外）
 app.on('window-all-closed', () => {
