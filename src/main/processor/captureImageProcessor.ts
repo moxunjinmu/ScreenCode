@@ -9,7 +9,28 @@ import type {
 
 const MAX_CAPTURE_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_INPUT_PIXELS = 40_000_000;
-const STRICT_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+function hasValidBase64Characters(data: string): boolean {
+  const padding = data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0;
+  const contentLength = data.length - padding;
+  if ((padding === 1 && contentLength % 4 !== 3) || (padding === 2 && contentLength % 4 !== 2)) {
+    return false;
+  }
+  for (let index = 0; index < contentLength; index += 1) {
+    const code = data.charCodeAt(index);
+    const isBase64 =
+      (code >= 65 && code <= 90) ||
+      (code >= 97 && code <= 122) ||
+      (code >= 48 && code <= 57) ||
+      code === 43 ||
+      code === 47;
+    if (!isBase64) return false;
+  }
+  for (let index = contentLength; index < data.length; index += 1) {
+    if (data.charCodeAt(index) !== 61) return false;
+  }
+  return true;
+}
 
 function decodeImageData(data: unknown): Buffer {
   if (typeof data !== 'string' || data.length === 0 || data.length % 4 !== 0) {
@@ -18,7 +39,7 @@ function decodeImageData(data: unknown): Buffer {
   const padding = data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0;
   const estimatedBytes = data.length * 3 / 4 - padding;
   if (estimatedBytes > MAX_CAPTURE_IMAGE_BYTES) throw new Error('图片数据超过 20MB 上限');
-  if (!STRICT_BASE64.test(data)) throw new Error('图片数据不是有效 base64');
+  if (!hasValidBase64Characters(data)) throw new Error('图片数据不是有效 base64');
   return Buffer.from(data, 'base64');
 }
 
