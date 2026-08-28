@@ -40,4 +40,24 @@ describe('AI 高画质 JPEG 处理', () => {
     expect(metadata.width).toBe(40);
     expect(metadata.height).toBe(20);
   });
+
+  it('复用 base64 转换与元数据读取能力', async () => {
+    const input = await sharp({
+      create: {
+        width: 8,
+        height: 6,
+        channels: 3,
+        background: '#336699',
+      },
+    }).png().toBuffer();
+    const compressor = new ImageCompressor();
+
+    const base64 = compressor.toBase64(input);
+    const restored = compressor.fromBase64(base64);
+    const metadata = await compressor.getInfo(restored);
+
+    expect(restored.equals(input)).toBe(true);
+    expect(metadata.width).toBe(8);
+    expect(metadata.height).toBe(6);
+  });
 });

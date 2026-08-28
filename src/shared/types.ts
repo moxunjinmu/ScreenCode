@@ -1,13 +1,43 @@
 // 帧类型
 export type FrameType = 'new_scene' | 'continuation';
 
+export type ImageMimeType = 'image/jpeg' | 'image/png';
+
+export interface EncodedImage {
+  data: string;
+  mimeType: ImageMimeType;
+  width?: number;
+  height?: number;
+}
+
 // 帧数据结构
-export interface Frame {
+export interface Frame extends EncodedImage {
   id: string;
   timestamp: number;
-  data: string;  // base64 encoded
   type: FrameType;
   overlap?: number;  // 与上一帧的重叠比例
+}
+
+export type AiImageQuality = 'economy' | 'balanced' | 'high' | 'original';
+
+export interface AiImageQualityProfile {
+  id: AiImageQuality;
+  label: string;
+  maxWidth?: number;
+  jpegQuality?: number;
+  preserveOriginal: boolean;
+}
+
+export type CaptureQualityStrategy = 'quality' | 'smooth';
+
+export interface HighQualityCaptureRequest {
+  deviceName: string;
+  ffmpegPath?: string;
+}
+
+export interface HighQualityCaptureResult extends EncodedImage {
+  width: number;
+  height: number;
 }
 
 // 设备信息
@@ -144,6 +174,9 @@ export interface AppConfig {
   maxFrames: number;
   compressionWidth: number;
   compressionQuality: number;
+  aiImageQuality: AiImageQuality;
+  captureQualityStrategy: CaptureQualityStrategy;
+  ffmpegPath?: string;
 
   // 显示分辨率配置
   displayResolution?: DisplayResolution;  // 用户选择的显示分辨率
@@ -210,8 +243,11 @@ export const DEFAULT_CONFIG: AppConfig = {
   toastDuration: 1500,
   frameDiffThreshold: 0.05,
   maxFrames: 8,
-  compressionWidth: 768,
-  compressionQuality: 85,
+  compressionWidth: 1920,
+  compressionQuality: 95,
+  aiImageQuality: 'original',
+  captureQualityStrategy: 'quality',
+  ffmpegPath: '',
 };
 
 // 聊天会话
@@ -227,12 +263,12 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  images?: string[];  // base64 图片数组
+  images?: EncodedImage[];
   timestamp: number;
 }
 
 // 聊天请求
 export interface ChatRequest {
-  messages: { role: 'user' | 'assistant'; content: string; images?: string[] }[];
+  messages: { role: 'user' | 'assistant'; content: string; images?: EncodedImage[] }[];
   systemPrompt?: string;
 }

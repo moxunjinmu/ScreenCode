@@ -6,6 +6,8 @@ import { electronAPI } from '../../lib/electronApi';
 import { ChatMessage } from '@shared/types';
 import { MAX_CHAT_IMAGES } from '@shared/constants';
 import { v4 as uuidv4 } from 'uuid';
+import type { EncodedImage } from '@shared/types';
+import { toImageDataUrl } from '@shared/imageQuality';
 
 interface ChatPanelProps {
   width?: number;
@@ -149,9 +151,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose, embedded = false 
   const isImageLimitReached = selectedImages.length >= MAX_CHAT_IMAGES;
 
   // 从帧队列添加图片
-  const handleAddFromQueue = (frameData: string) => {
+  const handleAddFromQueue = (image: EncodedImage) => {
     if (isImageLimitReached) return;
-    useChatStore.getState().addSelectedImage(frameData);
+    useChatStore.getState().addSelectedImage(image);
   };
 
   return (
@@ -253,7 +255,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose, embedded = false 
                     {msg.images.map((img, idx) => (
                       <img
                         key={idx}
-                        src={`data:image/jpeg;base64,${img}`}
+                        src={toImageDataUrl(img)}
                         alt={`图${idx + 1}`}
                         className="w-20 h-20 object-cover rounded-sm"
                       />
@@ -291,7 +293,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose, embedded = false 
             {frames.map((frame) => (
               <img
                 key={frame.id}
-                src={`data:image/jpeg;base64,${frame.data}`}
+                src={toImageDataUrl(frame)}
                 alt="帧"
                 className={`w-14 h-14 object-cover rounded-md border transition-colors ${
                   isImageLimitReached
@@ -299,7 +301,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose, embedded = false 
                     : 'cursor-pointer border-transparent hover:border-accent'
                 }`}
                 title={isImageLimitReached ? `最多添加 ${MAX_CHAT_IMAGES} 张图片` : '加入当前消息'}
-                onClick={() => handleAddFromQueue(frame.data)}
+                onClick={() => handleAddFromQueue(frame)}
               />
             ))}
           </div>
@@ -313,7 +315,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ width, onClose, embedded = false 
             {selectedImages.map((img, idx) => (
               <div key={idx} className="relative">
                 <img
-                  src={`data:image/jpeg;base64,${img}`}
+                  src={toImageDataUrl(img)}
                   alt={`选${idx + 1}`}
                   className="w-16 h-16 object-cover rounded-md"
                 />

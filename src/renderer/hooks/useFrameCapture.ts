@@ -21,8 +21,8 @@ export function useFrameCapture(showToast: (message: string, type: ToastType) =>
     }
 
     try {
-      const base64Frame = await captureFrame();
-      if (!base64Frame) {
+      const outcome = await captureFrame();
+      if (!outcome) {
         showToast('截图失败', 'error');
         return;
       }
@@ -30,7 +30,7 @@ export function useFrameCapture(showToast: (message: string, type: ToastType) =>
       const frame: Frame = {
         id: uuidv4(),
         timestamp: Date.now(),
-        data: base64Frame,
+        ...outcome.image,
         type: 'new_scene',
         overlap: undefined,
       };
@@ -39,7 +39,11 @@ export function useFrameCapture(showToast: (message: string, type: ToastType) =>
 
       // 直接读最新队列长度，避免把 frames 放进依赖导致事件监听反复重建
       const queued = useFrameStore.getState().frames.length;
-      showToast(`截图已入队 (${queued}/${FRAME_QUEUE.MAX_FRAMES})`, 'success');
+      if (outcome.restoreError || outcome.warning) {
+        showToast(outcome.restoreError || outcome.warning || '截图已回退', 'error');
+      } else {
+        showToast(`YUY2 原图已入队 (${queued}/${FRAME_QUEUE.MAX_FRAMES})`, 'success');
+      }
     } catch (error) {
       console.error('Capture frame error:', error);
       showToast('截图失败', 'error');

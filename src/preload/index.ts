@@ -1,6 +1,15 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '@shared/constants';
-import { Frame, ClaudeResponse, AppConfig, AppError, ChatRequest } from '@shared/types';
+import {
+  Frame,
+  ClaudeResponse,
+  AppConfig,
+  AppError,
+  ChatRequest,
+  EncodedImage,
+  HighQualityCaptureRequest,
+  HighQualityCaptureResult,
+} from '@shared/types';
 
 // 聊天响应类型
 interface ChatResponse {
@@ -12,6 +21,8 @@ const electronAPI = {
   // 捕获控制（设备枚举由渲染进程直接通过 navigator.mediaDevices 完成）
   startCapture: () => ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_START),
   stopCapture: () => ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_STOP),
+  captureHighQualityFrame: (request: HighQualityCaptureRequest) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_HIGH_QUALITY_FRAME, request) as Promise<HighQualityCaptureResult>,
 
   // AI 服务
   extractCode: (frames: Frame[]) => ipcRenderer.invoke(IPC_CHANNELS.AI_EXTRACT, frames) as Promise<ClaudeResponse>,
@@ -22,8 +33,8 @@ const electronAPI = {
   setConfig: (config: Partial<AppConfig>) => ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SET, config),
 
   // 剪贴板
-  writeImageToClipboard: (base64Data: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.CLIPBOARD_WRITE_IMAGE, base64Data),
+  writeImageToClipboard: (image: EncodedImage) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLIPBOARD_WRITE_IMAGE, image),
 
   // 事件监听
   onAIResult: (callback: (result: ClaudeResponse) => void) => {

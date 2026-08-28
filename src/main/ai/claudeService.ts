@@ -47,12 +47,12 @@ export class ClaudeService implements AIService {
     const { systemPrompt, userPrompt, images } = buildMultiFramePrompt(frames);
 
     // 构建消息内容 - 图片放在前面，文字放在后面
-    const imageContents = images.map((imageBase64) => ({
+    const imageContents = images.map((image) => ({
       type: 'image' as const,
       source: {
         type: 'base64' as const,
-        media_type: 'image/jpeg' as const,
-        data: imageBase64,
+        media_type: image.mimeType,
+        data: image.data,
       },
     }));
 
@@ -100,12 +100,12 @@ export class ClaudeService implements AIService {
     const messages: Anthropic.Messages.MessageParam[] = request.messages.map((msg) => {
       if (msg.images && msg.images.length > 0) {
         // 带图片的消息
-        const imageContents = msg.images.map((img) => ({
+        const imageContents = msg.images.map((image) => ({
           type: 'image' as const,
           source: {
             type: 'base64' as const,
-            media_type: 'image/jpeg' as const,
-            data: img,
+            media_type: image.mimeType,
+            data: image.data,
           },
         }));
         const textContent = {

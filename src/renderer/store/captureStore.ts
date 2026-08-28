@@ -1,14 +1,35 @@
 import { create } from 'zustand';
-import { Device } from '@shared/types';
+import type { Device, EncodedImage } from '@shared/types';
 import { IMAGE_PROCESSING } from '@shared/constants';
 import { electronAPI } from '../lib/electronApi';
 import { acquireHighestQualityStream } from '../capture/highQualityCapture';
+import {
+  captureWithYuy2AndRestore,
+  type HighQualityCaptureOutcome,
+} from '../capture/captureOrchestrator';
 
 /** canvas.toDataURL 的质量参数取值域为 0-1，配置中的 QUALITY 为百分制 */
 const CANVAS_JPEG_QUALITY = IMAGE_PROCESSING.QUALITY / 100;
 
 /** HTMLMediaElement.readyState：当前帧数据已可用 */
 const HAVE_CURRENT_DATA = 2;
+
+function capturePreviewFrame(videoElement: HTMLVideoElement): EncodedImage | null {
+  if (videoElement.readyState < HAVE_CURRENT_DATA) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = videoElement.videoWidth;
+  canvas.height = videoElement.videoHeight;
+  const context = canvas.getContext('2d');
+  if (!context) return null;
+  context.drawImage(videoElement, 0, 0);
+  const data = canvas.toDataURL('image/jpeg', CANVAS_JPEG_QUALITY).split(',')[1];
+  return {
+    data,
+    mimeType: 'image/jpeg',
+    width: canvas.width,
+    height: canvas.height,
+  };
+}
 
 interface CaptureState {
   devices: Device[];
@@ -18,6 +39,7 @@ interface CaptureState {
   stream: MediaStream | null;
   /** 当前视频轨道实际生效的采集参数，来自 MediaStreamTrack.getSettings() */
   captureSettings: MediaTrackSettings | null;
+  isHighQualityCapturing: boolean;
   currentFrame: string | null; // base64 encoded current frame
   /** 预览区挂载的 video 元素，由 Preview 组件注册，截图时直接复用 */
   videoElement: HTMLVideoElement | null;
@@ -28,7 +50,7 @@ interface CaptureState {
   startCapture: () => Promise<void>;
   stopCapture: () => Promise<void>;
   loadDevices: () => Promise<void>;
-  captureFrame: () => Promise<string | null>; // 返回 base64 编码的帧
+  captureFrame: () => Promise<HighQualityCaptureOutcome | null>;
   setStream: (stream: MediaStream | null) => void;
   setVideoElement: (element: HTMLVideoElement | null) => void;
 }
@@ -40,6 +62,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   isCapturing: false,
   stream: null,
   captureSettings: null,
+  isHighQualityCapturing: false,
   currentFrame: null,
   videoElement: null,
 
@@ -75,7 +98,12 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       
       if (selectedDeviceType === 'videoinput') {
         // 复用统一协商器，以分辨率优先、同分辨率帧率优先的顺序获取采集卡视频流
-        const result = await acquireHighestQualityStream(selectedDeviceId);
+        const config = await electronAPI.getConfig();
+        const result = await acquireHighestQualityStream(
+          selectedDeviceId,
+          navigator.mediaDevices,
+          config.captureQualityStrategy,
+        );
         newStream = result.stream;
         captureSettings = result.settings;
         console.log('[Capture] 实际采集参数:', {
@@ -163,37 +191,54 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
    * 会导致 Promise 永久挂起、截图静默卡死。
    */
   captureFrame: async () => {
-    const { stream, videoElement } = get();
+    const {
+      stream,
+      videoElement,
+      selectedDeviceId,
+      selectedDeviceType,
+      devices,
+      stopCapture,
+      startCapture,
+    } = get();
 
     if (!stream || !videoElement) {
       console.warn('[Capture] 预览未启动，无法截图');
       return null;
     }
 
-    if (videoElement.readyState < HAVE_CURRENT_DATA) {
+    const fallback = capturePreviewFrame(videoElement);
+    if (!fallback) {
       console.warn('[Capture] 视频帧数据尚未就绪');
       return null;
     }
 
+    if (selectedDeviceType !== 'videoinput' || !selectedDeviceId) {
+      set({ currentFrame: fallback.data });
+      return { image: fallback, source: 'preview' };
+    }
+
+    const selectedDevice = devices.find((device) => device.id === selectedDeviceId);
+    if (!selectedDevice) return null;
+
+    set({ isHighQualityCapturing: true });
     try {
-      const canvas = document.createElement('canvas');
-      canvas.width = videoElement.videoWidth;
-      canvas.height = videoElement.videoHeight;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        console.error('[Capture] 无法获取 canvas 2d 上下文');
-        return null;
-      }
-
-      ctx.drawImage(videoElement, 0, 0);
-      const base64 = canvas.toDataURL('image/jpeg', CANVAS_JPEG_QUALITY).split(',')[1];
-
-      set({ currentFrame: base64 });
-      return base64;
+      const config = await electronAPI.getConfig();
+      const outcome = await captureWithYuy2AndRestore({
+        captureFallback: async () => fallback,
+        stopPreview: stopCapture,
+        captureYuy2: () => electronAPI.captureHighQualityFrame({
+          deviceName: selectedDevice.name,
+          ffmpegPath: config.ffmpegPath,
+        }),
+        restorePreview: startCapture,
+      });
+      set({ currentFrame: outcome.image.data });
+      return outcome;
     } catch (error) {
       console.error('Failed to capture frame:', error);
       return null;
+    } finally {
+      set({ isHighQualityCapturing: false });
     }
   },
 

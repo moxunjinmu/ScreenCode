@@ -6,6 +6,7 @@ export const IPC_CHANNELS = {
   CAPTURE_START: 'capture:start',           // renderer → main (invoke)，同步采集状态到托盘
   CAPTURE_STOP: 'capture:stop',             // renderer → main (invoke)
   CAPTURE_FRAME: 'capture:frame',           // main → renderer (event)，全局热键触发截图
+  CAPTURE_HIGH_QUALITY_FRAME: 'capture:high-quality-frame', // renderer → main (invoke)
 
   // AI 相关
   AI_EXTRACT: 'ai:extract',                 // renderer → main (invoke)

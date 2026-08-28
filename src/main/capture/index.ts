@@ -1,6 +1,8 @@
 import { IpcMain } from 'electron';
 import { IPC_CHANNELS } from '@shared/constants';
 import { updateTrayIcon } from '../tray/trayManager';
+import type { HighQualityCaptureRequest } from '@shared/types';
+import { captureYuy2Frame } from './ffmpegCapture';
 
 /**
  * 采集状态同步。
@@ -18,4 +20,9 @@ export function setupCaptureHandlers(ipcMain: IpcMain) {
     console.log('[Capture] 采集已停止');
     updateTrayIcon('disconnected');
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.CAPTURE_HIGH_QUALITY_FRAME,
+    async (_event, request: HighQualityCaptureRequest) => captureYuy2Frame(request),
+  );
 }

@@ -1,4 +1,5 @@
-import { Frame } from '@shared/types';
+import type { EncodedImage, Frame } from '@shared/types';
+import { getAiImageQualityProfile } from '@shared/imageQuality';
 import { ImageCompressor } from './imageCompressor';
 import { getConfig } from '../config/store';
 
@@ -6,23 +7,34 @@ import { getConfig } from '../config/store';
  * 按当前配置创建压缩器。
  * 每次调用重新读取配置，使设置面板中的调整立即生效。
  */
-function createCompressor(): ImageCompressor {
+function createCompressor(): ImageCompressor | null {
   const config = getConfig();
-  return new ImageCompressor(config.compressionWidth, config.compressionQuality);
+  const profile = getAiImageQualityProfile(config.aiImageQuality);
+  if (profile.preserveOriginal) return null;
+  return new ImageCompressor(profile.maxWidth, profile.jpegQuality);
 }
 
 /**
  * 压缩单张 base64 图像。
  * 失败时返回原图 —— 压缩是成本优化而非功能必需，不应阻断 AI 请求。
  */
-async function compressBase64(data: string, compressor: ImageCompressor): Promise<string> {
+async function compressImage(
+  image: EncodedImage,
+  compressor: ImageCompressor | null,
+): Promise<EncodedImage> {
+  if (!compressor) return image;
   try {
-    const input = Buffer.from(data, 'base64');
-    const output = await compressor.compress(input);
-    return output.toString('base64');
+    const input = Buffer.from(image.data, 'base64');
+    const output = await compressor.compressToJpeg(input);
+    return {
+      data: output.buffer.toString('base64'),
+      mimeType: output.mimeType,
+      width: output.width,
+      height: output.height,
+    };
   } catch (error) {
     console.error('[Processor] Image compression failed, falling back to original:', error);
-    return data;
+    return image;
   }
 }
 
@@ -49,7 +61,7 @@ export async function compressFrames(frames: Frame[]): Promise<Frame[]> {
   const compressed = await Promise.all(
     frames.map(async (frame) => ({
       ...frame,
-      data: await compressBase64(frame.data, compressor),
+      ...await compressImage(frame, compressor),
     }))
   );
 
@@ -62,17 +74,17 @@ export async function compressFrames(frames: Frame[]): Promise<Frame[]> {
 /**
  * 压缩聊天消息中的图片 —— AI 对话路径的入口。
  */
-export async function compressImages(images: string[]): Promise<string[]> {
+export async function compressImages(images: EncodedImage[]): Promise<EncodedImage[]> {
   if (images.length === 0) return images;
 
   const compressor = createCompressor();
-  const before = images.reduce((sum, img) => sum + img.length, 0);
+  const before = images.reduce((sum, image) => sum + image.data.length, 0);
 
   const compressed = await Promise.all(
-    images.map((img) => compressBase64(img, compressor))
+    images.map((image) => compressImage(image, compressor))
   );
 
-  const after = compressed.reduce((sum, img) => sum + img.length, 0);
+  const after = compressed.reduce((sum, image) => sum + image.data.length, 0);
   logCompressionRatio(`压缩 ${images.length} 张聊天图片`, before, after);
 
   return compressed;

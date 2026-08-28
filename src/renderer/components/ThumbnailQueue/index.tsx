@@ -3,6 +3,8 @@ import { Camera, ChevronDown, ChevronUp, Eye, Trash2 } from "lucide-react";
 import { useFrameStore } from "../../store/frameStore";
 import { useCaptureStore } from "../../store/captureStore";
 import { FRAME_QUEUE } from "@shared/constants";
+import type { Frame, ImageMimeType } from "@shared/types";
+import { toImageDataUrl } from "@shared/imageQuality";
 
 interface ThumbnailQueueProps {
   onCaptureFrame: () => void;
@@ -55,6 +57,7 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
   const { stream } = useCaptureStore();
   const [previewFrame, setPreviewFrame] = useState<{
     data: string;
+    mimeType: ImageMimeType;
     index: number;
   } | null>(null);
   // 开合状态与帧数据分离：关闭时保留帧数据播放退场动画，下次打开再替换
@@ -63,12 +66,12 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
   const [collapsed, setCollapsed] = useState(false);
 
   const handlePreview = (
-    frame: { data: string; id: string },
+    frame: Frame,
     index: number,
     e: React.MouseEvent,
   ) => {
     e.stopPropagation();
-    setPreviewFrame({ data: frame.data, index });
+    setPreviewFrame({ data: frame.data, mimeType: frame.mimeType, index });
     setPreviewOpen(true);
   };
 
@@ -176,7 +179,7 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
                     >
                       <div className="relative h-[calc(100%-34px)]">
                         <img
-                          src={`data:image/jpeg;base64,${frame.data}`}
+                          src={toImageDataUrl(frame)}
                           alt={`帧 ${index + 1}`}
                           className="object-cover w-full h-full"
                         />
@@ -234,7 +237,7 @@ const ThumbnailQueue: React.FC<ThumbnailQueueProps> = ({ onCaptureFrame }) => {
       {/* 全屏预览：常驻挂载，关闭时播放退场过渡 */}
       <FullscreenPreview
         imageUrl={
-          previewFrame ? `data:image/jpeg;base64,${previewFrame.data}` : ""
+          previewFrame ? toImageDataUrl(previewFrame) : ""
         }
         index={previewFrame?.index ?? 0}
         open={previewOpen}

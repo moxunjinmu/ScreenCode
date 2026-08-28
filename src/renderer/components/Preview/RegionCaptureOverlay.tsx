@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useUIStore } from '../../store/uiStore';
 import { useFrameStore } from '../../store/frameStore';
 import { electronAPI } from '../../lib/electronApi';
-import { Frame } from '@shared/types';
+import type { EncodedImage, Frame } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 
 interface RegionCaptureOverlayProps {
@@ -78,7 +78,7 @@ function getCursor(mode: DragMode): string {
 }
 
 /** 从视频帧裁剪指定区域，返回 base64（先截全帧再裁剪，确保可靠） */
-function cropVideoRegion(video: HTMLVideoElement, rect: Rect): string | null {
+function cropVideoRegion(video: HTMLVideoElement, rect: Rect): EncodedImage | null {
   if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) return null;
 
   const videoWidth = video.videoWidth;
@@ -129,7 +129,12 @@ function cropVideoRegion(video: HTMLVideoElement, rect: Rect): string | null {
 
   cropCtx.drawImage(fullCanvas, vx, vy, vw, vh, 0, 0, vw, vh);
 
-  return cropCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+  return {
+    data: cropCanvas.toDataURL('image/jpeg', 0.85).split(',')[1],
+    mimeType: 'image/jpeg',
+    width: vw,
+    height: vh,
+  };
 }
 
 const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, onCapture }) => {
@@ -279,8 +284,8 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
   const handleConfirm = useCallback(() => {
     if (!rect || !videoRef.current) return;
 
-    const base64 = cropVideoRegion(videoRef.current, rect);
-    if (!base64) return;
+    const image = cropVideoRegion(videoRef.current, rect);
+    if (!image) return;
 
     // 先退出区域截图模式（确保 UI 立即响应）
     setRect(null);
@@ -291,14 +296,14 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({ videoRef, o
     const frame: Frame = {
       id: uuidv4(),
       timestamp: Date.now(),
-      data: base64,
+      ...image,
       type: 'new_scene',
       overlap: undefined,
     };
     addFrame(frame);
     onCapture?.(frame);
 
-    electronAPI.writeImageToClipboard(base64).catch((err: unknown) => {
+    electronAPI.writeImageToClipboard(image).catch((err: unknown) => {
       console.error('Clipboard write failed:', err);
     });
   }, [rect, videoRef, addFrame, setRegionCapture, onCapture]);

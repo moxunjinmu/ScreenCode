@@ -74,7 +74,8 @@ describe('buildCaptureCandidates', () => {
       frameRate: { min: 25, max: 59.94 },
     });
 
-    expect(candidates[0]).toEqual({ width: 1920, height: 1080, frameRate: 59.94 });
+    expect(candidates[0]).toEqual({ width: 1920, height: 1080, frameRate: 30 });
+    expect(candidates).toContainEqual({ width: 1920, height: 1080, frameRate: 59.94 });
     expect(candidates).toContainEqual({ width: 1920, height: 1080, frameRate: 30 });
     expect(candidates).not.toContainEqual({ width: 3840, height: 2160, frameRate: 30 });
     expect(candidates.some((mode) => mode.frameRate < 25)).toBe(false);
@@ -83,8 +84,8 @@ describe('buildCaptureCandidates', () => {
   it('设备未报告能力范围时仍生成标准降级模式', () => {
     const candidates = buildCaptureCandidates({});
 
-    expect(candidates[0]).toEqual({ width: 7680, height: 4320, frameRate: 60 });
-    expect(candidates.at(-1)).toEqual({ width: 640, height: 480, frameRate: 15 });
+    expect(candidates[0]).toEqual({ width: 7680, height: 4320, frameRate: 30 });
+    expect(candidates.at(-1)).toEqual({ width: 640, height: 480, frameRate: 60 });
   });
 });
 

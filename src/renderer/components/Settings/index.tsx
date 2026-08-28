@@ -1,25 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { ApiProvider, ProviderConfig, DEFAULT_PROVIDERS } from '@shared/types';
+import {
+  ApiProvider,
+  ProviderConfig,
+  DEFAULT_PROVIDERS,
+  type AiImageQuality,
+  type AppConfig,
+  type CaptureQualityStrategy,
+} from '@shared/types';
+import { AI_IMAGE_QUALITY_PROFILES } from '@shared/imageQuality';
 import { electronAPI } from '../../lib/electronApi';
 import Select from '../Select';
 
 interface SettingsProps {
   isOpen: boolean;
   onClose: () => void;
-}
-
-interface AppConfig {
-  activeProvider: string;
-  providerConfigs: {
-    [providerId: string]: ProviderConfig;
-  };
-  apiProviders?: ApiProvider[];
-  lastDeviceId: string | null;
-  toastDuration: number;
-  frameDiffThreshold: number;
-  maxFrames: number;
-  compressionWidth: number;
-  compressionQuality: number;
 }
 
 const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
@@ -123,6 +117,11 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
       },
     };
     setConfig(updatedConfig);
+  };
+
+  const handleAppConfigChange = <K extends keyof AppConfig>(field: K, value: AppConfig[K]) => {
+    if (!config) return;
+    setConfig({ ...config, [field]: value });
   };
 
   // 当 JSON 改变时，同步更新输入框
@@ -362,6 +361,57 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
               </div>
             </div>
           )}
+
+          <div className="card p-3">
+            <h3 className="text-sm font-medium mb-1">采集与 AI 图片质量</h3>
+            <p className="hint mb-3">帧队列保留原图；AI 档位只处理发送副本，默认最高画质。</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-muted mb-1">默认预览策略</label>
+                <Select
+                  value={config.captureQualityStrategy}
+                  options={[
+                    { value: 'quality', label: '画质优先（30 FPS）' },
+                    { value: 'smooth', label: '流畅优先（最高标称 FPS）' },
+                  ]}
+                  onChange={(value) => handleAppConfigChange(
+                    'captureQualityStrategy',
+                    value as CaptureQualityStrategy,
+                  )}
+                  className="w-full text-sm"
+                  ariaLabel="默认预览策略"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-muted mb-1">发送给 AI 的图片质量</label>
+                <Select
+                  value={config.aiImageQuality}
+                  options={Object.values(AI_IMAGE_QUALITY_PROFILES).map((profile) => ({
+                    value: profile.id,
+                    label: profile.label,
+                  }))}
+                  onChange={(value) => handleAppConfigChange(
+                    'aiImageQuality',
+                    value as AiImageQuality,
+                  )}
+                  className="w-full text-sm"
+                  ariaLabel="AI 图片质量"
+                />
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <label className="block text-sm text-muted mb-1">FFmpeg 路径（可选）</label>
+              <input
+                type="text"
+                value={config.ffmpegPath || ''}
+                onChange={(event) => handleAppConfigChange('ffmpegPath', event.target.value)}
+                placeholder="自动发现失败时填写 ffmpeg.exe 的完整路径"
+                className="input w-full px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
 
           <div className="card p-3">
             <button

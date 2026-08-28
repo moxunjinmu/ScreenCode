@@ -48,10 +48,10 @@ export class OpenAIService implements AIService {
 
     // 构建消息内容 - OpenAI 格式
     const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
-      ...images.map((imageBase64) => ({
+      ...images.map((image) => ({
         type: 'image_url' as const,
         image_url: {
-          url: `data:image/jpeg;base64,${imageBase64}`,
+          url: `data:${image.mimeType};base64,${image.data}`,
         },
       })),
       {
@@ -116,10 +116,10 @@ export class OpenAIService implements AIService {
       if (msg.role === 'user' && msg.images && msg.images.length > 0) {
         // 带图片的消息（仅 user 支持）
         const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
-          ...msg.images.map((img) => ({
+          ...msg.images.map((image) => ({
             type: 'image_url' as const,
             image_url: {
-              url: `data:image/jpeg;base64,${img}`,
+              url: `data:${image.mimeType};base64,${image.data}`,
             },
           })),
           {

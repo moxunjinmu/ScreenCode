@@ -31,6 +31,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     isCapturing,
     stream,
     captureSettings,
+    isHighQualityCapturing,
     startCapture,
     stopCapture,
     captureFrame,
@@ -44,6 +45,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
   const [sourceResolution, setSourceResolution] = useState<{ width: number; height: number } | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<string>('source');  // 'source' 或分辨率索引
   const [selectedScale, setSelectedScale] = useState<number>(1.0);
+  const [effectiveFrameRate, setEffectiveFrameRate] = useState<number | null>(null);
 
   // 当选择设备后自动开始捕获
   useEffect(() => {
@@ -95,6 +97,32 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
         stream.getTracks().forEach(track => track.stop());
       }
     };
+  }, [stream]);
+
+  // 使用实际呈现回调持续测量有效 FPS，避免把轨道配置值误认为真实有效帧率。
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !stream || typeof video.requestVideoFrameCallback !== 'function') {
+      setEffectiveFrameRate(null);
+      return undefined;
+    }
+
+    let callbackId = 0;
+    let firstFrameTime = 0;
+    let frameCount = 0;
+    const measure = (now: number) => {
+      if (firstFrameTime === 0) firstFrameTime = now;
+      frameCount += 1;
+      const elapsed = now - firstFrameTime;
+      if (elapsed >= 2_000) {
+        setEffectiveFrameRate(Math.max(0, (frameCount - 1) * 1_000 / elapsed));
+        firstFrameTime = now;
+        frameCount = 1;
+      }
+      callbackId = video.requestVideoFrameCallback(measure);
+    };
+    callbackId = video.requestVideoFrameCallback(measure);
+    return () => video.cancelVideoFrameCallback(callbackId);
   }, [stream]);
 
   // 绑定视频流到 video 元素
@@ -214,13 +242,13 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     captureTimerRef.current = setTimeout(async () => {
       captureTimerRef.current = null;
       try {
-        const base64Frame = await captureFrame();
-        if (!base64Frame) return;
+        const outcome = await captureFrame();
+        if (!outcome) return;
 
         const frame: Frame = {
           id: uuidv4(),
           timestamp: Date.now(),
-          data: base64Frame,
+          ...outcome.image,
           type: 'new_scene',
           overlap: undefined
         };
@@ -228,7 +256,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
         addFrame(frame);
 
         // 写入剪贴板
-        await electronAPI.writeImageToClipboard(base64Frame);
+        await electronAPI.writeImageToClipboard(outcome.image);
       } catch (error) {
         console.error('Capture frame error:', error);
       }
@@ -309,7 +337,10 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                 >
                   实际 {sourceResolution.width}×{sourceResolution.height}
                   {captureSettings?.frameRate
-                    ? ` @ ${Number(captureSettings.frameRate.toFixed(2))} FPS`
+                    ? ` · 轨道 ${Number(captureSettings.frameRate.toFixed(2))} FPS`
+                    : ''}
+                  {effectiveFrameRate
+                    ? ` · 有效 ${Number(effectiveFrameRate.toFixed(1))} FPS`
                     : ''}
                 </span>
 
@@ -364,7 +395,13 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
           </div>
         )}
 
-        {stream ? (
+        {isHighQualityCapturing ? (
+          <div className="preview-empty-state text-center px-6 state-enter">
+            <Camera className="w-12 h-12 mx-auto mb-3 text-accent" />
+            <p className="text-lg font-medium">正在抓取 YUY2 无损原图</p>
+            <p className="hint mt-2">预览会短暂停止，完成后自动恢复 MJPEG30。</p>
+          </div>
+        ) : stream ? (
           <>
             <video
               ref={videoRef}

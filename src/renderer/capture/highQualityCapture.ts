@@ -47,6 +47,7 @@ const STANDARD_FRAME_RATES = [
   15,
 ] as const;
 const SAFE_FALLBACK_FRAME_RATES = [60, 30, 24, 15] as const;
+const QUALITY_FRAME_RATE_PRIORITY = [30, 29.97, 25, 24, 23.976, 15, 50, 59.94, 60, 100, 120, 144, 240];
 
 function isWithinRange(value: number, range?: MediaSettingsRange): boolean {
   return (
@@ -64,7 +65,10 @@ function uniqueNumbers(values: number[]): number[] {
  * 将设备能力范围转换为可逐档探测的模式列表。
  * 浏览器不公开 UVC 离散模式，因此先尝试能力上限，再尝试常见标准档位。
  */
-export function buildCaptureCandidates(capabilities: MediaTrackCapabilities): CaptureMode[] {
+export function buildCaptureCandidates(
+  capabilities: MediaTrackCapabilities,
+  strategy: CaptureQualityStrategy = 'quality',
+): CaptureMode[] {
   const resolutions = [
     ...(capabilities.width?.max && capabilities.height?.max
       ? [{ width: capabilities.width.max, height: capabilities.height.max }]
@@ -94,7 +98,14 @@ export function buildCaptureCandidates(capabilities: MediaTrackCapabilities): Ca
       const pixelDifference = right.width * right.height - left.width * left.height;
       if (pixelDifference !== 0) return pixelDifference;
       if (right.width !== left.width) return right.width - left.width;
-      return right.frameRate - left.frameRate;
+      if (strategy === 'smooth') return right.frameRate - left.frameRate;
+
+      const leftPriority = QUALITY_FRAME_RATE_PRIORITY.indexOf(left.frameRate);
+      const rightPriority = QUALITY_FRAME_RATE_PRIORITY.indexOf(right.frameRate);
+      const normalizedLeft = leftPriority === -1 ? QUALITY_FRAME_RATE_PRIORITY.length : leftPriority;
+      const normalizedRight = rightPriority === -1 ? QUALITY_FRAME_RATE_PRIORITY.length : rightPriority;
+      if (normalizedLeft !== normalizedRight) return normalizedLeft - normalizedRight;
+      return Math.abs(left.frameRate - 30) - Math.abs(right.frameRate - 30);
     });
 }
 
@@ -141,6 +152,7 @@ function isOverconstrainedError(error: unknown): boolean {
 export async function acquireHighestQualityStream(
   deviceId: string,
   mediaDevices: MediaDevicesLike = navigator.mediaDevices,
+  strategy: CaptureQualityStrategy = 'quality',
 ): Promise<CaptureStreamResult> {
   if (!deviceId.trim()) {
     throw new Error('采集设备 ID 不能为空');
@@ -156,7 +168,7 @@ export async function acquireHighestQualityStream(
   const supportedConstraints = mediaDevices.getSupportedConstraints() as
     MediaTrackSupportedConstraints & { resizeMode?: boolean };
   const supportsResizeMode = Boolean(supportedConstraints.resizeMode);
-  const candidates = buildCaptureCandidates(capabilities);
+  const candidates = buildCaptureCandidates(capabilities, strategy);
 
   for (const mode of candidates) {
     try {
@@ -196,3 +208,4 @@ export async function acquireHighestQualityStream(
     usedFallback: true,
   };
 }
+import type { CaptureQualityStrategy } from '@shared/types';

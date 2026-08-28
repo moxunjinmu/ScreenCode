@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import { ChatMessage, ChatSession } from '@shared/types';
+import type { ChatMessage, ChatSession, EncodedImage } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ChatState {
   messages: ChatMessage[];
   isLoading: boolean;
-  selectedImages: string[];
+  selectedImages: EncodedImage[];
   inputText: string;
   currentModel: string;
 
@@ -18,8 +18,8 @@ interface ChatState {
   setMessages: (messages: ChatMessage[]) => void;
   clearMessages: () => void;
   setLoading: (loading: boolean) => void;
-  setSelectedImages: (images: string[]) => void;
-  addSelectedImage: (image: string) => void;
+  setSelectedImages: (images: EncodedImage[]) => void;
+  addSelectedImage: (image: EncodedImage) => void;
   removeSelectedImage: (index: number) => void;
   clearSelectedImages: () => void;
   setInputText: (text: string) => void;

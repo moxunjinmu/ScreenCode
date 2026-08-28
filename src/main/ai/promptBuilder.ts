@@ -1,4 +1,4 @@
-import { Frame } from '@shared/types';
+import type { EncodedImage, Frame } from '@shared/types';
 
 /**
  * 构建 Claude API 的 Prompt
@@ -7,7 +7,7 @@ import { Frame } from '@shared/types';
 export function buildMultiFramePrompt(frames: Frame[]): {
   systemPrompt: string;
   userPrompt: string;
-  images: string[];
+  images: EncodedImage[];
 } {
   // 系统提示 - 强调 OCR 和代码识别能力
   const systemPrompt = `你是专业的屏幕内容识别专家。你的任务是从截图中识别并提取代码或文字内容。
@@ -41,13 +41,18 @@ export function buildMultiFramePrompt(frames: Frame[]): {
   let userPrompt = `请识别以下 ${frames.length} 张截图中的代码/文字内容。
 
 `;
-  const images: string[] = [];
+  const images: EncodedImage[] = [];
 
   frames.forEach((frame, index) => {
     const total = frames.length;
     const metadata = generateFrameMetadata(frame);
     userPrompt += `**图片 ${index + 1}/${total}** [${metadata}]\n`;
-    images.push(frame.data);
+    images.push({
+      data: frame.data,
+      mimeType: frame.mimeType,
+      width: frame.width,
+      height: frame.height,
+    });
   });
 
   userPrompt += `

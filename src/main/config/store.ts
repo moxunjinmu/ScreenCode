@@ -90,6 +90,9 @@ export function getConfig(): AppConfig {
     maxFrames: store.get('maxFrames', 8),
     compressionWidth: store.get('compressionWidth', 768),
     compressionQuality: store.get('compressionQuality', 85),
+    aiImageQuality: store.get('aiImageQuality', 'original'),
+    captureQualityStrategy: store.get('captureQualityStrategy', 'quality'),
+    ffmpegPath: store.get('ffmpegPath', ''),
   };
 
   return config;

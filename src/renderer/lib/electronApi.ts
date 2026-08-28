@@ -1,13 +1,24 @@
-import { DEFAULT_CONFIG, type AppConfig, type AppError, type ChatRequest, type ClaudeResponse, type Frame } from '@shared/types';
+import {
+  DEFAULT_CONFIG,
+  type AppConfig,
+  type AppError,
+  type ChatRequest,
+  type ClaudeResponse,
+  type EncodedImage,
+  type Frame,
+  type HighQualityCaptureRequest,
+  type HighQualityCaptureResult,
+} from '@shared/types';
 
 export interface RendererElectronAPI {
   startCapture: () => Promise<unknown>;
   stopCapture: () => Promise<unknown>;
+  captureHighQualityFrame: (request: HighQualityCaptureRequest) => Promise<HighQualityCaptureResult>;
   extractCode: (frames: Frame[]) => Promise<ClaudeResponse>;
   chat: (request: ChatRequest) => Promise<{ content: string }>;
   getConfig: () => Promise<AppConfig>;
   setConfig: (config: Partial<AppConfig>) => Promise<unknown>;
-  writeImageToClipboard: (base64Data: string) => Promise<unknown>;
+  writeImageToClipboard: (image: EncodedImage) => Promise<unknown>;
   onAIResult: (callback: (result: ClaudeResponse) => void) => () => void;
   onError: (callback: (error: AppError) => void) => () => void;
   onCaptureFrame: (callback: () => void) => () => void;
@@ -25,6 +36,9 @@ const noopUnsubscribe = () => undefined;
 const browserPreviewAPI: RendererElectronAPI = {
   startCapture: async () => undefined,
   stopCapture: async () => undefined,
+  captureHighQualityFrame: async (_request: HighQualityCaptureRequest) => {
+    throw new Error('浏览器预览模式不支持 YUY2 高保真截图');
+  },
   extractCode: async (frames: Frame[]) => ({
     language: 'typescript',
     code: frames.length > 0
@@ -49,7 +63,7 @@ const browserPreviewAPI: RendererElectronAPI = {
     };
     configListeners.forEach((listener) => listener(browserPreviewConfig));
   },
-  writeImageToClipboard: async (_base64Data: string) => undefined,
+  writeImageToClipboard: async (_image: EncodedImage) => undefined,
   onAIResult: (_callback: (result: ClaudeResponse) => void) => noopUnsubscribe,
   onError: (_callback: (error: AppError) => void) => noopUnsubscribe,
   onCaptureFrame: (_callback: () => void) => noopUnsubscribe,

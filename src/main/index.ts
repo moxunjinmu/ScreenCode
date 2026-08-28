@@ -3,6 +3,8 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage } from 'electron';
 import path from 'path';
 import { IPC_CHANNELS, SHORTCUTS } from '@shared/constants';
+import type { EncodedImage } from '@shared/types';
+import { toImageDataUrl } from '@shared/imageQuality';
 import { setupCaptureHandlers } from './capture';
 import { setupAIHandlers } from './ai';
 import { setupTray } from './tray/trayManager';
@@ -144,8 +146,8 @@ if (gotSingleInstanceLock) {
   registerShortcuts();
 
   // 设置 IPC 处理器
-  ipcMain.handle(IPC_CHANNELS.CLIPBOARD_WRITE_IMAGE, (_event, base64Data: string) => {
-    const image = nativeImage.createFromDataURL(`data:image/jpeg;base64,${base64Data}`);
+  ipcMain.handle(IPC_CHANNELS.CLIPBOARD_WRITE_IMAGE, (_event, encodedImage: EncodedImage) => {
+    const image = nativeImage.createFromDataURL(toImageDataUrl(encodedImage));
     clipboard.writeImage(image);
   });
 

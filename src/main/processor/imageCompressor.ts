@@ -1,3 +1,4 @@
+import type { ImageMimeType } from '@shared/types';
 import sharp from 'sharp';
 import { IMAGE_PROCESSING } from '@shared/constants';
 
@@ -22,30 +23,42 @@ export class ImageCompressor {
    * @returns 压缩后的图像 Buffer
    */
   async compress(input: Buffer): Promise<Buffer> {
+    return (await this.compressToJpeg(input)).buffer;
+  }
+
+  /** 转为适合代码识别的 JPEG 4:4:4；只缩小，不放大。 */
+  async compressToJpeg(input: Buffer): Promise<{
+    buffer: Buffer;
+    mimeType: ImageMimeType;
+    width: number;
+    height: number;
+  }> {
     const image = sharp(input);
     const metadata = await image.metadata();
+    let pipeline = image;
 
-    // 如果宽度小于目标宽度，不放大
-    if (metadata.width && metadata.width <= this.targetWidth) {
-      return input;
-    }
-
-    // 计算新高度
-    const newHeight = Math.round(
-      (this.targetWidth / (metadata.width || 1)) * (metadata.height || 1)
-    );
-
-    // 压缩并编码为 JPEG
-    return image
-      .resize(this.targetWidth, newHeight, {
+    if (metadata.width && metadata.width > this.targetWidth) {
+      const newHeight = Math.round(
+        (this.targetWidth / metadata.width) * (metadata.height || 1),
+      );
+      pipeline = pipeline.resize(this.targetWidth, newHeight, {
         kernel: sharp.kernel.lanczos3,
         fit: 'inside',
       })
-      .jpeg({
-        quality: this.quality,
-        mozjpeg: true,
-      })
-      .toBuffer();
+    }
+
+    const result = await pipeline.jpeg({
+      quality: this.quality,
+      chromaSubsampling: '4:4:4',
+      mozjpeg: true,
+    }).toBuffer({ resolveWithObject: true });
+
+    return {
+      buffer: result.data,
+      mimeType: 'image/jpeg',
+      width: result.info.width,
+      height: result.info.height,
+    };
   }
 
   /**
