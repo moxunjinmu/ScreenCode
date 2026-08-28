@@ -39,9 +39,9 @@ describe('buildCaptureCandidates', () => {
     });
 
     expect(candidates.slice(0, 3)).toEqual([
-      { width: 3840, height: 2160, frameRate: 60 },
-      { width: 3840, height: 2160, frameRate: 59.94 },
-      { width: 3840, height: 2160, frameRate: 50 },
+      { width: 3840, height: 2160, frameRate: 30 },
+      { width: 3840, height: 2160, frameRate: 29.97 },
+      { width: 3840, height: 2160, frameRate: 25 },
     ]);
 
     const fullHd60Index = candidates.findIndex(
@@ -51,6 +51,20 @@ describe('buildCaptureCandidates', () => {
       (mode) => mode.width === 3840 && mode.height === 2160 && mode.frameRate === 30,
     );
     expect(ultraHd30Index).toBeLessThan(fullHd60Index);
+  });
+
+  it('流畅优先策略在同分辨率下仍按标称帧率降序', () => {
+    const candidates = buildCaptureCandidates({
+      width: { min: 640, max: 1920 },
+      height: { min: 480, max: 1080 },
+      frameRate: { min: 15, max: 60 },
+    }, 'smooth');
+
+    expect(candidates.slice(0, 3)).toEqual([
+      { width: 1920, height: 1080, frameRate: 60 },
+      { width: 1920, height: 1080, frameRate: 59.94 },
+      { width: 1920, height: 1080, frameRate: 50 },
+    ]);
   });
 
   it('保留设备报告的非整数最高帧率并过滤能力范围之外的模式', () => {
@@ -132,7 +146,7 @@ describe('acquireHighestQualityStream', () => {
         Parameters<MediaStreamTrack['applyConstraints']>,
         ReturnType<MediaStreamTrack['applyConstraints']>
       >()
-      .mockRejectedValueOnce(new DOMException('不支持 4K60', 'OverconstrainedError'))
+      .mockRejectedValueOnce(new DOMException('不支持 4K30', 'OverconstrainedError'))
       .mockResolvedValueOnce(undefined);
     const selected = createStream(
       {
@@ -140,7 +154,7 @@ describe('acquireHighestQualityStream', () => {
         height: { min: 480, max: 2160 },
         frameRate: { min: 15, max: 60 },
       },
-      { width: 3840, height: 2160, frameRate: 59.94, resizeMode: 'none' } as
+      { width: 3840, height: 2160, frameRate: 29.97, resizeMode: 'none' } as
         MediaTrackSettings & { resizeMode: string },
       applyConstraints,
     );
@@ -160,8 +174,8 @@ describe('acquireHighestQualityStream', () => {
     expect(selected.stop).not.toHaveBeenCalled();
     expect(getUserMedia).toHaveBeenCalledOnce();
     expect(applyConstraints).toHaveBeenCalledTimes(2);
-    expect(result.requestedMode).toEqual({ width: 3840, height: 2160, frameRate: 59.94 });
-    expect(result.settings).toMatchObject({ width: 3840, height: 2160, frameRate: 59.94 });
+    expect(result.requestedMode).toEqual({ width: 3840, height: 2160, frameRate: 29.97 });
+    expect(result.settings).toMatchObject({ width: 3840, height: 2160, frameRate: 29.97 });
     expect(result.usedFallback).toBe(false);
   });
 
