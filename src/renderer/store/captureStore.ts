@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Device } from '@shared/types';
 import { IMAGE_PROCESSING } from '@shared/constants';
 import { electronAPI } from '../lib/electronApi';
+import { acquireHighestQualityStream } from '../capture/highQualityCapture';
 
 /** canvas.toDataURL 的质量参数取值域为 0-1，配置中的 QUALITY 为百分制 */
 const CANVAS_JPEG_QUALITY = IMAGE_PROCESSING.QUALITY / 100;
@@ -15,6 +16,8 @@ interface CaptureState {
   selectedDeviceType: 'videoinput' | 'screen' | 'window' | null;
   isCapturing: boolean;
   stream: MediaStream | null;
+  /** 当前视频轨道实际生效的采集参数，来自 MediaStreamTrack.getSettings() */
+  captureSettings: MediaTrackSettings | null;
   currentFrame: string | null; // base64 encoded current frame
   /** 预览区挂载的 video 元素，由 Preview 组件注册，截图时直接复用 */
   videoElement: HTMLVideoElement | null;
@@ -36,6 +39,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   selectedDeviceType: null,
   isCapturing: false,
   stream: null,
+  captureSettings: null,
   currentFrame: null,
   videoElement: null,
 
@@ -67,17 +71,20 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
     
     try {
       let newStream: MediaStream;
+      let captureSettings: MediaTrackSettings | null = null;
       
       if (selectedDeviceType === 'videoinput') {
-        // 使用 getUserMedia 获取摄像头/采集卡视频流
-        newStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            deviceId: { exact: selectedDeviceId },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            frameRate: { ideal: 30 }
-          },
-          audio: false
+        // 复用统一协商器，以分辨率优先、同分辨率帧率优先的顺序获取采集卡视频流
+        const result = await acquireHighestQualityStream(selectedDeviceId);
+        newStream = result.stream;
+        captureSettings = result.settings;
+        console.log('[Capture] 实际采集参数:', {
+          width: captureSettings.width,
+          height: captureSettings.height,
+          frameRate: captureSettings.frameRate,
+          resizeMode: (captureSettings as MediaTrackSettings & { resizeMode?: string }).resizeMode,
+          requestedMode: result.requestedMode,
+          usedFallback: result.usedFallback,
         });
       } else if (selectedDeviceType === 'screen') {
         // 使用 desktopCapturer 获取屏幕（需要通过主进程）
@@ -87,7 +94,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
         throw new Error('不支持的设备类型');
       }
       
-      set({ stream: newStream, isCapturing: true });
+      set({ stream: newStream, captureSettings, isCapturing: true });
       
       // 通知主进程
       await electronAPI.startCapture();
@@ -110,7 +117,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       console.error('Failed to stop capture:', error);
     }
     
-    set({ stream: null, isCapturing: false, currentFrame: null });
+    set({ stream: null, captureSettings: null, isCapturing: false, currentFrame: null });
   },
   
   loadDevices: async () => {

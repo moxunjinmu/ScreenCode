@@ -30,6 +30,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     selectDevice,
     isCapturing,
     stream,
+    captureSettings,
     startCapture,
     stopCapture,
     captureFrame,
@@ -302,7 +303,17 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
 
             {stream && sourceResolution && (
               <div className="capture-toolbar-secondary">
-                <label className="text-sm text-muted">分辨率</label>
+                <span
+                  className="chip"
+                  title="由视频轨道实际设置与视频源固有尺寸确认"
+                >
+                  实际 {sourceResolution.width}×{sourceResolution.height}
+                  {captureSettings?.frameRate
+                    ? ` @ ${Number(captureSettings.frameRate.toFixed(2))} FPS`
+                    : ''}
+                </span>
+
+                <label className="text-sm text-muted">显示尺寸</label>
                 <Select
                   value={selectedPreset}
                   options={[
@@ -315,7 +326,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                   onChange={setSelectedPreset}
                   className="capture-resolution-select text-sm"
                   title={`源分辨率 ${sourceResolution.width}×${sourceResolution.height}`}
-                  ariaLabel="预览分辨率"
+                  ariaLabel="预览显示尺寸"
                 />
 
                 <label className="text-sm text-muted">缩放</label>

@@ -10,11 +10,16 @@ import {
 function createStream(
   capabilities: MediaTrackCapabilities,
   settings: MediaTrackSettings,
+  applyConstraints = vi.fn<
+    Parameters<MediaStreamTrack['applyConstraints']>,
+    ReturnType<MediaStreamTrack['applyConstraints']>
+  >().mockResolvedValue(undefined),
 ) {
   const stop = vi.fn();
   const track = {
     getCapabilities: () => capabilities,
     getSettings: () => settings,
+    applyConstraints,
     stop,
   } as unknown as MediaStreamTrack;
   const stream = {
@@ -22,7 +27,7 @@ function createStream(
     getTracks: () => [track],
   } as unknown as MediaStream;
 
-  return { stream, stop };
+  return { stream, stop, applyConstraints };
 }
 
 describe('buildCaptureCandidates', () => {
@@ -35,8 +40,8 @@ describe('buildCaptureCandidates', () => {
 
     expect(candidates.slice(0, 3)).toEqual([
       { width: 3840, height: 2160, frameRate: 60 },
-      { width: 3840, height: 2160, frameRate: 30 },
-      { width: 3840, height: 2160, frameRate: 24 },
+      { width: 3840, height: 2160, frameRate: 59.94 },
+      { width: 3840, height: 2160, frameRate: 50 },
     ]);
 
     const fullHd60Index = candidates.findIndex(
@@ -60,6 +65,13 @@ describe('buildCaptureCandidates', () => {
     expect(candidates).not.toContainEqual({ width: 3840, height: 2160, frameRate: 30 });
     expect(candidates.some((mode) => mode.frameRate < 25)).toBe(false);
   });
+
+  it('设备未报告能力范围时仍生成标准降级模式', () => {
+    const candidates = buildCaptureCandidates({});
+
+    expect(candidates[0]).toEqual({ width: 7680, height: 4320, frameRate: 60 });
+    expect(candidates.at(-1)).toEqual({ width: 640, height: 480, frameRate: 15 });
+  });
 });
 
 describe('buildExactVideoConstraints', () => {
@@ -81,56 +93,97 @@ describe('buildExactVideoConstraints', () => {
 });
 
 describe('acquireHighestQualityStream', () => {
+  it('拒绝空设备 ID，且不访问媒体设备', async () => {
+    const getUserMedia = vi.fn<
+      Parameters<MediaDevicesLike['getUserMedia']>,
+      ReturnType<MediaDevicesLike['getUserMedia']>
+    >();
+    const mediaDevices: MediaDevicesLike = {
+      getUserMedia,
+      getSupportedConstraints: () => ({}),
+    };
+
+    await expect(acquireHighestQualityStream('  ', mediaDevices)).rejects.toThrow(
+      '采集设备 ID 不能为空',
+    );
+    expect(getUserMedia).not.toHaveBeenCalled();
+  });
+
+  it('探测流没有视频轨道时停止流并返回明确错误', async () => {
+    const stop = vi.fn();
+    const stream = {
+      getVideoTracks: () => [],
+      getTracks: () => [{ stop }],
+    } as unknown as MediaStream;
+    const mediaDevices: MediaDevicesLike = {
+      getUserMedia: vi.fn().mockResolvedValue(stream),
+      getSupportedConstraints: () => ({}),
+    };
+
+    await expect(acquireHighestQualityStream('capture-card', mediaDevices)).rejects.toThrow(
+      '采集设备未返回视频轨道',
+    );
+    expect(stop).toHaveBeenCalled();
+  });
+
   it('严格模式失败后继续尝试同分辨率的下一帧率，并返回实际设置', async () => {
-    const probe = createStream(
+    const applyConstraints = vi
+      .fn<
+        Parameters<MediaStreamTrack['applyConstraints']>,
+        ReturnType<MediaStreamTrack['applyConstraints']>
+      >()
+      .mockRejectedValueOnce(new DOMException('不支持 4K60', 'OverconstrainedError'))
+      .mockResolvedValueOnce(undefined);
+    const selected = createStream(
       {
         width: { min: 640, max: 3840 },
         height: { min: 480, max: 2160 },
         frameRate: { min: 15, max: 60 },
       },
-      { width: 1280, height: 720, frameRate: 30 },
-    );
-    const selected = createStream(
-      {},
-      { width: 3840, height: 2160, frameRate: 30, resizeMode: 'none' },
+      { width: 3840, height: 2160, frameRate: 59.94, resizeMode: 'none' } as
+        MediaTrackSettings & { resizeMode: string },
+      applyConstraints,
     );
 
     const getUserMedia = vi
-      .fn<MediaDevicesLike['getUserMedia']>()
-      .mockResolvedValueOnce(probe.stream)
-      .mockRejectedValueOnce(new DOMException('不支持 4K60', 'OverconstrainedError'))
+      .fn<Parameters<MediaDevicesLike['getUserMedia']>, ReturnType<MediaDevicesLike['getUserMedia']>>()
       .mockResolvedValueOnce(selected.stream);
     const mediaDevices: MediaDevicesLike = {
       getUserMedia,
-      getSupportedConstraints: () => ({ resizeMode: true }),
+      getSupportedConstraints: () => (
+        { resizeMode: true } as MediaTrackSupportedConstraints & { resizeMode: boolean }
+      ),
     };
 
     const result = await acquireHighestQualityStream('capture-card', mediaDevices);
 
-    expect(probe.stop).toHaveBeenCalledOnce();
-    expect(getUserMedia).toHaveBeenCalledTimes(3);
-    expect(result.requestedMode).toEqual({ width: 3840, height: 2160, frameRate: 30 });
-    expect(result.settings).toMatchObject({ width: 3840, height: 2160, frameRate: 30 });
+    expect(selected.stop).not.toHaveBeenCalled();
+    expect(getUserMedia).toHaveBeenCalledOnce();
+    expect(applyConstraints).toHaveBeenCalledTimes(2);
+    expect(result.requestedMode).toEqual({ width: 3840, height: 2160, frameRate: 59.94 });
+    expect(result.settings).toMatchObject({ width: 3840, height: 2160, frameRate: 59.94 });
     expect(result.usedFallback).toBe(false);
   });
 
   it('所有严格模式失败时使用最高理想值回退，保证预览仍可启动', async () => {
-    const probe = createStream(
+    const applyConstraints = vi
+      .fn<
+        Parameters<MediaStreamTrack['applyConstraints']>,
+        ReturnType<MediaStreamTrack['applyConstraints']>
+      >()
+      .mockRejectedValueOnce(new DOMException('严格模式失败', 'OverconstrainedError'))
+      .mockResolvedValueOnce(undefined);
+    const fallback = createStream(
       {
         width: { min: 1920, max: 1920 },
         height: { min: 1080, max: 1080 },
         frameRate: { min: 30, max: 30 },
       },
-      { width: 1920, height: 1080, frameRate: 30 },
-    );
-    const fallback = createStream(
-      {},
       { width: 1920, height: 1080, frameRate: 29.97 },
+      applyConstraints,
     );
     const getUserMedia = vi
-      .fn<MediaDevicesLike['getUserMedia']>()
-      .mockResolvedValueOnce(probe.stream)
-      .mockRejectedValueOnce(new DOMException('严格模式失败', 'OverconstrainedError'))
+      .fn<Parameters<MediaDevicesLike['getUserMedia']>, ReturnType<MediaDevicesLike['getUserMedia']>>()
       .mockResolvedValueOnce(fallback.stream);
     const mediaDevices: MediaDevicesLike = {
       getUserMedia,
@@ -142,5 +195,25 @@ describe('acquireHighestQualityStream', () => {
     expect(result.requestedMode).toBeNull();
     expect(result.settings.frameRate).toBe(29.97);
     expect(result.usedFallback).toBe(true);
+    expect(getUserMedia).toHaveBeenCalledOnce();
+    expect(applyConstraints).toHaveBeenCalledTimes(2);
+  });
+
+  it('打开设备时的权限错误直接返回，不重复请求', async () => {
+    const getUserMedia = vi
+      .fn<
+        Parameters<MediaDevicesLike['getUserMedia']>,
+        ReturnType<MediaDevicesLike['getUserMedia']>
+      >()
+      .mockRejectedValueOnce(new DOMException('用户拒绝访问', 'NotAllowedError'));
+    const mediaDevices: MediaDevicesLike = {
+      getUserMedia,
+      getSupportedConstraints: () => ({}),
+    };
+
+    await expect(acquireHighestQualityStream('capture-card', mediaDevices)).rejects.toMatchObject({
+      name: 'NotAllowedError',
+    });
+    expect(getUserMedia).toHaveBeenCalledOnce();
   });
 });
