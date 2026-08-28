@@ -1,8 +1,9 @@
 import { IpcMain } from 'electron';
 import { IPC_CHANNELS } from '@shared/constants';
 import { updateTrayIcon } from '../tray/trayManager';
-import type { HighQualityCaptureRequest } from '@shared/types';
+import type { HighQualityCaptureRequest, ProcessCapturedImageRequest } from '@shared/types';
 import { captureYuy2Frame } from './ffmpegCapture';
+import { processCapturedImage } from '../processor/captureImageProcessor';
 
 /**
  * 采集状态同步。
@@ -24,5 +25,10 @@ export function setupCaptureHandlers(ipcMain: IpcMain) {
   ipcMain.handle(
     IPC_CHANNELS.CAPTURE_HIGH_QUALITY_FRAME,
     async (_event, request: HighQualityCaptureRequest) => captureYuy2Frame(request),
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.CAPTURE_PROCESS_IMAGE,
+    async (_event, request: ProcessCapturedImageRequest) => processCapturedImage(request),
   );
 }

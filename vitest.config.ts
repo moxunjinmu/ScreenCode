@@ -19,6 +19,9 @@ export default defineConfig({
         'src/renderer/capture/captureOrchestrator.ts',
         'src/main/capture/ffmpegCapture.ts',
         'src/main/processor/imageCompressor.ts',
+        'src/main/processor/captureImageProcessor.ts',
+        'src/renderer/capture/regionGeometry.ts',
+        'src/renderer/capture/regionKeyboard.ts',
         'src/shared/imageQuality.ts',
       ],
       thresholds: {

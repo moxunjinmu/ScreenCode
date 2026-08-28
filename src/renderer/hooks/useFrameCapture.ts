@@ -42,7 +42,10 @@ export function useFrameCapture(showToast: (message: string, type: ToastType) =>
       if (outcome.restoreError || outcome.warning) {
         showToast(outcome.restoreError || outcome.warning || '截图已回退', 'error');
       } else {
-        showToast(`YUY2 原图已入队 (${queued}/${FRAME_QUEUE.MAX_FRAMES})`, 'success');
+        const qualityLabel = outcome.image.qualityProfile === 'original'
+          ? '无损 PNG'
+          : `${outcome.image.qualityProfile || '配置'}档`;
+        showToast(`YUY2 ${qualityLabel}已入队 (${queued}/${FRAME_QUEUE.MAX_FRAMES})`, 'success');
       }
     } catch (error) {
       console.error('Capture frame error:', error);

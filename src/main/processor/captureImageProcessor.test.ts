@@ -37,7 +37,7 @@ describe('区域截图画质输出', () => {
     ['high', 1920, 95],
     ['balanced', 1280, 90],
     ['economy', 768, 85],
-  ] as const)('%s 档按最大宽度输出 JPEG 4:4:4', async (quality, expectedWidth) => {
+  ] as const)('%s 档按最大宽度输出 JPEG 4:4:4', async (quality, expectedWidth, _expectedQuality) => {
     const result = await processCapturedImage({
       image: { data: sourcePng, mimeType: 'image/png', width: 2000, height: 1000 },
       crop: { left: 0, top: 0, width: 2000, height: 1000 },
@@ -90,5 +90,23 @@ describe('区域截图画质输出', () => {
       image: { data: 'not-base64!', mimeType: 'image/png' },
       quality: 'original',
     })).rejects.toThrow('图片数据不是有效 base64');
+  });
+
+  it('拒绝未知档位、伪造 MIME 和超过输入上限的图片', async () => {
+    await expect(processCapturedImage({
+      image: { data: sourcePng, mimeType: 'image/png' },
+      quality: 'ultra' as never,
+    })).rejects.toThrow('无效的图片画质档位');
+
+    await expect(processCapturedImage({
+      image: { data: sourcePng, mimeType: 'image/jpeg' },
+      quality: 'original',
+    })).rejects.toThrow('图片内容与 MIME 类型不匹配');
+
+    const oversized = Buffer.alloc(20 * 1024 * 1024 + 1).toString('base64');
+    await expect(processCapturedImage({
+      image: { data: oversized, mimeType: 'image/png' },
+      quality: 'original',
+    })).rejects.toThrow('图片数据超过 20MB 上限');
   });
 });

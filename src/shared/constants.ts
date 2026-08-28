@@ -7,6 +7,7 @@ export const IPC_CHANNELS = {
   CAPTURE_STOP: 'capture:stop',             // renderer → main (invoke)
   CAPTURE_FRAME: 'capture:frame',           // main → renderer (event)，全局热键触发截图
   CAPTURE_HIGH_QUALITY_FRAME: 'capture:high-quality-frame', // renderer → main (invoke)
+  CAPTURE_PROCESS_IMAGE: 'capture:process-image', // renderer → main (invoke)，源像素裁剪与画质编码
 
   // AI 相关
   AI_EXTRACT: 'ai:extract',                 // renderer → main (invoke)

@@ -9,6 +9,8 @@ import {
   EncodedImage,
   HighQualityCaptureRequest,
   HighQualityCaptureResult,
+  ProcessCapturedImageRequest,
+  ProcessedImage,
 } from '@shared/types';
 
 // 聊天响应类型
@@ -23,6 +25,8 @@ const electronAPI = {
   stopCapture: () => ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_STOP),
   captureHighQualityFrame: (request: HighQualityCaptureRequest) =>
     ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_HIGH_QUALITY_FRAME, request) as Promise<HighQualityCaptureResult>,
+  processCapturedImage: (request: ProcessCapturedImageRequest) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_PROCESS_IMAGE, request) as Promise<ProcessedImage>,
 
   // AI 服务
   extractCode: (frames: Frame[]) => ipcRenderer.invoke(IPC_CHANNELS.AI_EXTRACT, frames) as Promise<ClaudeResponse>,

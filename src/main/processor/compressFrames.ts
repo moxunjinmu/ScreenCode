@@ -1,4 +1,4 @@
-import type { EncodedImage, Frame } from '@shared/types';
+import type { AppConfig, EncodedImage, Frame } from '@shared/types';
 import { getAiImageQualityProfile } from '@shared/imageQuality';
 import { ImageCompressor } from './imageCompressor';
 import { getConfig } from '../config/store';
@@ -7,11 +7,18 @@ import { getConfig } from '../config/store';
  * 按当前配置创建压缩器。
  * 每次调用重新读取配置，使设置面板中的调整立即生效。
  */
-function createCompressor(): ImageCompressor | null {
+function createCompressor(): {
+  compressor: ImageCompressor | null;
+  qualityProfile: AppConfig['aiImageQuality'];
+} {
   const config = getConfig();
   const profile = getAiImageQualityProfile(config.aiImageQuality);
-  if (profile.preserveOriginal) return null;
-  return new ImageCompressor(profile.maxWidth, profile.jpegQuality);
+  return {
+    compressor: profile.preserveOriginal
+      ? null
+      : new ImageCompressor(profile.maxWidth, profile.jpegQuality),
+    qualityProfile: profile.id,
+  };
 }
 
 /**
@@ -21,7 +28,9 @@ function createCompressor(): ImageCompressor | null {
 async function compressImage(
   image: EncodedImage,
   compressor: ImageCompressor | null,
+  qualityProfile: AppConfig['aiImageQuality'],
 ): Promise<EncodedImage> {
+  if (image.qualityProfile === qualityProfile) return image;
   if (!compressor) return image;
   try {
     const input = Buffer.from(image.data, 'base64');
@@ -31,6 +40,7 @@ async function compressImage(
       mimeType: output.mimeType,
       width: output.width,
       height: output.height,
+      qualityProfile,
     };
   } catch (error) {
     console.error('[Processor] Image compression failed, falling back to original:', error);
@@ -55,13 +65,13 @@ function logCompressionRatio(label: string, before: number, after: number): void
 export async function compressFrames(frames: Frame[]): Promise<Frame[]> {
   if (frames.length === 0) return frames;
 
-  const compressor = createCompressor();
+  const { compressor, qualityProfile } = createCompressor();
   const before = frames.reduce((sum, f) => sum + f.data.length, 0);
 
   const compressed = await Promise.all(
     frames.map(async (frame) => ({
       ...frame,
-      ...await compressImage(frame, compressor),
+      ...await compressImage(frame, compressor, qualityProfile),
     }))
   );
 
@@ -77,11 +87,11 @@ export async function compressFrames(frames: Frame[]): Promise<Frame[]> {
 export async function compressImages(images: EncodedImage[]): Promise<EncodedImage[]> {
   if (images.length === 0) return images;
 
-  const compressor = createCompressor();
+  const { compressor, qualityProfile } = createCompressor();
   const before = images.reduce((sum, image) => sum + image.data.length, 0);
 
   const compressed = await Promise.all(
-    images.map((image) => compressImage(image, compressor))
+    images.map((image) => compressImage(image, compressor, qualityProfile))
   );
 
   const after = compressed.reduce((sum, image) => sum + image.data.length, 0);

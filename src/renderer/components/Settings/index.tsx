@@ -364,7 +364,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
           <div className="card p-3">
             <h3 className="text-sm font-medium mb-1">采集与 AI 图片质量</h3>
-            <p className="hint mb-3">帧队列保留原图；AI 档位只处理发送副本，默认最高画质。</p>
+            <p className="hint mb-3">整帧和区域截图按所选档位入队；AI 对相同档位不重复编码，默认最高画质。</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm text-muted mb-1">默认预览策略</label>
@@ -384,7 +384,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-muted mb-1">发送给 AI 的图片质量</label>
+                <label className="block text-sm text-muted mb-1">截图与发送给 AI 的图片质量</label>
                 <Select
                   value={config.aiImageQuality}
                   options={Object.values(AI_IMAGE_QUALITY_PROFILES).map((profile) => ({
@@ -396,7 +396,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                     value as AiImageQuality,
                   )}
                   className="w-full text-sm"
-                  ariaLabel="AI 图片质量"
+                  ariaLabel="截图与 AI 图片质量"
                 />
               </div>
             </div>

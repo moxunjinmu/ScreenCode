@@ -8,12 +8,15 @@ import {
   type Frame,
   type HighQualityCaptureRequest,
   type HighQualityCaptureResult,
+  type ProcessCapturedImageRequest,
+  type ProcessedImage,
 } from '@shared/types';
 
 export interface RendererElectronAPI {
   startCapture: () => Promise<unknown>;
   stopCapture: () => Promise<unknown>;
   captureHighQualityFrame: (request: HighQualityCaptureRequest) => Promise<HighQualityCaptureResult>;
+  processCapturedImage: (request: ProcessCapturedImageRequest) => Promise<ProcessedImage>;
   extractCode: (frames: Frame[]) => Promise<ClaudeResponse>;
   chat: (request: ChatRequest) => Promise<{ content: string }>;
   getConfig: () => Promise<AppConfig>;
@@ -39,6 +42,12 @@ const browserPreviewAPI: RendererElectronAPI = {
   captureHighQualityFrame: async (_request: HighQualityCaptureRequest) => {
     throw new Error('浏览器预览模式不支持 YUY2 高保真截图');
   },
+  processCapturedImage: async (request: ProcessCapturedImageRequest) => ({
+    ...request.image,
+    width: request.crop?.width ?? request.image.width ?? 0,
+    height: request.crop?.height ?? request.image.height ?? 0,
+    qualityProfile: request.quality,
+  }),
   extractCode: async (frames: Frame[]) => ({
     language: 'typescript',
     code: frames.length > 0

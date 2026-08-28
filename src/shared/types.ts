@@ -8,6 +8,8 @@ export interface EncodedImage {
   mimeType: ImageMimeType;
   width?: number;
   height?: number;
+  /** 已应用的输出画质；用于避免 AI 路径对同一档位重复编码。 */
+  qualityProfile?: AiImageQuality;
 }
 
 // 帧数据结构
@@ -38,6 +40,25 @@ export interface HighQualityCaptureRequest {
 export interface HighQualityCaptureResult extends EncodedImage {
   width: number;
   height: number;
+}
+
+export interface SourceCropRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface ProcessCapturedImageRequest {
+  image: EncodedImage;
+  crop?: SourceCropRect;
+  quality: AiImageQuality;
+}
+
+export interface ProcessedImage extends EncodedImage {
+  width: number;
+  height: number;
+  qualityProfile: AiImageQuality;
 }
 
 // 设备信息

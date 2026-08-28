@@ -4,7 +4,7 @@ import { useCaptureStore } from '../../store/captureStore';
 import { useUIStore } from '../../store/uiStore';
 import { useFrameStore } from '../../store/frameStore';
 import { electronAPI } from '../../lib/electronApi';
-import { Frame, DisplayResolution, PRESET_RESOLUTIONS, PRESET_SCALES } from '@shared/types';
+import { Frame, DisplayResolution, PRESET_RESOLUTIONS, PRESET_SCALES, type EncodedImage } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import RegionCaptureOverlay from './RegionCaptureOverlay';
 import { PreviewClickController } from './previewClickController';
@@ -50,6 +50,10 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
   const [selectedPreset, setSelectedPreset] = useState<string>('source');  // 'source' 或分辨率索引
   const [selectedScale, setSelectedScale] = useState<number>(1.0);
   const [effectiveFrameRate, setEffectiveFrameRate] = useState<number | null>(null);
+  const [regionSource, setRegionSource] = useState<{
+    image: EncodedImage;
+    source: 'yuy2' | 'preview';
+  } | null>(null);
 
   // 当选择设备后自动开始捕获
   useEffect(() => {
@@ -184,28 +188,6 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     }
   }, [selectedPreset, selectedScale, sourceResolution, setDisplayResolution]);
 
-  // 监听快捷键 - 区域截图
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + Shift + R 进入区域截图模式
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'r') {
-        e.preventDefault();
-        setRegionCapture(!isRegionCapture);
-      }
-      // ESC 退出区域截图模式或全屏模式
-      if (e.key === 'Escape') {
-        if (isRegionCapture) {
-          setRegionCapture(false);
-        } else if (isFullscreenPreview) {
-          setFullscreenPreview(false);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRegionCapture, setRegionCapture, isFullscreenPreview, setFullscreenPreview]);
-
   const handleDeviceChange = async (deviceId: string) => {
     const device = devices.find(d => d.id === deviceId);
     if (device) {
@@ -254,6 +236,40 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
       console.error('Capture frame error:', error);
     }
   }, [stream, captureFrame, addFrame]);
+
+  /** 区域截图先冻结一张原始 YUY2 帧，再进入选区，保证所见与最终裁剪来自同一时刻。 */
+  const toggleRegionCapture = useCallback(async () => {
+    if (isRegionCapture) {
+      setRegionCapture(false);
+      return;
+    }
+    if (!stream || isHighQualityCapturing) return;
+
+    setError(null);
+    const outcome = await captureFrame({ quality: 'original' });
+    if (!outcome) {
+      setError('无法准备区域截图源图');
+      return;
+    }
+    setRegionSource({ image: outcome.image, source: outcome.source });
+    const captureWarning = outcome.restoreError || outcome.warning;
+    if (captureWarning) setError(captureWarning);
+    setRegionCapture(true);
+  }, [captureFrame, isHighQualityCapturing, isRegionCapture, setRegionCapture, stream]);
+
+  // 区域截图快捷键负责准备冻结帧；选区内的 Enter/Esc/R/方向键由覆盖层处理。
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'r') {
+        event.preventDefault();
+        void toggleRegionCapture();
+      } else if (event.key === 'Escape' && !isRegionCapture && isFullscreenPreview) {
+        setFullscreenPreview(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreenPreview, isRegionCapture, setFullscreenPreview, toggleRegionCapture]);
 
   // 预览区单击需要延迟确认，双击事件会在延迟窗口内取消截图。
   const handlePreviewClick = useCallback(() => {
@@ -316,12 +332,13 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
               {stream && (
                 <>
                   <button
-                    onClick={() => setRegionCapture(!isRegionCapture)}
+                    onClick={() => void toggleRegionCapture()}
+                    disabled={isHighQualityCapturing}
                     className={`${isRegionCapture ? 'btn-primary' : 'btn'} px-3 py-1 text-sm`}
                     title="快捷键: Ctrl+Shift+R"
                   >
                     <Crop size={14} />
-                    {isRegionCapture ? '取消区域截取' : '区域截取'}
+                    {isHighQualityCapturing ? '准备无损选区…' : isRegionCapture ? '取消区域截取' : '区域截取'}
                   </button>
                   <button
                     onClick={handleDoubleClick}
@@ -432,11 +449,6 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
               }}
             />
 
-            {/* 区域截图覆盖层 */}
-            <RegionCaptureOverlay
-              videoRef={videoRef}
-              onCapture={handleRegionCapture}
-            />
           </>
         ) : (
           <div className="preview-empty-state text-center px-6 state-enter">
@@ -458,10 +470,20 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
           </div>
         )}
 
+        {regionSource && (
+          <RegionCaptureOverlay
+            sourceImage={regionSource.image}
+            sourceKind={regionSource.source}
+            onCapture={handleRegionCapture}
+            onCancel={handleRegionCapture}
+          />
+        )}
+
         {isFullscreen && stream && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 overlay">
             <button
-              onClick={() => setRegionCapture(!isRegionCapture)}
+              onClick={() => void toggleRegionCapture()}
+              disabled={isHighQualityCapturing}
               className={`${isRegionCapture ? 'btn-primary' : 'btn'} px-3 py-1 text-xs`}
             >
               <Crop size={14} />

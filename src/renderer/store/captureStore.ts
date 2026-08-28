@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Device, EncodedImage } from '@shared/types';
+import type { AiImageQuality, Device, EncodedImage } from '@shared/types';
 import { IMAGE_PROCESSING } from '@shared/constants';
 import { electronAPI } from '../lib/electronApi';
 import { acquireHighestQualityStream } from '../capture/highQualityCapture';
@@ -50,7 +50,7 @@ interface CaptureState {
   startCapture: () => Promise<void>;
   stopCapture: () => Promise<void>;
   loadDevices: () => Promise<void>;
-  captureFrame: () => Promise<HighQualityCaptureOutcome | null>;
+  captureFrame: (options?: { quality?: AiImageQuality }) => Promise<HighQualityCaptureOutcome | null>;
   setStream: (stream: MediaStream | null) => void;
   setVideoElement: (element: HTMLVideoElement | null) => void;
 }
@@ -190,7 +190,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
    * 不再创建临时 video 等待 loadedmetadata —— 该事件在流已就绪时可能永不触发，
    * 会导致 Promise 永久挂起、截图静默卡死。
    */
-  captureFrame: async () => {
+  captureFrame: async (options) => {
     const {
       stream,
       videoElement,
@@ -212,9 +212,33 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       return null;
     }
 
+    const config = await electronAPI.getConfig();
+    const outputQuality = options?.quality ?? config.aiImageQuality;
+
+    const applyOutputQuality = async (
+      outcome: HighQualityCaptureOutcome,
+    ): Promise<HighQualityCaptureOutcome> => {
+      try {
+        const image = await electronAPI.processCapturedImage({
+          image: outcome.image,
+          quality: outputQuality,
+        });
+        return { ...outcome, image };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          ...outcome,
+          warning: [outcome.warning, `画质处理失败，已保留采集原图：${message}`]
+            .filter(Boolean)
+            .join('；'),
+        };
+      }
+    };
+
     if (selectedDeviceType !== 'videoinput' || !selectedDeviceId) {
-      set({ currentFrame: fallback.data });
-      return { image: fallback, source: 'preview' };
+      const outcome = await applyOutputQuality({ image: fallback, source: 'preview' });
+      set({ currentFrame: outcome.image.data });
+      return outcome;
     }
 
     const selectedDevice = devices.find((device) => device.id === selectedDeviceId);
@@ -222,7 +246,6 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
 
     set({ isHighQualityCapturing: true });
     try {
-      const config = await electronAPI.getConfig();
       const outcome = await captureWithYuy2AndRestore({
         captureFallback: async () => fallback,
         stopPreview: stopCapture,
@@ -232,8 +255,9 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
         }),
         restorePreview: startCapture,
       });
-      set({ currentFrame: outcome.image.data });
-      return outcome;
+      const processedOutcome = await applyOutputQuality(outcome);
+      set({ currentFrame: processedOutcome.image.data });
+      return processedOutcome;
     } catch (error) {
       console.error('Failed to capture frame:', error);
       return null;
