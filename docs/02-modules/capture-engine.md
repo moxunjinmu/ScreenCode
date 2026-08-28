@@ -1,6 +1,6 @@
 # 采集引擎与帧处理
 
-> 最后更新: 2026-02-28
+> 最后更新: 2026-08-28
 > 目录: `src/main/capture/`, `src/main/processor/`
 
 ## 采集模块 (`src/main/capture/`)
@@ -14,10 +14,25 @@
 ### 视频流管理
 
 - `startCapture()`: 根据设备类型获取 MediaStream
-  - `videoinput` → `getUserMedia({ video: { deviceId } })`
+  - `videoinput` → `getUserMedia({ video: { deviceId } })` 打开指定设备一次
+  - 通过 `getCapabilities()` 获取能力范围，按分辨率优先、同分辨率帧率优先生成候选模式
+  - 通过 `applyConstraints()` 逐档应用严格宽、高、帧率约束；支持时使用 `resizeMode: none`
+  - 通过 `getSettings()` 记录实际生效参数，严格模式均失败时保留理想值或浏览器默认流
   - `screen` → desktopCapturer（待实现）
 - `stopCapture()`: 停止所有 track，通知主进程
-- `captureFrame()`: 从 stream 创建 video → canvas → base64 JPEG
+- `captureFrame()`: 复用预览 video，以视频源固有尺寸绘制 canvas → base64 JPEG
+
+### 最高质量模式协商 (`src/renderer/capture/highQualityCapture.ts`)
+
+浏览器不会公开 UVC 采集卡完整的离散输出模式表，因此协商器将设备能力上限与常见标准档位组合，
+通过严格约束逐档验证。排序策略固定为：像素总数降序，同分辨率下帧率降序。
+
+协商过程中始终复用同一条视频轨道，避免重复释放和重开采集卡。`OverconstrainedError` 表示当前档位
+不受支持，可继续尝试下一档；权限拒绝、设备占用等错误不会被吞掉或重复请求。预览工具栏显示视频源
+固有宽高和 `getSettings().frameRate`，显示尺寸与 CSS 缩放不改变实际采集质量。
+
+能力边界：WebRTC 不能选择 UVC 的 MJPEG/YUY2/NV12 等像素格式，也不能保证能力范围的宽、高、
+帧率上限属于同一个离散模式。若浏览器无法获得厂商标称档位，需要另行评估 FFmpeg DirectShow 管线。
 
 ## 帧处理流水线
 
