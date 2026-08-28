@@ -84,7 +84,10 @@ const afterCopy = [
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    // Sharp 的原生模块会在进程启动阶段加载，.node 与依赖 DLL 必须同时位于解包目录。
+    asar: {
+      unpack: '**/*.{node,dll}',
+    },
     name: 'ScreenCode',
     appBundleId: 'com.screencode.app',
     win32metadata: {

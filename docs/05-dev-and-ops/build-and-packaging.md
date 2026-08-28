@@ -47,16 +47,20 @@ npm run build
 
 ### Sharp Native 模块处理
 
-Sharp 是核心图像处理模块，包含平台特定的二进制文件 (DLL)。打包流程通过 3 个钩子确保 DLL 正确包含：
+Sharp 是核心图像处理模块，包含平台特定的 `.node` 与 DLL。打包流程通过 ASAR 解包规则和钩子确保
+二者位于同一个可加载目录：
 
-1. **`afterCopy` 钩子** — 递归复制 Sharp 及其 28 个依赖到构建目录
-   - 将 `@img/sharp-win32-x64/lib/*.dll` 复制到 `.node` 文件所在目录
+1. **`packagerConfig.asar.unpack`** — 同时解包 `*.node` 与 `*.dll`
+   - 产物中的 `resources/app.asar.unpacked/node_modules/@img/sharp-win32-x64/lib/` 同时包含
+     `sharp-win32-x64.node`、`libvips-42.dll` 和 `libvips-cpp.dll`
+
+2. **`afterCopy` 钩子** — 递归复制 Sharp 及其依赖到构建目录
    - 同时将 DLL 复制到应用根目录作为备用加载路径
 
-2. **`postPackage` 钩子** — 将 DLL 复制到最终输出目录根级
+3. **`postPackage` 钩子** — 将 DLL 复制到最终输出目录根级
    - 确保 `libvips-42.dll` 和 `libvips-cpp.dll` 在 exe 同级目录
 
-3. **`postMake` 钩子** — 预留用于 Squirrel 安装包的额外处理
+4. **`postMake` 钩子** — 预留用于 Squirrel 安装包的额外处理
 
 ### 构建产物
 
