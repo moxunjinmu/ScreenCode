@@ -7,6 +7,7 @@ import { electronAPI } from '../../lib/electronApi';
 import { Frame, DisplayResolution, PRESET_RESOLUTIONS, PRESET_SCALES } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import RegionCaptureOverlay from './RegionCaptureOverlay';
+import { PreviewClickController } from './previewClickController';
 import Select from '../Select';
 
 interface PreviewProps {
@@ -19,7 +20,10 @@ const CAPTURE_DEBOUNCE_MS = 300;
 
 const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscreen }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const captureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clickControllerRef = useRef<PreviewClickController | null>(null);
+  if (!clickControllerRef.current) {
+    clickControllerRef.current = new PreviewClickController(CAPTURE_DEBOUNCE_MS);
+  }
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -227,50 +231,51 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     }
   };
 
-  // 单击截图（带防抖，避免双击时误触发）
-  const handleCaptureFrame = useCallback(async () => {
+  // 立即截图，仅供明确的截图操作调用。
+  const captureImmediately = useCallback(async () => {
     if (!stream) return;
+    try {
+      const outcome = await captureFrame();
+      if (!outcome) return;
 
-    // 清除之前的防抖定时器
-    if (captureTimerRef.current) {
-      clearTimeout(captureTimerRef.current);
-      captureTimerRef.current = null;
-      return; // 双击时直接取消之前的单击截图
+      const frame: Frame = {
+        id: uuidv4(),
+        timestamp: Date.now(),
+        ...outcome.image,
+        type: 'new_scene',
+        overlap: undefined
+      };
+
+      addFrame(frame);
+
+      // 写入剪贴板
+      await electronAPI.writeImageToClipboard(outcome.image);
+    } catch (error) {
+      console.error('Capture frame error:', error);
     }
-
-    // 设置防抖定时器，如果在 CAPTURE_DEBOUNCE_MS 内发生双击会被清除
-    captureTimerRef.current = setTimeout(async () => {
-      captureTimerRef.current = null;
-      try {
-        const outcome = await captureFrame();
-        if (!outcome) return;
-
-        const frame: Frame = {
-          id: uuidv4(),
-          timestamp: Date.now(),
-          ...outcome.image,
-          type: 'new_scene',
-          overlap: undefined
-        };
-
-        addFrame(frame);
-
-        // 写入剪贴板
-        await electronAPI.writeImageToClipboard(outcome.image);
-      } catch (error) {
-        console.error('Capture frame error:', error);
-      }
-    }, CAPTURE_DEBOUNCE_MS);
   }, [stream, captureFrame, addFrame]);
+
+  // 预览区单击需要延迟确认，双击事件会在延迟窗口内取消截图。
+  const handlePreviewClick = useCallback(() => {
+    clickControllerRef.current?.scheduleCapture(() => {
+      void captureImmediately();
+    });
+  }, [captureImmediately]);
 
   // 双击进入/退出全屏
   const handleDoubleClick = () => {
-    if (onToggleFullscreen) {
-      onToggleFullscreen();
-    } else {
-      setFullscreenPreview(!isFullscreenPreview);
-    }
+    clickControllerRef.current?.toggleFullscreen(() => {
+      if (onToggleFullscreen) {
+        onToggleFullscreen();
+      } else {
+        setFullscreenPreview(!isFullscreenPreview);
+      }
+    });
   };
+
+  useEffect(() => {
+    return () => clickControllerRef.current?.cancelPendingCapture();
+  }, []);
 
   // 区域截图完成回调
   const handleRegionCapture = useCallback(() => {
@@ -422,7 +427,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
               onClick={(e) => {
                 // 如果不在区域截图模式，单击截图
                 if (!isRegionCapture && e.detail === 1) {
-                  handleCaptureFrame();
+                  handlePreviewClick();
                 }
               }}
             />
@@ -463,7 +468,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
               {isRegionCapture ? '取消选择' : '区域截图'}
             </button>
             <button
-              onClick={handleCaptureFrame}
+              onClick={() => void captureImmediately()}
               className="btn-success px-3 py-1 text-xs"
             >
               <Camera size={14} />
