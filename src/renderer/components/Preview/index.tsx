@@ -123,20 +123,20 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     };
     callbackId = video.requestVideoFrameCallback(measure);
     return () => video.cancelVideoFrameCallback(callbackId);
-  }, [stream]);
+  }, [stream, isHighQualityCapturing]);
 
   // 绑定视频流到 video 元素
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
     }
-  }, [stream]);
+  }, [stream, isHighQualityCapturing]);
 
   // 将预览 video 注册到 store，供全局热键截图直接复用（避免另建临时 video）
   useEffect(() => {
     setVideoElement(videoRef.current);
     return () => setVideoElement(null);
-  }, [stream, setVideoElement]);
+  }, [stream, isHighQualityCapturing, setVideoElement]);
 
   // 检测视频源分辨率
   useEffect(() => {
@@ -158,7 +158,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     }
 
     return () => video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-  }, [stream]);
+  }, [stream, isHighQualityCapturing]);
 
   // 分辨率或缩放变化时更新显示
   useEffect(() => {

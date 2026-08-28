@@ -26,10 +26,9 @@ export async function captureWithYuy2AndRestore(
   dependencies: HighQualityCaptureDependencies,
 ): Promise<HighQualityCaptureOutcome> {
   const fallback = await dependencies.captureFallback();
-  await dependencies.stopPreview();
-
   let outcome: HighQualityCaptureOutcome | null = null;
   try {
+    await dependencies.stopPreview();
     const image = await dependencies.captureYuy2();
     outcome = { image, source: 'yuy2' };
   } catch (error) {
@@ -37,7 +36,7 @@ export async function captureWithYuy2AndRestore(
     outcome = {
       image: fallback,
       source: 'preview',
-      warning: `YUY2 高保真截图失败，已回退到预览帧：${getErrorMessage(error)}`,
+      warning: `高保真截图失败，已回退到预览帧：${getErrorMessage(error)}`,
     };
   } finally {
     try {

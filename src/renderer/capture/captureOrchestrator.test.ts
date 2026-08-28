@@ -39,6 +39,22 @@ describe('YUY2 截图状态恢复', () => {
     expect(restorePreview).toHaveBeenCalledOnce();
   });
 
+  it('停止预览失败时回退到预览帧并仍然尝试恢复预览', async () => {
+    const restorePreview = vi.fn().mockResolvedValue(undefined);
+    const captureYuy2 = vi.fn();
+    const result = await captureWithYuy2AndRestore({
+      captureFallback: vi.fn().mockResolvedValue(fallbackImage),
+      stopPreview: vi.fn().mockRejectedValue(new Error('stop failed')),
+      captureYuy2,
+      restorePreview,
+    });
+
+    expect(result).toMatchObject({ image: fallbackImage, source: 'preview' });
+    expect(result.warning).toContain('stop failed');
+    expect(captureYuy2).not.toHaveBeenCalled();
+    expect(restorePreview).toHaveBeenCalledOnce();
+  });
+
   it('预览恢复失败时单独报告，不丢失已经截取的图片', async () => {
     const result = await captureWithYuy2AndRestore({
       captureFallback: vi.fn().mockResolvedValue(fallbackImage),
