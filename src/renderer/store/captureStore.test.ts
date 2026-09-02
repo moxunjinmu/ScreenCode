@@ -75,11 +75,10 @@ describe('采集设备加载', () => {
     vi.stubGlobal('navigator', { mediaDevices: { enumerateDevices } });
 
     const loading = useCaptureStore.getState().loadDevices();
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(useCaptureStore.getState().devices.map((device) => device.name))
-      .toContain('USB3 Video (345f:2133)');
+    await vi.waitFor(() => {
+      expect(useCaptureStore.getState().devices.map((device) => device.name))
+        .toContain('USB3 Video (345f:2133)');
+    }, { timeout: 250 });
 
     resolveNative([nativeDevice]);
     await loading;

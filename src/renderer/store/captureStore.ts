@@ -201,13 +201,11 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
 
   loadDevices: async () => {
     try {
-      const [mediaDevices, nativeDevices] = await Promise.all([
-        navigator.mediaDevices.enumerateDevices(),
-        electronAPI.enumerateNativeCaptureDevices().catch((error) => {
-          console.warn('[Capture] GStreamer 设备枚举不可用:', error);
-          return [] as NativeCaptureDevice[];
-        }),
-      ]);
+      const nativeDevicesPromise = electronAPI.enumerateNativeCaptureDevices().catch((error) => {
+        console.warn('[Capture] GStreamer 设备枚举不可用:', error);
+        return [] as NativeCaptureDevice[];
+      });
+      const mediaDevices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices: Device[] = mediaDevices
         .filter((device) => device.kind === 'videoinput')
         .map((device) => ({
@@ -222,13 +220,26 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
         type: 'screen',
         isConnected: true,
       });
+
+      // Media Foundation 的逐档帧率验证可能持续数秒，不能阻塞基础设备下拉框。
+      set({ devices: videoDevices });
+
       const config = await electronAPI.getConfig();
-      const selectedDevice = videoDevices.find((device) => device.id === config.lastDeviceId);
+      const nativeDevices = await nativeDevicesPromise;
+      const currentState = get();
+      const selectedDeviceId = currentState.selectedDeviceId ?? config.lastDeviceId;
+      const selectedDevice = videoDevices.find((device) => device.id === selectedDeviceId);
       const nativeDevice = matchNativeDevice(selectedDevice, nativeDevices);
       const nativeSelection = nativeDevice
-        ? selectionForDevice(nativeDevice, config.nativeCaptureSelection)
+        ? selectionForDevice(
+            nativeDevice,
+            currentState.nativeSelection ?? config.nativeCaptureSelection,
+          )
         : null;
-      const captureBackend = config.captureBackend === 'gstreamer-mf' && nativeSelection
+      const requestedBackend = currentState.selectedDeviceId
+        ? currentState.captureBackend
+        : config.captureBackend;
+      const captureBackend = requestedBackend === 'gstreamer-mf' && nativeSelection
         ? 'gstreamer-mf'
         : 'browser-auto';
       set({
