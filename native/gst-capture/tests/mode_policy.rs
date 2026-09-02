@@ -1,6 +1,6 @@
 use screencode_gst_capture::mode_policy::{
-    browser_preview_caps, build_mode_id, format_id_for_caps, is_effective_fps,
-    rank_yuy2_candidates, validation_cache_key, ModeCandidate,
+    browser_preview_caps, browser_preview_policy, build_mode_id, format_id_for_caps,
+    is_effective_fps, rank_yuy2_candidates, validation_cache_key, ModeCandidate,
 };
 
 #[test]
@@ -58,4 +58,30 @@ fn validation_cache_key_changes_with_caps_but_not_input_order() {
 #[test]
 fn browser_preview_uses_electron_compatible_vp8() {
     assert_eq!(browser_preview_caps(), "video/x-vp8");
+}
+
+#[test]
+fn browser_preview_prefers_high_bitrate_d3d12_h264_without_downscaling() {
+    let mode = ModeCandidate::new("YUY2", 2560, 1440, 50, 1);
+    let policy = browser_preview_policy(&mode, true);
+
+    assert_eq!(policy.codec, "H264");
+    assert_eq!(policy.caps, "video/x-h264");
+    assert_eq!(policy.bitrate_bps, 33_177_600);
+    assert_eq!(policy.frame_rate_numerator, 50);
+    assert_eq!(policy.frame_rate_denominator, 1);
+    assert_eq!(policy.congestion_control, "disabled");
+    assert_eq!(policy.mitigation_modes, "none");
+}
+
+#[test]
+fn browser_preview_falls_back_to_full_resolution_vp8_at_thirty_fps() {
+    let mode = ModeCandidate::new("YUY2", 2560, 1440, 50, 1);
+    let policy = browser_preview_policy(&mode, false);
+
+    assert_eq!(policy.codec, "VP8");
+    assert_eq!(policy.caps, "video/x-vp8");
+    assert_eq!(policy.bitrate_bps, 33_177_600);
+    assert_eq!(policy.frame_rate_numerator, 30);
+    assert_eq!(policy.frame_rate_denominator, 1);
 }
