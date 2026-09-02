@@ -17,12 +17,16 @@ export default defineConfig({
       include: [
         'src/renderer/capture/highQualityCapture.ts',
         'src/renderer/capture/captureOrchestrator.ts',
+        'src/renderer/capture/nativeWebRtcPreview.ts',
         'src/main/capture/ffmpegCapture.ts',
         'src/main/processor/imageCompressor.ts',
         'src/main/processor/captureImageProcessor.ts',
         'src/renderer/capture/regionGeometry.ts',
         'src/renderer/capture/regionKeyboard.ts',
         'src/shared/imageQuality.ts',
+        'src/shared/nativeCapture.ts',
+        'src/main/capture/nativeSidecarProtocol.ts',
+        'src/main/capture/nativeSidecarManager.ts',
       ],
       thresholds: {
         lines: 80,

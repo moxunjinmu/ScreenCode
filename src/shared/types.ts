@@ -32,6 +32,75 @@ export interface AiImageQualityProfile {
 
 export type CaptureQualityStrategy = 'quality' | 'smooth';
 
+/** 视频采集后端；精确格式模式目前仅在 Windows x64 开放。 */
+export type CaptureBackend = 'browser-auto' | 'gstreamer-mf';
+
+export interface NativeCaptureMode {
+  id: string;
+  width: number;
+  height: number;
+  frameRateNumerator: number;
+  frameRateDenominator: number;
+  advertised: boolean;
+  verified: boolean;
+}
+
+export interface NativeCaptureFormat {
+  id: string;
+  label: string;
+  mediaType: 'video/x-raw' | 'image/jpeg';
+  modes: NativeCaptureMode[];
+}
+
+export interface NativeCaptureDevice {
+  id: string;
+  label: string;
+  backend: 'gstreamer-mf';
+  formats: NativeCaptureFormat[];
+}
+
+export interface NativeCaptureSelection {
+  deviceId: string;
+  formatId: string;
+  modeId: string;
+}
+
+export interface NativeNegotiatedMode {
+  formatId: string;
+  width: number;
+  height: number;
+  frameRateNumerator: number;
+  frameRateDenominator: number;
+}
+
+export type NativeCapturePhase =
+  | 'unavailable'
+  | 'idle'
+  | 'starting'
+  | 'validating'
+  | 'streaming'
+  | 'stopping'
+  | 'error';
+
+export interface NativeCaptureStatus {
+  phase: NativeCapturePhase;
+  requestedModeId?: string;
+  negotiated?: NativeNegotiatedMode;
+  measuredFps?: number;
+  previewCodec?: 'H264' | 'VP8';
+  verified: boolean;
+  signallingUrl?: string;
+  producerId?: string;
+  error?: string;
+}
+
+export interface NativeCaptureSnapshot extends EncodedImage {
+  mimeType: 'image/png';
+  width: number;
+  height: number;
+  sourceFormat: string;
+}
+
 export interface HighQualityCaptureRequest {
   deviceName: string;
   ffmpegPath?: string;
@@ -197,6 +266,8 @@ export interface AppConfig {
   compressionQuality: number;
   aiImageQuality: AiImageQuality;
   captureQualityStrategy: CaptureQualityStrategy;
+  captureBackend: CaptureBackend;
+  nativeCaptureSelection?: NativeCaptureSelection;
   ffmpegPath?: string;
 
   // 显示分辨率配置
@@ -268,6 +339,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   compressionQuality: 95,
   aiImageQuality: 'original',
   captureQualityStrategy: 'quality',
+  captureBackend: 'gstreamer-mf',
   ffmpegPath: '',
 };
 

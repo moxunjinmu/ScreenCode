@@ -16,7 +16,8 @@ import { getRegionKeyboardAction } from '../../capture/regionKeyboard';
 
 interface RegionCaptureOverlayProps {
   sourceImage: EncodedImage;
-  sourceKind: 'yuy2' | 'preview';
+  sourceKind: 'yuy2' | 'native' | 'preview';
+  sourceFormat?: string;
   onCapture?: (frame: Frame) => void;
   onCancel?: () => void;
 }
@@ -94,6 +95,7 @@ function resizeSourceRect(
 const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({
   sourceImage,
   sourceKind,
+  sourceFormat,
   onCapture,
   onCancel,
 }) => {
@@ -410,7 +412,9 @@ const RegionCaptureOverlay: React.FC<RegionCaptureOverlayProps> = ({
       )}
 
       <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 overlay text-sm pointer-events-none whitespace-nowrap">
-        {sourceKind === 'yuy2' ? 'YUY2 无损冻结帧' : '预览帧降级模式'} · 拖拽选择 · 方向键 1px · Shift 10px · Enter 保存 · Esc 取消 · R 上次区域
+        {sourceKind === 'preview'
+          ? '预览帧降级模式'
+          : `${sourceFormat || 'YUY2'} 原始冻结帧`} · 拖拽选择 · 方向键 1px · Shift 10px · Enter 保存 · Esc 取消 · R 上次区域
       </div>
       {error && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-2 bg-red-950/90 text-red-100 rounded text-sm">

@@ -6,8 +6,12 @@ export const IPC_CHANNELS = {
   CAPTURE_START: 'capture:start',           // renderer → main (invoke)，同步采集状态到托盘
   CAPTURE_STOP: 'capture:stop',             // renderer → main (invoke)
   CAPTURE_FRAME: 'capture:frame',           // main → renderer (event)，全局热键触发截图
-  CAPTURE_HIGH_QUALITY_FRAME: 'capture:high-quality-frame', // renderer → main (invoke)
   CAPTURE_PROCESS_IMAGE: 'capture:process-image', // renderer → main (invoke)，源像素裁剪与画质编码
+  CAPTURE_NATIVE_ENUMERATE: 'capture:native-enumerate',
+  CAPTURE_NATIVE_START: 'capture:native-start',
+  CAPTURE_NATIVE_STOP: 'capture:native-stop',
+  CAPTURE_NATIVE_SNAPSHOT: 'capture:native-snapshot',
+  CAPTURE_NATIVE_STATUS: 'capture:native-status',
 
   // AI 相关
   AI_EXTRACT: 'ai:extract',                 // renderer → main (invoke)

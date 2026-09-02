@@ -2,7 +2,8 @@ import type { EncodedImage, HighQualityCaptureResult } from '@shared/types';
 
 export interface HighQualityCaptureOutcome {
   image: EncodedImage;
-  source: 'yuy2' | 'preview';
+  source: 'yuy2' | 'native' | 'preview';
+  sourceFormat?: string;
   warning?: string;
   restoreError?: string;
 }

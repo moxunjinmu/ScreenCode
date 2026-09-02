@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isNativeSelectionSupported,
+  normalizeCaptureDeviceLabel,
   normalizeNativeFormatLabel,
   selectDefaultNativeMode,
 } from './nativeCapture';
@@ -77,5 +78,10 @@ describe('原生采集能力选择', () => {
   it('明确显示 Windows RGB24 的 BGR 内存布局', () => {
     expect(normalizeNativeFormatLabel('BGR')).toBe('RGB24 / BGR');
     expect(normalizeNativeFormatLabel('YUY2')).toBe('YUY2 4:2:2');
+  });
+
+  it('浏览器追加 USB VID:PID 时仍可匹配 Media Foundation 设备名', () => {
+    expect(normalizeCaptureDeviceLabel('USB3 Video (345f:2133)'))
+      .toBe(normalizeCaptureDeviceLabel('USB3 Video'));
   });
 });

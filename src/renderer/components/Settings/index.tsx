@@ -401,16 +401,9 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
               </div>
             </div>
 
-            <div className="mt-3">
-              <label className="block text-sm text-muted mb-1">FFmpeg 路径（可选）</label>
-              <input
-                type="text"
-                value={config.ffmpegPath || ''}
-                onChange={(event) => handleAppConfigChange('ffmpegPath', event.target.value)}
-                placeholder="自动发现失败时填写 ffmpeg.exe 的完整路径"
-                className="input w-full px-3 py-2 text-sm"
-              />
-            </div>
+            <p className="hint mt-3">
+              精确协议采集使用应用内置的 GStreamer 运行时；旧 FFmpeg 路径仅保留配置兼容，不再参与截图。
+            </p>
           </div>
 
           <div className="card p-3">

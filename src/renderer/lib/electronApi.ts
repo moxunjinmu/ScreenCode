@@ -6,17 +6,22 @@ import {
   type ClaudeResponse,
   type EncodedImage,
   type Frame,
-  type HighQualityCaptureRequest,
-  type HighQualityCaptureResult,
   type ProcessCapturedImageRequest,
   type ProcessedImage,
+  type NativeCaptureDevice,
+  type NativeCaptureSelection,
+  type NativeCaptureSnapshot,
+  type NativeCaptureStatus,
 } from '@shared/types';
 
 export interface RendererElectronAPI {
   startCapture: () => Promise<unknown>;
   stopCapture: () => Promise<unknown>;
-  captureHighQualityFrame: (request: HighQualityCaptureRequest) => Promise<HighQualityCaptureResult>;
   processCapturedImage: (request: ProcessCapturedImageRequest) => Promise<ProcessedImage>;
+  enumerateNativeCaptureDevices: () => Promise<NativeCaptureDevice[]>;
+  startNativeCapture: (selection: NativeCaptureSelection) => Promise<void>;
+  stopNativeCapture: () => Promise<void>;
+  captureNativeSnapshot: () => Promise<NativeCaptureSnapshot>;
   extractCode: (frames: Frame[]) => Promise<ClaudeResponse>;
   chat: (request: ChatRequest) => Promise<{ content: string }>;
   getConfig: () => Promise<AppConfig>;
@@ -25,6 +30,7 @@ export interface RendererElectronAPI {
   onAIResult: (callback: (result: ClaudeResponse) => void) => () => void;
   onError: (callback: (error: AppError) => void) => () => void;
   onCaptureFrame: (callback: () => void) => () => void;
+  onNativeCaptureStatus: (callback: (status: NativeCaptureStatus) => void) => () => void;
   onExtractCode: (callback: () => void) => () => void;
   onConfigChanged: (callback: (config: AppConfig) => void) => () => void;
 }
@@ -39,15 +45,20 @@ const noopUnsubscribe = () => undefined;
 const browserPreviewAPI: RendererElectronAPI = {
   startCapture: async () => undefined,
   stopCapture: async () => undefined,
-  captureHighQualityFrame: async (_request: HighQualityCaptureRequest) => {
-    throw new Error('浏览器预览模式不支持 YUY2 高保真截图');
-  },
   processCapturedImage: async (request: ProcessCapturedImageRequest) => ({
     ...request.image,
     width: request.crop?.width ?? request.image.width ?? 0,
     height: request.crop?.height ?? request.image.height ?? 0,
     qualityProfile: request.quality,
   }),
+  enumerateNativeCaptureDevices: async () => [],
+  startNativeCapture: async (_selection: NativeCaptureSelection) => {
+    throw new Error('浏览器预览模式不支持 GStreamer 精确采集');
+  },
+  stopNativeCapture: async () => undefined,
+  captureNativeSnapshot: async () => {
+    throw new Error('浏览器预览模式没有原生帧');
+  },
   extractCode: async (frames: Frame[]) => ({
     language: 'typescript',
     code: frames.length > 0
@@ -76,6 +87,7 @@ const browserPreviewAPI: RendererElectronAPI = {
   onAIResult: (_callback: (result: ClaudeResponse) => void) => noopUnsubscribe,
   onError: (_callback: (error: AppError) => void) => noopUnsubscribe,
   onCaptureFrame: (_callback: () => void) => noopUnsubscribe,
+  onNativeCaptureStatus: (_callback: (status: NativeCaptureStatus) => void) => noopUnsubscribe,
   onExtractCode: (_callback: () => void) => noopUnsubscribe,
   onConfigChanged: (callback: (config: AppConfig) => void) => {
     configListeners.add(callback);

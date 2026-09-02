@@ -1,15 +1,18 @@
 # 采集引擎与帧处理
 
-> 最后更新: 2026-08-28
+> 最后更新: 2026-09-02
 > 目录: `src/main/capture/`, `src/main/processor/`
 
 ## 采集模块 (`src/main/capture/`)
 
-### 设备枚举
+### 设备与能力枚举
 
-- 使用 `navigator.mediaDevices.enumerateDevices()` 枚举视频输入设备
-- 额外添加"屏幕录制"选项（desktopCapturer fallback）
-- 恢复上次选择的设备 ID
+- “浏览器自动”继续使用 `navigator.mediaDevices.enumerateDevices()`；屏幕/窗口采集保留原路径
+- Windows x64 的“GStreamer 精确格式”由 Rust sidecar 使用 `GstDeviceMonitor` 枚举
+  Media Foundation 设备及离散 Caps
+- 原生下拉框按“后端 → 格式 → 分辨率 → 帧率”联动，只允许提交本次枚举返回的设备、格式和模式 ID
+- 默认从 YUY2 候选中验证不低于 30 FPS 的高质量档；短时实测达到目标帧率 95% 才标记“已验证”
+- 没有 YUY2 或原生运行时不可用时保留浏览器自动模式，精确格式启动失败不会静默更换格式
 
 ### 视频流管理
 
@@ -21,8 +24,14 @@
   - 通过 `applyConstraints()` 逐档应用严格宽、高、帧率约束；支持时使用 `resizeMode: none`
   - 通过 `getSettings()` 记录实际生效参数，严格模式均失败时保留理想值或浏览器默认流
   - `screen` → desktopCapturer（待实现）
+- `gstreamer-mf` → `mfvideosrc + capsfilter + tee`
+  - 原始分支：`appsink max-buffers=1 drop=true`，仅在 sidecar 内保存最新原始帧
+  - 预览分支：转为 NV12，优先经 `mfh264enc low-latency=true` 编码后交给 `webrtcsink`；
+    Media Foundation H.264 不可用时使用 VP8，截图原始格式不变
+  - Renderer 使用官方 `gstwebrtc-api` 3.0.0 客户端连接 `127.0.0.1` 随机信令端口
+  - IPC 只承载控制、状态及按需 PNG；连续原始帧不经过 Electron IPC
 - `stopCapture()`: 停止所有 track，通知主进程
-- `captureFrame()`: 复用预览 video，以视频源固有尺寸绘制 canvas，作为高保真截图失败时的显式回退帧
+- `captureFrame()`: 原生模式请求最新原始帧 PNG；浏览器自动模式直接截取当前 `<video>` 固有尺寸
 
 ### 最高质量模式协商 (`src/renderer/capture/highQualityCapture.ts`)
 
@@ -35,23 +44,24 @@
 固有宽高、`getSettings().frameRate` 和 `requestVideoFrameCallback` 测得的有效帧率，显示尺寸与 CSS
 缩放不改变实际采集质量。
 
-能力边界：WebRTC 不能选择 UVC 的 MJPEG/YUY2/NV12 等像素格式，也不能保证能力范围的宽、高、
-帧率上限属于同一个离散模式。因此预览仍使用浏览器协商，而最高保真单帧由 FFmpeg DirectShow 管线完成。
+能力边界：Chromium WebRTC 不能选择 UVC 的 MJPEG/YUY2/NV12 等像素格式，也不能保证能力范围的宽、
+高、帧率上限属于同一个离散模式。因此精确格式改由 GStreamer/Media Foundation 协商；浏览器自动模式
+仍用于通用兼容和非 Windows 平台。
 
-### YUY2 高保真截图
+### 原生格式高保真截图
 
-`captureWithYuy2AndRestore()` 统一管理截图事务：先保留当前预览帧，停止 Chromium 视频轨道，调用
-主进程 `ffmpegCapture` 以 `1920×1080 / YUY2 4:2:2 / 5 FPS` 抓取一帧并编码为无损 PNG，最后无论
-成功或失败都重新建立 MJPEG30 预览。若停止预览或 FFmpeg 截图失败，队列会使用已保留的预览帧并
-显示降级原因；恢复失败会作为独立错误报告。
+`captureNativeSnapshot()` 从原始分支当前 `appsink` sample 建立一次性内存管线，经 `videoconvert + pngenc`
+生成全尺寸 PNG。截图不停止采集管线、不切换分辨率，也不改变预览编码。JSON Lines 控制消息限制为
+64 KiB，单次 PNG 响应沿用 20 MiB 上限；sidecar 只接受枚举结果中的模式 ID，不接受 Renderer 传入
+任意 GStreamer 管线文本。
 
-FFmpeg 使用 `spawn()` 参数数组且禁用 Shell，只接受当前枚举设备中的受控名称；同时限制设备名、
-执行时间、标准输出大小并验证 PNG 签名。截图只在内存与 IPC 中传递，不创建持久化临时图片。
+活动路径不再调用 FFmpeg DirectShow 截图。旧 `ffmpegPath` 配置仅保留兼容读取，设置页已隐藏。
 
 ### YUY2 区域截图与坐标协议
 
-区域截图不再从实时 MJPEG `video` 元素直接编码 JPEG。用户进入区域模式时，应用先通过同一条 YUY2
-管线冻结完整 PNG，再用冻结图作为选区背景，确保用户框选的内容与最终裁剪来自同一时刻。
+区域截图不从压缩后的 WebRTC `<video>` 重新编码。用户进入区域模式时，应用先冻结当前原生全尺寸
+PNG，再用冻结图作为选区背景，确保用户框选的内容与最终裁剪来自同一时刻。YUY2、NV12、RGB/BGR
+均沿用当前实际采集格式，并在截图结果中记录 `sourceFormat`。
 
 选区状态只保存源图整数像素 `{ left, top, width, height }`。渲染层根据 `object-fit: contain` 的实际
 内容区域换算显示坐标，扣除上下或左右留白；左上坐标向下取整、右下坐标向上取整并收敛到图像边界。
@@ -64,13 +74,13 @@ FFmpeg 使用 `spawn()` 参数数组且禁用 Shell，只接受当前枚举设�
 ## 帧处理流水线
 
 ```
-MJPEG30 预览 → YUY2/PNG 冻结帧（失败回退预览帧）
-                         ├─ 整帧 ───────────────┐
-                         └─ 源像素区域裁剪 ─────┤
-                                               ↓
-                                     四档画质输出 → RingBuffer(8帧) / 剪贴板
-                                               ↓
-                                  相同档位跳过重编码 → AI API
+Media Foundation 精确原始帧 ─┬─ WebRTC/H.264（或 VP8）预览
+                              └─ 最新原始帧 → PNG 冻结 ─┬─ 整帧
+                                                        └─ 源像素区域裁剪
+                                                               ↓
+                                                     四档画质输出
+                                                               ↓
+                                               RingBuffer / 剪贴板 / AI API
 ```
 
 ### 环形缓冲区 (`src/main/processor/ringBuffer.ts`)
@@ -101,8 +111,8 @@ MJPEG30 预览 → YUY2/PNG 冻结帧（失败回退预览帧）
 
 ### 图像压缩 (`src/main/processor/imageCompressor.ts`)
 
-基于 Sharp Native 模块处理截图和发送给 AI 的图片。预览始终使用稳定的 MJPEG30；截图、帧队列、
-剪贴板和 AI 请求使用同一画质档位，默认仍是 YUY2 来源的原图无损 PNG。
+基于 Sharp Native 模块处理截图和发送给 AI 的图片。截图、帧队列、剪贴板和 AI 请求使用同一画质
+档位，默认是当前原生采集格式生成的全尺寸无损 PNG；浏览器自动模式则使用当前预览帧。
 
 | 档位 | 最大宽度 | JPEG 质量 | 默认 |
 |------|----------|-----------|------|

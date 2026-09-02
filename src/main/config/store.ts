@@ -92,6 +92,8 @@ export function getConfig(): AppConfig {
     compressionQuality: store.get('compressionQuality', 85),
     aiImageQuality: store.get('aiImageQuality', 'original'),
     captureQualityStrategy: store.get('captureQualityStrategy', 'quality'),
+    captureBackend: store.get('captureBackend', 'gstreamer-mf'),
+    nativeCaptureSelection: store.get('nativeCaptureSelection'),
     ffmpegPath: store.get('ffmpegPath', ''),
   };
 

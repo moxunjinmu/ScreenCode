@@ -7,10 +7,12 @@ import {
   AppError,
   ChatRequest,
   EncodedImage,
-  HighQualityCaptureRequest,
-  HighQualityCaptureResult,
   ProcessCapturedImageRequest,
   ProcessedImage,
+  NativeCaptureDevice,
+  NativeCaptureSelection,
+  NativeCaptureSnapshot,
+  NativeCaptureStatus,
 } from '@shared/types';
 
 // 聊天响应类型
@@ -23,10 +25,16 @@ const electronAPI = {
   // 捕获控制（设备枚举由渲染进程直接通过 navigator.mediaDevices 完成）
   startCapture: () => ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_START),
   stopCapture: () => ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_STOP),
-  captureHighQualityFrame: (request: HighQualityCaptureRequest) =>
-    ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_HIGH_QUALITY_FRAME, request) as Promise<HighQualityCaptureResult>,
   processCapturedImage: (request: ProcessCapturedImageRequest) =>
     ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_PROCESS_IMAGE, request) as Promise<ProcessedImage>,
+  enumerateNativeCaptureDevices: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_NATIVE_ENUMERATE) as Promise<NativeCaptureDevice[]>,
+  startNativeCapture: (selection: NativeCaptureSelection) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_NATIVE_START, selection) as Promise<void>,
+  stopNativeCapture: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_NATIVE_STOP) as Promise<void>,
+  captureNativeSnapshot: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_NATIVE_SNAPSHOT) as Promise<NativeCaptureSnapshot>,
 
   // AI 服务
   extractCode: (frames: Frame[]) => ipcRenderer.invoke(IPC_CHANNELS.AI_EXTRACT, frames) as Promise<ClaudeResponse>,
@@ -57,6 +65,12 @@ const electronAPI = {
     const listener = () => callback();
     ipcRenderer.on(IPC_CHANNELS.CAPTURE_FRAME, listener);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.CAPTURE_FRAME, listener);
+  },
+
+  onNativeCaptureStatus: (callback: (status: NativeCaptureStatus) => void) => {
+    const listener = (_event: unknown, status: NativeCaptureStatus) => callback(status);
+    ipcRenderer.on(IPC_CHANNELS.CAPTURE_NATIVE_STATUS, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.CAPTURE_NATIVE_STATUS, listener);
   },
 
   onExtractCode: (callback: () => void) => {

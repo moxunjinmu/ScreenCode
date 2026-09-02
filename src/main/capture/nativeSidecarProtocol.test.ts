@@ -48,8 +48,23 @@ describe('GStreamer sidecar 控制协议', () => {
     expect(() => parseSidecarMessage('x'.repeat(MAX_SIDECAR_LINE_BYTES + 1))).toThrow('sidecar 消息超过上限');
   });
 
+  it('拒绝超过控制协议上限的命令', () => {
+    expect(() => encodeSidecarCommand({
+      type: 'start',
+      requestId: 'request-1',
+      selection: {
+        deviceId: 'x'.repeat(65 * 1024),
+        formatId: 'YUY2',
+        modeId: 'YUY2:2560x1440:50/1',
+      },
+    })).toThrow('sidecar 命令超过上限');
+  });
+
   it('拒绝非 JSON 和未知消息类型', () => {
     expect(() => parseSidecarMessage('not-json')).toThrow('sidecar 消息不是有效 JSON');
+    expect(() => parseSidecarMessage('null')).toThrow('sidecar 消息结构无效');
     expect(() => parseSidecarMessage('{"type":"raw-frame"}')).toThrow('未知 sidecar 消息类型');
+    expect(() => parseSidecarMessage('{"type":"error"}')).toThrow('sidecar 错误消息结构无效');
+    expect(() => parseSidecarMessage('{"type":"status"}')).toThrow('sidecar 状态消息结构无效');
   });
 });

@@ -349,7 +349,7 @@ Prompt 或代码提取业务规则。FFmpeg 作为外部成熟运行时自动发
 未新增依赖，并已对新增图像 IPC 增加严格输入上限。Sharp 0.35 要求 Node.js ≥20.9，而 Electron 28
 仍基于 Node 18，升级需与 Electron 主版本迁移单独实施，不能在本阶段强制破坏性升级。
 
-### GStreamer 精确格式采集与浏览器预览 🚧（2026-09-02）
+### GStreamer 精确格式采集与浏览器预览 ✅（2026-09-02）
 
 用户故事：作为使用采集卡识别代码和文字的用户，我希望在预览界面明确选择采集卡真实输出的
 YUY2、NV12、RGB/BGR 等 Media Foundation 格式，并看到实际协商结果；截图直接取当前原始帧，
@@ -357,13 +357,13 @@ YUY2、NV12、RGB/BGR 等 Media Foundation 格式，并看到实际协商结果�
 
 固定产品策略：
 
-- [ ] Windows x64 使用 GStreamer 1.28.6 与独立 Rust sidecar，通过 `mfvideosrc` 精确控制原始格式
-- [ ] 下拉框只展示设备实际 Caps，按格式、分辨率、帧率联动；选择值必须来自枚举结果
-- [ ] 默认优先最高有效 YUY2，候选模式实测帧率达到目标值 95% 才标记“已验证”
-- [ ] 原始帧留在 sidecar；预览经本机 WebRTC 传给 Electron，不通过 IPC 连续传输原始视频
-- [ ] 截图从 `appsink` 最新原始帧生成 PNG；整帧和区域截图均不得停流或重新协商模式
-- [ ] 保留“浏览器自动”模式；精确模式失败必须明确报错，不允许静默改变原始格式
-- [ ] 最终安装包内置经依赖闭包验证的精简 GStreamer 运行时与许可证，不引入 GPL 插件
+- [x] Windows x64 使用 GStreamer 1.28.6 与独立 Rust sidecar，通过 `mfvideosrc` 精确控制原始格式
+- [x] 下拉框只展示设备实际 Caps，按格式、分辨率、帧率联动；选择值必须来自枚举结果
+- [x] 默认优先最高有效 YUY2，候选模式实测帧率达到目标值 95% 才标记“已验证”
+- [x] 原始帧留在 sidecar；预览经本机 WebRTC 传给 Electron，不通过 IPC 连续传输原始视频
+- [x] 截图从 `appsink` 最新原始帧生成 PNG；整帧和区域截图均不得停流或重新协商模式
+- [x] 保留“浏览器自动”模式；精确模式失败必须明确报错，不允许静默改变原始格式
+- [x] 最终安装包内置经依赖闭包验证的精简 GStreamer 运行时与许可证，不引入 GPL 插件
 
 首版边界：只开放 Media Foundation 实际暴露并通过完整管线验证的格式；未暴露的原始 MJPEG、
 厂商私有格式、音频、录像、HDR 色彩管理不在本阶段。Windows 之外继续使用浏览器自动模式。
@@ -376,6 +376,18 @@ YUY2、NV12、RGB/BGR 等 Media Foundation 格式，并看到实际协商结果�
 4. 整帧与区域截图来自最新原始帧 PNG，截图操作不停止管线、不切换分辨率。
 5. 设备拔插、sidecar 崩溃、编码器或运行时缺失均有明确状态；用户可手动切回浏览器自动模式。
 6. Rust 与 TypeScript 新增模块覆盖率不低于 80%，测试、类型检查、Lint 和完整 Windows 打包通过。
+
+阶段验收记录（2026-09-02）：`USB3 Video` 通过 Media Foundation 实际枚举出 BGR、MJPEG、NV12、
+YUY2；浏览器设备名附带的 USB VID:PID 已归一化匹配。默认验证结果为 YUY2 `2560×1440@50`，
+安装包私有运行时实测 `49.91 FPS`，实际 Caps 为 YUY2，预览编码为 Media Foundation H.264。
+本机随机信令端口的 producer 列表为 1，所需 `videorate`、`errorignore`、`rtpmanager`、`h264parse`
+均进入精简运行时并通过私有插件路径自检。原始截图返回 `2560×1440` YUY2 来源 PNG，PNG 签名
+与 20 MiB 上限校验通过，截图期间采集管线未停止。
+
+最终验证：TypeScript 65 项测试全部通过，总覆盖率为语句/行 88.94%、分支 84.74%、函数 89.85%；
+新增 sidecar 管理器行覆盖率 87.29%，协议 100%，WebRTC 客户端行覆盖率 100%、分支 91.66%。Rust
+5 项测试通过，策略模块行覆盖率 97.01%。`npm run typecheck`、`npm run lint`、`cargo test`、
+`npm run package` 与完整 `npm run build` 均通过；Squirrel 安装器输出到项目内 `out/make`。
 
 ### Graphite Capture 视觉工作台原型 ✅（2026-08-03）
 

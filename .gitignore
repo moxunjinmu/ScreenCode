@@ -1,5 +1,8 @@
 # Dependencies
 node_modules/
+.tools/
+resources/native/
+native/gst-capture/target/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml

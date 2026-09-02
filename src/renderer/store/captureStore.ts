@@ -1,17 +1,24 @@
 import { create } from 'zustand';
-import type { AiImageQuality, Device, EncodedImage } from '@shared/types';
+import type {
+  AiImageQuality,
+  CaptureBackend,
+  Device,
+  EncodedImage,
+  NativeCaptureDevice,
+  NativeCaptureSelection,
+  NativeCaptureStatus,
+} from '@shared/types';
 import { IMAGE_PROCESSING } from '@shared/constants';
+import {
+  isNativeSelectionSupported,
+  normalizeCaptureDeviceLabel,
+  selectDefaultNativeMode,
+} from '@shared/nativeCapture';
 import { electronAPI } from '../lib/electronApi';
 import { acquireHighestQualityStream } from '../capture/highQualityCapture';
-import {
-  captureWithYuy2AndRestore,
-  type HighQualityCaptureOutcome,
-} from '../capture/captureOrchestrator';
+import type { HighQualityCaptureOutcome } from '../capture/captureOrchestrator';
 
-/** canvas.toDataURL 的质量参数取值域为 0-1，配置中的 QUALITY 为百分制 */
 const CANVAS_JPEG_QUALITY = IMAGE_PROCESSING.QUALITY / 100;
-
-/** HTMLMediaElement.readyState：当前帧数据已可用 */
 const HAVE_CURRENT_DATA = 2;
 
 function capturePreviewFrame(videoElement: HTMLVideoElement): EncodedImage | null {
@@ -23,30 +30,46 @@ function capturePreviewFrame(videoElement: HTMLVideoElement): EncodedImage | nul
   if (!context) return null;
   context.drawImage(videoElement, 0, 0);
   const data = canvas.toDataURL('image/jpeg', CANVAS_JPEG_QUALITY).split(',')[1];
-  return {
-    data,
-    mimeType: 'image/jpeg',
-    width: canvas.width,
-    height: canvas.height,
-  };
+  return { data, mimeType: 'image/jpeg', width: canvas.width, height: canvas.height };
+}
+
+function matchNativeDevice(
+  browserDevice: Device | undefined,
+  nativeDevices: NativeCaptureDevice[],
+): NativeCaptureDevice | null {
+  if (!browserDevice) return null;
+  const label = normalizeCaptureDeviceLabel(browserDevice.name);
+  return nativeDevices.find((device) => normalizeCaptureDeviceLabel(device.label) === label) ?? null;
+}
+
+function selectionForDevice(
+  device: NativeCaptureDevice,
+  configured?: NativeCaptureSelection,
+): NativeCaptureSelection | null {
+  if (configured && isNativeSelectionSupported(device, configured)) return configured;
+  const mode = selectDefaultNativeMode(device);
+  return mode ? { deviceId: device.id, formatId: 'YUY2', modeId: mode.id } : null;
 }
 
 interface CaptureState {
   devices: Device[];
+  nativeDevices: NativeCaptureDevice[];
   selectedDeviceId: string | null;
   selectedDeviceType: 'videoinput' | 'screen' | 'window' | null;
+  captureBackend: CaptureBackend;
+  nativeSelection: NativeCaptureSelection | null;
+  nativeStatus: NativeCaptureStatus;
   isCapturing: boolean;
   stream: MediaStream | null;
-  /** 当前视频轨道实际生效的采集参数，来自 MediaStreamTrack.getSettings() */
   captureSettings: MediaTrackSettings | null;
   isHighQualityCapturing: boolean;
-  currentFrame: string | null; // base64 encoded current frame
-  /** 预览区挂载的 video 元素，由 Preview 组件注册，截图时直接复用 */
+  currentFrame: string | null;
   videoElement: HTMLVideoElement | null;
-
-  // 操作
   setDevices: (devices: Device[]) => void;
-  selectDevice: (deviceId: string, deviceType: 'videoinput' | 'screen' | 'window') => void;
+  selectDevice: (deviceId: string, deviceType: 'videoinput' | 'screen' | 'window') => Promise<void>;
+  setCaptureBackend: (backend: CaptureBackend) => Promise<void>;
+  setNativeSelection: (formatId: string, modeId: string) => Promise<void>;
+  setNativeStatus: (status: NativeCaptureStatus) => void;
   startCapture: () => Promise<void>;
   stopCapture: () => Promise<void>;
   loadDevices: () => Promise<void>;
@@ -57,8 +80,12 @@ interface CaptureState {
 
 export const useCaptureStore = create<CaptureState>((set, get) => ({
   devices: [],
+  nativeDevices: [],
   selectedDeviceId: null,
   selectedDeviceType: null,
+  captureBackend: 'gstreamer-mf',
+  nativeSelection: null,
+  nativeStatus: { phase: 'idle', verified: false },
   isCapturing: false,
   stream: null,
   captureSettings: null,
@@ -67,162 +94,166 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
   videoElement: null,
 
   setDevices: (devices) => set({ devices }),
-  
+
   selectDevice: async (deviceId, deviceType) => {
-    // 先停止当前的捕获
-    const { stream, stopCapture } = get();
-    if (stream) {
-      await stopCapture();
-    }
-    
-    set({ selectedDeviceId: deviceId, selectedDeviceType: deviceType });
-    // 保存到配置
-    await electronAPI.setConfig({ lastDeviceId: deviceId });
+    const { isCapturing, stream, stopCapture, devices, nativeDevices, captureBackend } = get();
+    if (isCapturing || stream) await stopCapture();
+    const browserDevice = devices.find((device) => device.id === deviceId);
+    const nativeDevice = deviceType === 'videoinput'
+      ? matchNativeDevice(browserDevice, nativeDevices)
+      : null;
+    const config = await electronAPI.getConfig();
+    const nativeSelection = nativeDevice
+      ? selectionForDevice(nativeDevice, config.nativeCaptureSelection)
+      : null;
+    const nextBackend = captureBackend === 'gstreamer-mf' && nativeSelection
+      ? 'gstreamer-mf'
+      : 'browser-auto';
+    set({
+      selectedDeviceId: deviceId,
+      selectedDeviceType: deviceType,
+      nativeSelection,
+      captureBackend: nextBackend,
+    });
+    await electronAPI.setConfig({
+      lastDeviceId: deviceId,
+      captureBackend: nextBackend,
+      ...(nativeSelection ? { nativeCaptureSelection: nativeSelection } : {}),
+    });
   },
-  
+
+  setCaptureBackend: async (backend) => {
+    const { isCapturing, stream, stopCapture, nativeSelection } = get();
+    if (isCapturing || stream) await stopCapture();
+    if (backend === 'gstreamer-mf' && !nativeSelection) {
+      throw new Error('当前设备没有可用的 Media Foundation 精确格式');
+    }
+    set({ captureBackend: backend });
+    await electronAPI.setConfig({ captureBackend: backend });
+  },
+
+  setNativeSelection: async (formatId, modeId) => {
+    const { nativeDevices, nativeSelection, isCapturing, stream, stopCapture } = get();
+    const device = nativeDevices.find((item) => item.id === nativeSelection?.deviceId);
+    if (!device) throw new Error('当前设备没有原生采集能力');
+    const next: NativeCaptureSelection = { deviceId: device.id, formatId, modeId };
+    if (!isNativeSelectionSupported(device, next)) throw new Error('所选模式不在设备 Caps 中');
+    if (isCapturing || stream) await stopCapture();
+    set({ nativeSelection: next, captureBackend: 'gstreamer-mf' });
+    await electronAPI.setConfig({ captureBackend: 'gstreamer-mf', nativeCaptureSelection: next });
+  },
+
+  setNativeStatus: (nativeStatus) => set({ nativeStatus }),
+
   startCapture: async () => {
-    const { selectedDeviceId, selectedDeviceType, stream } = get();
-    
-    // 如果已经有流，先停止
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-    
-    if (!selectedDeviceId) {
-      throw new Error('请先选择设备');
-    }
-    
+    const {
+      selectedDeviceId,
+      selectedDeviceType,
+      stream,
+      captureBackend,
+      nativeSelection,
+    } = get();
+    stream?.getTracks().forEach((track) => track.stop());
+    if (!selectedDeviceId) throw new Error('请先选择设备');
+
     try {
-      let newStream: MediaStream;
-      let captureSettings: MediaTrackSettings | null = null;
-      
-      if (selectedDeviceType === 'videoinput') {
-        // 复用统一协商器，以分辨率优先、同分辨率帧率优先的顺序获取采集卡视频流
-        const config = await electronAPI.getConfig();
-        const result = await acquireHighestQualityStream(
-          selectedDeviceId,
-          navigator.mediaDevices,
-          config.captureQualityStrategy,
-        );
-        newStream = result.stream;
-        captureSettings = result.settings;
-        console.log('[Capture] 实际采集参数:', {
-          width: captureSettings.width,
-          height: captureSettings.height,
-          frameRate: captureSettings.frameRate,
-          resizeMode: (captureSettings as MediaTrackSettings & { resizeMode?: string }).resizeMode,
-          requestedMode: result.requestedMode,
-          usedFallback: result.usedFallback,
-        });
-      } else if (selectedDeviceType === 'screen') {
-        // 使用 desktopCapturer 获取屏幕（需要通过主进程）
-        // 这里暂时抛出错误，后续实现
-        throw new Error('屏幕录制功能开发中');
-      } else {
-        throw new Error('不支持的设备类型');
+      if (selectedDeviceType === 'videoinput' && captureBackend === 'gstreamer-mf') {
+        if (!nativeSelection) throw new Error('未选择原生采集格式');
+        await electronAPI.startNativeCapture(nativeSelection);
+        set({ stream: null, captureSettings: null, isCapturing: true });
+        await electronAPI.startCapture();
+        return;
       }
-      
-      set({ stream: newStream, captureSettings, isCapturing: true });
-      
-      // 通知主进程
+      if (selectedDeviceType !== 'videoinput') {
+        throw new Error(selectedDeviceType === 'screen' ? '屏幕录制功能开发中' : '不支持的设备类型');
+      }
+      const config = await electronAPI.getConfig();
+      const result = await acquireHighestQualityStream(
+        selectedDeviceId,
+        navigator.mediaDevices,
+        config.captureQualityStrategy,
+      );
+      set({ stream: result.stream, captureSettings: result.settings, isCapturing: true });
       await electronAPI.startCapture();
     } catch (error) {
       console.error('Failed to start capture:', error);
       throw error;
     }
   },
-  
+
   stopCapture: async () => {
-    const { stream } = get();
-    
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-    
+    const { stream, captureBackend } = get();
+    stream?.getTracks().forEach((track) => track.stop());
     try {
+      if (captureBackend === 'gstreamer-mf') await electronAPI.stopNativeCapture();
       await electronAPI.stopCapture();
     } catch (error) {
       console.error('Failed to stop capture:', error);
     }
-    
-    set({ stream: null, captureSettings: null, isCapturing: false, currentFrame: null });
+    set({
+      stream: null,
+      captureSettings: null,
+      isCapturing: false,
+      currentFrame: null,
+      nativeStatus: { phase: 'idle', verified: false },
+    });
   },
-  
+
   loadDevices: async () => {
     try {
-      // 枚举本地视频输入设备
-      const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+      const [mediaDevices, nativeDevices] = await Promise.all([
+        navigator.mediaDevices.enumerateDevices(),
+        electronAPI.enumerateNativeCaptureDevices().catch((error) => {
+          console.warn('[Capture] GStreamer 设备枚举不可用:', error);
+          return [] as NativeCaptureDevice[];
+        }),
+      ]);
       const videoDevices: Device[] = mediaDevices
-        .filter(device => device.kind === 'videoinput')
-        .map(device => ({
+        .filter((device) => device.kind === 'videoinput')
+        .map((device) => ({
           id: device.deviceId,
           name: device.label || `摄像头 ${device.deviceId.slice(0, 8)}`,
           type: 'videoinput' as const,
-          isConnected: true
+          isConnected: true,
         }));
-      
-      // 添加屏幕录制选项
       videoDevices.push({
         id: 'screen:primary',
         name: '屏幕录制',
         type: 'screen',
-        isConnected: true
+        isConnected: true,
       });
-      
-      set({ devices: videoDevices });
-      
-      // 加载上次选择的设备
       const config = await electronAPI.getConfig();
-      if (config.lastDeviceId && videoDevices.find(d => d.id === config.lastDeviceId)) {
-        const device = videoDevices.find(d => d.id === config.lastDeviceId);
-        set({ 
-          selectedDeviceId: config.lastDeviceId,
-          selectedDeviceType: device?.type || null
-        });
-      }
+      const selectedDevice = videoDevices.find((device) => device.id === config.lastDeviceId);
+      const nativeDevice = matchNativeDevice(selectedDevice, nativeDevices);
+      const nativeSelection = nativeDevice
+        ? selectionForDevice(nativeDevice, config.nativeCaptureSelection)
+        : null;
+      const captureBackend = config.captureBackend === 'gstreamer-mf' && nativeSelection
+        ? 'gstreamer-mf'
+        : 'browser-auto';
+      set({
+        devices: videoDevices,
+        nativeDevices,
+        selectedDeviceId: selectedDevice?.id ?? null,
+        selectedDeviceType: selectedDevice?.type ?? null,
+        nativeSelection,
+        captureBackend,
+      });
     } catch (error) {
       console.error('Failed to load devices:', error);
     }
   },
-  
-  /**
-   * 从预览区已挂载的 video 元素直接截取当前帧。
-   * 不再创建临时 video 等待 loadedmetadata —— 该事件在流已就绪时可能永不触发，
-   * 会导致 Promise 永久挂起、截图静默卡死。
-   */
+
   captureFrame: async (options) => {
-    const {
-      stream,
-      videoElement,
-      selectedDeviceId,
-      selectedDeviceType,
-      devices,
-      stopCapture,
-      startCapture,
-    } = get();
-
-    if (!stream || !videoElement) {
-      console.warn('[Capture] 预览未启动，无法截图');
-      return null;
-    }
-
-    const fallback = capturePreviewFrame(videoElement);
-    if (!fallback) {
-      console.warn('[Capture] 视频帧数据尚未就绪');
-      return null;
-    }
-
+    const { captureBackend, isCapturing, stream, videoElement } = get();
+    if (!isCapturing) return null;
     const config = await electronAPI.getConfig();
     const outputQuality = options?.quality ?? config.aiImageQuality;
-
     const applyOutputQuality = async (
       outcome: HighQualityCaptureOutcome,
     ): Promise<HighQualityCaptureOutcome> => {
       try {
-        const image = await electronAPI.processCapturedImage({
-          image: outcome.image,
-          quality: outputQuality,
-        });
+        const image = await electronAPI.processCapturedImage({ image: outcome.image, quality: outputQuality });
         return { ...outcome, image };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -235,38 +266,40 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       }
     };
 
-    if (selectedDeviceType !== 'videoinput' || !selectedDeviceId) {
-      const outcome = await applyOutputQuality({ image: fallback, source: 'preview' });
-      set({ currentFrame: outcome.image.data });
-      return outcome;
+    if (captureBackend === 'gstreamer-mf') {
+      set({ isHighQualityCapturing: true });
+      try {
+        const snapshot = await electronAPI.captureNativeSnapshot();
+        const outcome = await applyOutputQuality({
+          image: snapshot,
+          source: 'native',
+          sourceFormat: snapshot.sourceFormat,
+        });
+        set({ currentFrame: outcome.image.data });
+        return outcome;
+      } catch (error) {
+        const fallback = videoElement ? capturePreviewFrame(videoElement) : null;
+        if (!fallback) throw error;
+        const outcome = await applyOutputQuality({
+          image: fallback,
+          source: 'preview',
+          warning: `原始帧截图失败，已明确回退到预览帧：${error instanceof Error ? error.message : String(error)}`,
+        });
+        set({ currentFrame: outcome.image.data });
+        return outcome;
+      } finally {
+        set({ isHighQualityCapturing: false });
+      }
     }
 
-    const selectedDevice = devices.find((device) => device.id === selectedDeviceId);
-    if (!selectedDevice) return null;
-
-    set({ isHighQualityCapturing: true });
-    try {
-      const outcome = await captureWithYuy2AndRestore({
-        captureFallback: async () => fallback,
-        stopPreview: stopCapture,
-        captureYuy2: () => electronAPI.captureHighQualityFrame({
-          deviceName: selectedDevice.name,
-          ffmpegPath: config.ffmpegPath,
-        }),
-        restorePreview: startCapture,
-      });
-      const processedOutcome = await applyOutputQuality(outcome);
-      set({ currentFrame: processedOutcome.image.data });
-      return processedOutcome;
-    } catch (error) {
-      console.error('Failed to capture frame:', error);
-      return null;
-    } finally {
-      set({ isHighQualityCapturing: false });
-    }
+    if (!stream || !videoElement) return null;
+    const fallback = capturePreviewFrame(videoElement);
+    if (!fallback) return null;
+    const outcome = await applyOutputQuality({ image: fallback, source: 'preview' });
+    set({ currentFrame: outcome.image.data });
+    return outcome;
   },
 
   setStream: (stream) => set({ stream }),
-
-  setVideoElement: (element) => set({ videoElement: element }),
+  setVideoElement: (videoElement) => set({ videoElement }),
 }));

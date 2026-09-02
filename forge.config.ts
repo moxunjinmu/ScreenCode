@@ -89,6 +89,7 @@ const config: ForgeConfig = {
       unpack: '**/*.{node,dll}',
     },
     name: 'ScreenCode',
+    extraResource: [path.join(process.cwd(), 'resources', 'native')],
     appBundleId: 'com.screencode.app',
     win32metadata: {
       CompanyName: 'ScreenCode Team',

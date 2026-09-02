@@ -4,11 +4,19 @@ import { useCaptureStore } from '../../store/captureStore';
 import { useUIStore } from '../../store/uiStore';
 import { useFrameStore } from '../../store/frameStore';
 import { electronAPI } from '../../lib/electronApi';
-import { Frame, DisplayResolution, PRESET_RESOLUTIONS, PRESET_SCALES, type EncodedImage } from '@shared/types';
+import {
+  Frame,
+  DisplayResolution,
+  PRESET_RESOLUTIONS,
+  PRESET_SCALES,
+  type CaptureBackend,
+  type EncodedImage,
+} from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import RegionCaptureOverlay from './RegionCaptureOverlay';
 import { PreviewClickController } from './previewClickController';
 import Select from '../Select';
+import { connectNativePreview } from '../../capture/nativeWebRtcPreview';
 
 interface PreviewProps {
   isFullscreen?: boolean;
@@ -29,9 +37,16 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
 
   const {
     devices,
+    nativeDevices,
     selectedDeviceId,
     selectedDeviceType,
+    captureBackend,
+    nativeSelection,
+    nativeStatus,
     selectDevice,
+    setCaptureBackend,
+    setNativeSelection,
+    setNativeStatus,
     isCapturing,
     stream,
     captureSettings,
@@ -39,7 +54,8 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     startCapture,
     stopCapture,
     captureFrame,
-    setVideoElement
+    setStream,
+    setVideoElement,
   } = useCaptureStore();
 
   const { isRegionCapture, setRegionCapture, isFullscreenPreview, setFullscreenPreview, displayResolution, setDisplayResolution } = useUIStore();
@@ -52,13 +68,38 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
   const [effectiveFrameRate, setEffectiveFrameRate] = useState<number | null>(null);
   const [regionSource, setRegionSource] = useState<{
     image: EncodedImage;
-    source: 'yuy2' | 'preview';
+    source: 'yuy2' | 'native' | 'preview';
+    sourceFormat?: string;
   } | null>(null);
+
+  useEffect(() => electronAPI.onNativeCaptureStatus((status) => {
+    setNativeStatus(status);
+    if (status.phase === 'error' && status.error) setError(status.error);
+  }), [setNativeStatus]);
+
+  useEffect(() => {
+    if (
+      captureBackend !== 'gstreamer-mf' ||
+      nativeStatus.phase !== 'streaming' ||
+      !nativeStatus.signallingUrl
+    ) return undefined;
+
+    const connection = connectNativePreview({
+      signallingUrl: nativeStatus.signallingUrl,
+      onStream: (nativeStream) => {
+        setStream(nativeStream);
+        if (videoRef.current) videoRef.current.srcObject = nativeStream;
+        setIsLoading(false);
+      },
+      onError: setError,
+    });
+    return () => connection.close();
+  }, [captureBackend, nativeStatus.phase, nativeStatus.signallingUrl, setStream]);
 
   // 当选择设备后自动开始捕获
   useEffect(() => {
     const startVideoStream = async () => {
-      if (!selectedDeviceId || !videoRef.current) return;
+      if (!selectedDeviceId) return;
 
       setIsLoading(true);
       setError(null);
@@ -81,8 +122,12 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
           // 超时处理
           setTimeout(() => {
             clearInterval(checkStream);
+            const connectedStream = useCaptureStore.getState().stream;
+            if (!connectedStream && captureBackend === 'gstreamer-mf') {
+              setError('GStreamer 已完成原始采集，但 WebRTC 预览连接超时');
+            }
             setIsLoading(false);
-          }, 5000);
+          }, captureBackend === 'gstreamer-mf' ? 30_000 : 5_000);
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '启动视频捕获失败';
@@ -96,7 +141,14 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     return () => {
       // 清理
     };
-  }, [selectedDeviceId, selectedDeviceType, startCapture]);
+  }, [
+    selectedDeviceId,
+    selectedDeviceType,
+    captureBackend,
+    nativeSelection?.formatId,
+    nativeSelection?.modeId,
+    startCapture,
+  ]);
 
   // 组件卸载时停止捕获
   useEffect(() => {
@@ -188,6 +240,52 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     }
   }, [selectedPreset, selectedScale, sourceResolution, setDisplayResolution]);
 
+  const selectedNativeDevice = nativeDevices.find(
+    (device) => device.id === nativeSelection?.deviceId,
+  );
+  const selectedNativeFormat = selectedNativeDevice?.formats.find(
+    (format) => format.id === nativeSelection?.formatId,
+  );
+  const selectedNativeMode = selectedNativeFormat?.modes.find(
+    (mode) => mode.id === nativeSelection?.modeId,
+  );
+  const nativeResolutions = selectedNativeFormat
+    ? [...new Map(selectedNativeFormat.modes.map((mode) => [
+        `${mode.width}x${mode.height}`,
+        { width: mode.width, height: mode.height },
+      ])).values()]
+    : [];
+  const modesAtSelectedResolution = selectedNativeFormat?.modes.filter(
+    (mode) => mode.width === selectedNativeMode?.width && mode.height === selectedNativeMode?.height,
+  ) ?? [];
+
+  const handleBackendChange = async (backend: string) => {
+    setError(null);
+    try {
+      await setCaptureBackend(backend as CaptureBackend);
+    } catch (backendError) {
+      setError(backendError instanceof Error ? backendError.message : String(backendError));
+    }
+  };
+
+  const handleNativeFormatChange = async (formatId: string) => {
+    const format = selectedNativeDevice?.formats.find((item) => item.id === formatId);
+    const mode = format?.modes.find((item) => item.verified) ?? format?.modes[0];
+    if (mode) await setNativeSelection(formatId, mode.id);
+  };
+
+  const handleNativeResolutionChange = async (resolution: string) => {
+    if (!selectedNativeFormat) return;
+    const [width, height] = resolution.split('x').map(Number);
+    const modes = selectedNativeFormat.modes
+      .filter((mode) => mode.width === width && mode.height === height)
+      .sort((left, right) =>
+        right.frameRateNumerator / right.frameRateDenominator -
+        left.frameRateNumerator / left.frameRateDenominator);
+    const mode = modes.find((item) => item.verified) ?? modes[0];
+    if (mode) await setNativeSelection(selectedNativeFormat.id, mode.id);
+  };
+
   const handleDeviceChange = async (deviceId: string) => {
     const device = devices.find(d => d.id === deviceId);
     if (device) {
@@ -215,7 +313,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
 
   // 立即截图，仅供明确的截图操作调用。
   const captureImmediately = useCallback(async () => {
-    if (!stream) return;
+    if (!isCapturing) return;
     try {
       const outcome = await captureFrame();
       if (!outcome) return;
@@ -235,7 +333,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     } catch (error) {
       console.error('Capture frame error:', error);
     }
-  }, [stream, captureFrame, addFrame]);
+  }, [isCapturing, captureFrame, addFrame]);
 
   /** 区域截图先冻结一张原始 YUY2 帧，再进入选区，保证所见与最终裁剪来自同一时刻。 */
   const toggleRegionCapture = useCallback(async () => {
@@ -243,7 +341,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
       setRegionCapture(false);
       return;
     }
-    if (!stream || isHighQualityCapturing) return;
+    if (!isCapturing || isHighQualityCapturing) return;
 
     setError(null);
     const outcome = await captureFrame({ quality: 'original' });
@@ -251,11 +349,15 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
       setError('无法准备区域截图源图');
       return;
     }
-    setRegionSource({ image: outcome.image, source: outcome.source });
+    setRegionSource({
+      image: outcome.image,
+      source: outcome.source,
+      sourceFormat: outcome.sourceFormat,
+    });
     const captureWarning = outcome.restoreError || outcome.warning;
     if (captureWarning) setError(captureWarning);
     setRegionCapture(true);
-  }, [captureFrame, isHighQualityCapturing, isRegionCapture, setRegionCapture, stream]);
+  }, [captureFrame, isCapturing, isHighQualityCapturing, isRegionCapture, setRegionCapture]);
 
   // 区域截图快捷键负责准备冻结帧；选区内的 Enter/Esc/R/方向键由覆盖层处理。
   useEffect(() => {
@@ -316,6 +418,58 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                 ariaLabel="采集设备"
               />
 
+              {selectedDeviceType === 'videoinput' && (
+                <Select
+                  value={captureBackend}
+                  options={[
+                    { value: 'browser-auto', label: '浏览器自动' },
+                    ...(nativeSelection
+                      ? [{ value: 'gstreamer-mf', label: '精确协议' }]
+                      : []),
+                  ]}
+                  onChange={(backend) => void handleBackendChange(backend)}
+                  className="capture-backend-select text-sm"
+                  ariaLabel="采集后端"
+                  title="精确协议由 GStreamer Media Foundation 实际协商"
+                />
+              )}
+
+              {captureBackend === 'gstreamer-mf' && selectedNativeFormat && selectedNativeMode && (
+                <>
+                  <Select
+                    value={selectedNativeFormat.id}
+                    options={selectedNativeDevice?.formats.map((format) => ({
+                      value: format.id,
+                      label: format.label,
+                    })) ?? []}
+                    onChange={(formatId) => void handleNativeFormatChange(formatId)}
+                    className="capture-format-select text-sm"
+                    ariaLabel="原始采集协议"
+                    title="采集卡真实输入格式"
+                  />
+                  <Select
+                    value={`${selectedNativeMode.width}x${selectedNativeMode.height}`}
+                    options={nativeResolutions.map((resolution) => ({
+                      value: `${resolution.width}x${resolution.height}`,
+                      label: `${resolution.width}×${resolution.height}`,
+                    }))}
+                    onChange={(resolution) => void handleNativeResolutionChange(resolution)}
+                    className="capture-native-resolution-select text-sm"
+                    ariaLabel="原始采集分辨率"
+                  />
+                  <Select
+                    value={selectedNativeMode.id}
+                    options={modesAtSelectedResolution.map((mode) => ({
+                      value: mode.id,
+                      label: `${Number((mode.frameRateNumerator / mode.frameRateDenominator).toFixed(2))} FPS${mode.verified ? ' · 已验证' : ''}`,
+                    }))}
+                    onChange={(modeId) => void setNativeSelection(selectedNativeFormat.id, modeId)}
+                    className="capture-native-fps-select text-sm"
+                    ariaLabel="原始采集帧率"
+                  />
+                </>
+              )}
+
               {selectedDeviceId && (
                 <button
                   onClick={handleStartStop}
@@ -327,6 +481,16 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
 
               {isLoading && (
                 <span className="chip">正在连接设备...</span>
+              )}
+
+              {captureBackend === 'gstreamer-mf' && nativeStatus.phase === 'streaming' && (
+                <span className="chip" title="来自 GStreamer 实际协商结果">
+                  {nativeStatus.negotiated?.formatId}
+                  {' '}{nativeStatus.negotiated?.width}×{nativeStatus.negotiated?.height}
+                  {nativeStatus.measuredFps ? ` · ${nativeStatus.measuredFps.toFixed(1)} FPS` : ''}
+                  {nativeStatus.previewCodec ? ` · ${nativeStatus.previewCodec} 预览` : ''}
+                  {nativeStatus.verified ? ' · 已验证' : ''}
+                </span>
               )}
 
               {stream && (
@@ -417,13 +581,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
           </div>
         )}
 
-        {isHighQualityCapturing ? (
-          <div className="preview-empty-state text-center px-6 state-enter">
-            <Camera className="w-12 h-12 mx-auto mb-3 text-accent" />
-            <p className="text-lg font-medium">正在抓取 YUY2 无损原图</p>
-            <p className="hint mt-2">预览会短暂停止，完成后自动恢复 MJPEG30。</p>
-          </div>
-        ) : stream ? (
+        {stream ? (
           <>
             <video
               ref={videoRef}
@@ -474,6 +632,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
           <RegionCaptureOverlay
             sourceImage={regionSource.image}
             sourceKind={regionSource.source}
+            sourceFormat={regionSource.sourceFormat}
             onCapture={handleRegionCapture}
             onCancel={handleRegionCapture}
           />

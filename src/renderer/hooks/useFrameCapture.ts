@@ -11,11 +11,11 @@ import { ToastType } from './useToast';
  * 供全局热键和界面按钮共用。
  */
 export function useFrameCapture(showToast: (message: string, type: ToastType) => void) {
-  const { stream, captureFrame } = useCaptureStore();
+  const { stream, isCapturing, captureFrame } = useCaptureStore();
   const { addFrame } = useFrameStore();
 
   return useCallback(async () => {
-    if (!stream) {
+    if (!stream && !isCapturing) {
       showToast('请先启动视频采集', 'error');
       return;
     }
@@ -45,11 +45,11 @@ export function useFrameCapture(showToast: (message: string, type: ToastType) =>
         const qualityLabel = outcome.image.qualityProfile === 'original'
           ? '无损 PNG'
           : `${outcome.image.qualityProfile || '配置'}档`;
-        showToast(`YUY2 ${qualityLabel}已入队 (${queued}/${FRAME_QUEUE.MAX_FRAMES})`, 'success');
+        showToast(`${outcome.sourceFormat || (outcome.source === 'yuy2' ? 'YUY2' : '预览')} ${qualityLabel}已入队 (${queued}/${FRAME_QUEUE.MAX_FRAMES})`, 'success');
       }
     } catch (error) {
       console.error('Capture frame error:', error);
       showToast('截图失败', 'error');
     }
-  }, [stream, captureFrame, addFrame, showToast]);
+  }, [stream, isCapturing, captureFrame, addFrame, showToast]);
 }
