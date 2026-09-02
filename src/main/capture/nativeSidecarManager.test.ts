@@ -91,6 +91,22 @@ describe('原生采集 sidecar 生命周期', () => {
     await expect(pending).rejects.toThrow('设备已被占用');
   });
 
+  it('忽略依赖写入 stdout 的普通日志，不把它误报为协议错误', () => {
+    const child = createFakeProcess();
+    const statuses: Array<{ phase: string; error?: string }> = [];
+    const manager = new NativeSidecarManager({
+      spawnProcess: () => child,
+      onStatus: (status) => statuses.push(status),
+    });
+
+    manager.ensureStarted();
+    (child.stdout as PassThrough).write(
+      '2026-09-02T02:36:15Z INFO gst_plugin_webrtc_signalling producer registered\n',
+    );
+
+    expect(statuses).not.toContainEqual(expect.objectContaining({ phase: 'error' }));
+  });
+
   it('进程错误会拒绝所有等待请求并上报错误', async () => {
     const child = createFakeProcess();
     const statuses: Array<{ phase: string; error?: string }> = [];
