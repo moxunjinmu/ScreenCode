@@ -79,6 +79,11 @@ pub fn validation_cache_key(device_id: &str, modes: &[ModeCandidate]) -> String 
     format!("{device_id}:{:x}", digest.finalize())
 }
 
+/** Electron WebRTC 当前可稳定协商的预览编码 Caps。 */
+pub fn browser_preview_caps() -> &'static str {
+    "video/x-vp8"
+}
+
 pub fn is_effective_fps(measured_fps: f64, numerator: i32, denominator: i32) -> bool {
     if numerator <= 0 || denominator <= 0 || !measured_fps.is_finite() {
         return false;

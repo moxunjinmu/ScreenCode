@@ -11,7 +11,8 @@ use gstreamer as gst;
 use gstreamer::prelude::*;
 use gstreamer_app as gst_app;
 use screencode_gst_capture::mode_policy::{
-    format_id_for_caps, is_effective_fps, rank_yuy2_candidates, validation_cache_key, ModeCandidate,
+    browser_preview_caps, format_id_for_caps, is_effective_fps, rank_yuy2_candidates,
+    validation_cache_key, ModeCandidate,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -311,26 +312,14 @@ fn choose_signalling_port() -> Result<u16> {
 fn preview_chain(mode: &ModeCandidate) -> (String, &'static str, &'static str) {
     let pixels_per_second = f64::from(mode.width) * f64::from(mode.height) * mode.fps();
     let bitrate_kbps = (pixels_per_second * 0.10 / 1_000.0).clamp(8_000.0, 40_000.0) as u32;
-    if gst::ElementFactory::find("mfh264enc").is_some() {
-        (
-            format!(
-                "videoconvert ! video/x-raw,format=NV12 ! \
-                 mfh264enc low-latency=true bitrate={bitrate_kbps} ! \
-                 h264parse config-interval=-1 ! "
-            ),
-            "H264",
-            "video/x-h264",
-        )
-    } else {
-        (
-            format!(
-                "videoconvert ! vp8enc deadline=1 target-bitrate={} ! ",
-                bitrate_kbps * 1_000
-            ),
-            "VP8",
-            "video/x-vp8",
-        )
-    }
+    (
+        format!(
+            "videoconvert ! vp8enc deadline=1 target-bitrate={} ! ",
+            bitrate_kbps * 1_000
+        ),
+        "VP8",
+        browser_preview_caps(),
+    )
 }
 
 impl CaptureEngine {
