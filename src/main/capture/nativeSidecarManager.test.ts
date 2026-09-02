@@ -74,7 +74,7 @@ describe('原生采集 sidecar 生命周期', () => {
     await expect(stopPending).resolves.toBeUndefined();
   });
 
-  it('sidecar 明确错误时拒绝对应请求，畸形输出转为错误状态', async () => {
+  it('sidecar 明确错误时拒绝对应请求，畸形 JSON 转为错误状态', async () => {
     const child = createFakeProcess();
     const statuses: Array<{ phase: string; error?: string }> = [];
     const manager = new NativeSidecarManager({
@@ -83,7 +83,7 @@ describe('原生采集 sidecar 生命周期', () => {
     });
     const pending = manager.enumerateDevices();
     const command = readCommand(child);
-    (child.stdout as PassThrough).write('not-json\n');
+    (child.stdout as PassThrough).write('{not-json\n');
     expect(statuses.at(-1)).toMatchObject({ phase: 'error', error: 'sidecar 消息不是有效 JSON' });
     (child.stdout as PassThrough).write(`${JSON.stringify({
       type: 'error', requestId: command.requestId, message: '设备已被占用',
@@ -98,7 +98,6 @@ describe('原生采集 sidecar 生命周期', () => {
       spawnProcess: () => child,
       onStatus: (status) => statuses.push(status),
     });
-
     manager.ensureStarted();
     (child.stdout as PassThrough).write(
       '2026-09-02T02:36:15Z INFO gst_plugin_webrtc_signalling producer registered\n',

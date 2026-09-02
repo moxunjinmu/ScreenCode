@@ -76,6 +76,7 @@ function spawnDefaultProcess(): NativeSidecarProcess {
       GST_PLUGIN_SYSTEM_PATH_1_0: pluginPath,
       GST_PLUGIN_PATH_1_0: pluginPath,
       GST_REGISTRY_1_0: path.join(app.getPath('userData'), 'gstreamer-registry.bin'),
+      RUST_LOG: process.env.RUST_LOG ?? 'warn',
     },
   });
   return child as NativeSidecarProcess;
@@ -125,7 +126,7 @@ export class NativeSidecarManager {
     while (newline >= 0) {
       const line = this.stdoutBuffer.slice(0, newline).trim();
       this.stdoutBuffer = this.stdoutBuffer.slice(newline + 1);
-      if (line) {
+      if (line.startsWith('{')) {
         try {
           this.handleMessage(parseSidecarMessage(line));
         } catch (error) {
