@@ -11,8 +11,8 @@ use gstreamer as gst;
 use gstreamer::prelude::*;
 use gstreamer_app as gst_app;
 use screencode_gst_capture::mode_policy::{
-    browser_preview_caps, format_id_for_caps, is_effective_fps, rank_yuy2_candidates,
-    validation_cache_key, ModeCandidate,
+    browser_preview_policy, format_id_for_caps, is_effective_fps, rank_yuy2_candidates,
+    validation_cache_key, BrowserPreviewPolicy, ModeCandidate,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -309,16 +309,25 @@ fn choose_signalling_port() -> Result<u16> {
     Ok(port)
 }
 
-fn preview_chain(mode: &ModeCandidate) -> (String, &'static str, &'static str) {
-    let pixels_per_second = f64::from(mode.width) * f64::from(mode.height) * mode.fps();
-    let bitrate_kbps = (pixels_per_second * 0.10 / 1_000.0).clamp(8_000.0, 40_000.0) as u32;
-    (
-        format!(
-            "videoconvert ! vp8enc deadline=1 target-bitrate={} ! ",
-            bitrate_kbps * 1_000
+fn preview_chain(policy: &BrowserPreviewPolicy) -> String {
+    if policy.codec == "H264" {
+        return format!(
+            "videoconvert ! video/x-raw,format=NV12 ! \
+             d3d12h264enc rate-control=qvbr bitrate={} max-bitrate={} qvbr-quality=10 ! \
+             h264parse config-interval=-1 ! \
+             video/x-h264,profile=constrained-baseline,stream-format=byte-stream,alignment=au ! ",
+            policy.bitrate_bps / 1_000,
+            policy.max_bitrate_bps / 1_000,
+        );
+    }
+
+    format!(
+        concat!(
+            "videoconvert ! videorate ! video/x-raw,framerate={}/{} ! ",
+            "vp8enc deadline=1 end-usage=cq cq-level=4 static-threshold=100 ",
+            "sharpness=7 threads=8 token-partitions=8 target-bitrate={} ! "
         ),
-        "VP8",
-        browser_preview_caps(),
+        policy.frame_rate_numerator, policy.frame_rate_denominator, policy.bitrate_bps,
     )
 }
 
@@ -367,7 +376,9 @@ impl CaptureEngine {
         } else {
             ""
         };
-        let (preview_chain, codec, preview_caps_text) = preview_chain(&mode);
+        let preview_policy =
+            browser_preview_policy(&mode, gst::ElementFactory::find("d3d12h264enc").is_some());
+        let preview_chain = preview_chain(&preview_policy);
         let description = format!(
             concat!(
                 "mfvideosrc device-path=\"{}\" ! {} ! {}tee name=t ",
@@ -395,9 +406,14 @@ impl CaptureEngine {
         let preview = pipeline
             .by_name("preview")
             .context("采集管线缺少 webrtcsink")?;
-        let preview_caps = preview_caps_text.parse::<gst::Caps>()?;
+        let preview_caps = preview_policy.caps.parse::<gst::Caps>()?;
         preview.set_property("video-caps", preview_caps);
         preview.set_property("do-fec", false);
+        preview.set_property_from_str("congestion-control", preview_policy.congestion_control);
+        preview.set_property_from_str("enable-mitigation-modes", preview_policy.mitigation_modes);
+        preview.set_property("min-bitrate", preview_policy.bitrate_bps);
+        preview.set_property("start-bitrate", preview_policy.bitrate_bps);
+        preview.set_property("max-bitrate", preview_policy.max_bitrate_bps);
         let signaller = preview.property::<gst::glib::Object>("signaller");
         signaller.set_property("uri", format!("ws://127.0.0.1:{signalling_port}"));
 
@@ -430,7 +446,7 @@ impl CaptureEngine {
                 "frameRateDenominator": mode.frame_rate_denominator
             },
             "measuredFps": measured_fps,
-            "previewCodec": codec,
+            "previewCodec": preview_policy.codec,
             "verified": true,
             "signallingUrl": format!("ws://127.0.0.1:{signalling_port}")
         });
@@ -439,7 +455,7 @@ impl CaptureEngine {
             snapshot_sink,
             mode,
             signalling_port,
-            preview_codec: codec,
+            preview_codec: preview_policy.codec,
         });
         Ok(status)
     }
@@ -570,4 +586,31 @@ fn main() -> Result<()> {
     }
     engine.stop()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn d3d12_preview_chain_uses_high_quality_browser_h264() {
+        let mode = ModeCandidate::new("YUY2", 2560, 1440, 50, 1);
+        let policy = browser_preview_policy(&mode, true);
+        let chain = preview_chain(&policy);
+
+        assert!(chain.contains("d3d12h264enc"));
+        assert!(chain.contains("rate-control=qvbr"));
+        assert!(chain.contains("profile=constrained-baseline"));
+    }
+
+    #[test]
+    fn vp8_fallback_chain_keeps_screen_content_sharp() {
+        let mode = ModeCandidate::new("YUY2", 2560, 1440, 50, 1);
+        let policy = browser_preview_policy(&mode, false);
+        let chain = preview_chain(&policy);
+
+        assert!(chain.contains("framerate=30/1"));
+        assert!(chain.contains("static-threshold=100"));
+        assert!(chain.contains("sharpness=7"));
+    }
 }

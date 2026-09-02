@@ -84,6 +84,49 @@ pub fn browser_preview_caps() -> &'static str {
     "video/x-vp8"
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BrowserPreviewPolicy {
+    pub codec: &'static str,
+    pub caps: &'static str,
+    pub bitrate_bps: u32,
+    pub max_bitrate_bps: u32,
+    pub frame_rate_numerator: i32,
+    pub frame_rate_denominator: i32,
+    pub congestion_control: &'static str,
+    pub mitigation_modes: &'static str,
+}
+
+/** 为本机回环预览选择高清编码策略，避免 WebRTC 默认限码率和自动降分辨率。 */
+pub fn browser_preview_policy(
+    mode: &ModeCandidate,
+    d3d12_h264_available: bool,
+) -> BrowserPreviewPolicy {
+    let pixels_per_second = f64::from(mode.width) * f64::from(mode.height) * mode.fps();
+    let bitrate_bps = (pixels_per_second * 0.18).clamp(12_000_000.0, 50_000_000.0) as u32;
+    let max_bitrate_bps = ((u64::from(bitrate_bps) * 5 / 4).min(50_000_000)) as u32;
+    let (frame_rate_numerator, frame_rate_denominator) =
+        if !d3d12_h264_available && mode.fps() > 30.0 {
+            (30, 1)
+        } else {
+            (mode.frame_rate_numerator, mode.frame_rate_denominator)
+        };
+
+    BrowserPreviewPolicy {
+        codec: if d3d12_h264_available { "H264" } else { "VP8" },
+        caps: if d3d12_h264_available {
+            "video/x-h264"
+        } else {
+            browser_preview_caps()
+        },
+        bitrate_bps,
+        max_bitrate_bps,
+        frame_rate_numerator,
+        frame_rate_denominator,
+        congestion_control: "disabled",
+        mitigation_modes: "none",
+    }
+}
+
 pub fn is_effective_fps(measured_fps: f64, numerator: i32, denominator: i32) -> bool {
     if numerator <= 0 || denominator <= 0 || !measured_fps.is_finite() {
         return false;

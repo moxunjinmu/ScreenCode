@@ -35,7 +35,7 @@ Get-ChildItem -LiteralPath (Join-Path $gstRoot 'libexec\gstreamer-1.0') -File |
   Copy-Item -Destination $targetLibexec -Force
 
 $elements = @(
-  'mfvideosrc', 'mfh264enc', 'amfh264enc', 'd3d11convert',
+  'mfvideosrc', 'mfh264enc', 'amfh264enc', 'd3d12h264enc', 'd3d11convert',
   'appsink', 'videoconvert', 'videorate', 'jpegdec', 'pngenc', 'vp8enc',
   'webrtcsink', 'webrtcbin', 'rtpbin', 'rtph264pay', 'rtpvp8pay', 'h264parse',
   'nicesrc', 'dtlssrtpenc', 'srtpenc', 'errorignore', 'identity', 'queue', 'tee'
@@ -44,7 +44,7 @@ $pluginFiles = [System.Collections.Generic.HashSet[string]]::new([System.StringC
 foreach ($element in $elements) {
   $inspection = (& $inspect $element | Out-String)
   if ($LASTEXITCODE -ne 0) {
-    if ($element -in @('amfh264enc', 'mfh264enc')) { continue }
+    if ($element -in @('amfh264enc', 'mfh264enc', 'd3d12h264enc')) { continue }
     throw "Missing required GStreamer element: $element"
   }
   $match = [regex]::Match($inspection, '(?m)^\s*Filename\s+(.+\.dll)\s*$')
