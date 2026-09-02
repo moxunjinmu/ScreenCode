@@ -1,6 +1,6 @@
 use screencode_gst_capture::mode_policy::{
-    build_mode_id, format_id_for_caps, is_effective_fps, rank_yuy2_candidates,
-    validation_cache_key, ModeCandidate,
+    browser_h264_caps, build_mode_id, format_id_for_caps, is_effective_fps,
+    rank_yuy2_candidates, validation_cache_key, ModeCandidate,
 };
 
 #[test]
@@ -52,5 +52,13 @@ fn validation_cache_key_changes_with_caps_but_not_input_order() {
     assert_ne!(
         validation_cache_key("mf:device", &[first]),
         validation_cache_key("mf:device", &[second])
+    );
+}
+
+#[test]
+fn browser_h264_caps_use_web_rtc_compatible_profile() {
+    assert_eq!(
+        browser_h264_caps(),
+        "video/x-h264,profile=constrained-baseline,stream-format=byte-stream,alignment=au"
     );
 }
