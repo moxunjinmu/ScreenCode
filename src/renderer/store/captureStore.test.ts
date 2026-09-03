@@ -144,4 +144,45 @@ describe('采集设备加载', () => {
       },
     });
   });
+
+  it('切换精确模式时按当前采集卡写入独立设备档案', async () => {
+    mocks.getConfig.mockResolvedValue(DEFAULT_CONFIG);
+    useCaptureStore.setState({
+      nativeDevices: [nativeDevice],
+      selectedDeviceId: 'browser-usb3',
+      selectedDeviceType: 'videoinput',
+      nativeSelection: {
+        deviceId: nativeDevice.id,
+        formatId: 'YUY2',
+        modeId: 'YUY2:2560x1440:50/1',
+      },
+      captureBackend: 'gstreamer-mf',
+      isCapturing: false,
+      stream: null,
+    });
+
+    await useCaptureStore.getState().setNativeSelection(
+      'YUY2',
+      'YUY2:2560x1440:50/1',
+    );
+
+    expect(mocks.setConfig).toHaveBeenCalledWith(expect.objectContaining({
+      lastDeviceId: 'browser-usb3',
+      lastNativeDeviceId: nativeDevice.id,
+      captureBackend: 'gstreamer-mf',
+      nativeCaptureProfiles: {
+        [nativeDevice.id]: {
+          nativeDeviceId: nativeDevice.id,
+          nativeDeviceLabel: nativeDevice.label,
+          browserDeviceId: 'browser-usb3',
+          captureBackend: 'gstreamer-mf',
+          selection: {
+            deviceId: nativeDevice.id,
+            formatId: 'YUY2',
+            modeId: 'YUY2:2560x1440:50/1',
+          },
+        },
+      },
+    }));
+  });
 });

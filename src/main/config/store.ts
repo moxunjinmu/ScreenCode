@@ -1,17 +1,41 @@
 import { IpcMain } from 'electron';
 import Store from 'electron-store';
 import { IPC_CHANNELS } from '@shared/constants';
-import { AppConfig, DEFAULT_CONFIG, DEFAULT_PROVIDERS, ProviderConfig } from '@shared/types';
+import {
+  AppConfig,
+  CaptureProfileConfig,
+  DEFAULT_CONFIG,
+  DEFAULT_PROVIDERS,
+  ProviderConfig,
+} from '@shared/types';
+import {
+  CAPTURE_PROFILE_DIRECTORY,
+  CAPTURE_PROFILE_NAME,
+  DEFAULT_CAPTURE_PROFILE_CONFIG,
+  isCaptureProfileKey,
+  migrateLegacyCaptureProfile,
+  readCaptureProfileConfig,
+  splitCaptureProfilePatch,
+  writeCaptureProfilePatch,
+} from './captureProfile';
 
 // 配置存储
 const store = new Store<AppConfig>({
   defaults: DEFAULT_CONFIG,
 });
 
+// 采集卡协议不含敏感信息，按产品约定独立保存到 D 盘。
+const captureProfileStore = new Store<CaptureProfileConfig>({
+  cwd: CAPTURE_PROFILE_DIRECTORY,
+  name: CAPTURE_PROFILE_NAME,
+  defaults: DEFAULT_CAPTURE_PROFILE_CONFIG,
+});
+
 /**
  * 迁移旧配置到新格式
  */
 function migrateConfig(): void {
+  migrateLegacyCaptureProfile(store, captureProfileStore);
   const oldApiKey = store.get('claudeApiKey');
   const oldBaseUrl = store.get('claudeApiBaseUrl');
   const oldModel = store.get('claudeModel');
@@ -80,11 +104,12 @@ export function setupConfigHandlers(ipcMain: IpcMain) {
  * 获取配置
  */
 export function getConfig(): AppConfig {
+  const captureProfile = readCaptureProfileConfig(captureProfileStore);
   const config: AppConfig = {
     activeProvider: store.get('activeProvider', 'zhipu'),
     providerConfigs: store.get('providerConfigs', DEFAULT_CONFIG.providerConfigs),
     apiProviders: store.get('apiProviders', DEFAULT_PROVIDERS),
-    lastDeviceId: store.get('lastDeviceId', null),
+    lastDeviceId: captureProfile.lastDeviceId,
     toastDuration: store.get('toastDuration', 1500),
     frameDiffThreshold: store.get('frameDiffThreshold', 0.05),
     maxFrames: store.get('maxFrames', 8),
@@ -93,8 +118,10 @@ export function getConfig(): AppConfig {
     aiImageQuality: store.get('aiImageQuality', 'original'),
     captureQualityStrategy: store.get('captureQualityStrategy', 'quality'),
     fullscreenToolbarAutoHide: store.get('fullscreenToolbarAutoHide', false) === true,
-    captureBackend: store.get('captureBackend', 'gstreamer-mf'),
-    nativeCaptureSelection: store.get('nativeCaptureSelection'),
+    captureBackend: captureProfile.captureBackend,
+    nativeCaptureSelection: captureProfile.nativeCaptureSelection,
+    lastNativeDeviceId: captureProfile.lastNativeDeviceId,
+    nativeCaptureProfiles: captureProfile.nativeCaptureProfiles,
     ffmpegPath: store.get('ffmpegPath', ''),
   };
 
@@ -115,17 +142,22 @@ export function getActiveProviderConfig(): ProviderConfig {
  * 设置配置
  */
 export function setConfig(config: Partial<AppConfig>): void {
-  Object.entries(config).forEach(([key, value]) => {
+  const { appPatch, capturePatch } = splitCaptureProfilePatch(config);
+  Object.entries(appPatch).forEach(([key, value]) => {
     if (value !== undefined) {
       store.set(key as keyof AppConfig, value);
     }
   });
+  writeCaptureProfilePatch(captureProfileStore, capturePatch);
 }
 
 /**
  * 获取单个配置项
  */
 export function getConfigValue<K extends keyof AppConfig>(key: K): AppConfig[K] {
+  if (isCaptureProfileKey(key)) {
+    return getConfig()[key];
+  }
   return store.get(key);
 }
 
@@ -133,5 +165,9 @@ export function getConfigValue<K extends keyof AppConfig>(key: K): AppConfig[K] 
  * 设置单个配置项
  */
 export function setConfigValue<K extends keyof AppConfig>(key: K, value: AppConfig[K]): void {
+  if (isCaptureProfileKey(key)) {
+    setConfig({ [key]: value } as Pick<AppConfig, K>);
+    return;
+  }
   store.set(key, value);
 }

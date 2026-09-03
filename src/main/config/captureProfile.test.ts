@@ -97,7 +97,7 @@ describe('采集卡精确协议独立缓存', () => {
 
   it('损坏字段回到安全默认值，合法设备档案保持不变', () => {
     const store = new MemoryStore({
-      version: 999,
+      version: 1,
       migrationComplete: 'yes',
       lastDeviceId: 42,
       captureBackend: 'unknown',
@@ -125,5 +125,61 @@ describe('采集卡精确协议独立缓存', () => {
     };
     writeCaptureProfilePatch(store, valid);
     expect(readCaptureProfileConfig(store)).toEqual(valid);
+  });
+
+  it('忽略非法设备档案和未知版本，但保留合法的浏览器自动档案', () => {
+    const invalidVersion = new MemoryStore({ version: 2, lastDeviceId: 'must-ignore' });
+    expect(readCaptureProfileConfig(invalidVersion)).toEqual(DEFAULT_CAPTURE_PROFILE_CONFIG);
+
+    const mixedProfiles = new MemoryStore({
+      version: 1,
+      captureBackend: 'browser-auto',
+      nativeCaptureSelection: { deviceId: '', formatId: 'YUY2', modeId: 'mode' },
+      nativeCaptureProfiles: {
+        scalar: 'invalid',
+        missingId: {
+          nativeDeviceLabel: 'USB3 Video',
+          browserDeviceId: 'browser-usb3',
+          captureBackend: 'gstreamer-mf',
+        },
+        missingLabel: {
+          nativeDeviceId: 'mf:missing-label',
+          browserDeviceId: 'browser-usb3',
+          captureBackend: 'gstreamer-mf',
+        },
+        missingBrowserId: {
+          nativeDeviceId: 'mf:missing-browser',
+          nativeDeviceLabel: 'USB3 Video',
+          captureBackend: 'gstreamer-mf',
+        },
+        invalidBackend: {
+          nativeDeviceId: 'mf:invalid-backend',
+          nativeDeviceLabel: 'USB3 Video',
+          browserDeviceId: 'browser-usb3',
+          captureBackend: 'invalid',
+        },
+        browserAuto: {
+          nativeDeviceId: 'mf:browser-auto',
+          nativeDeviceLabel: 'USB3 Video',
+          browserDeviceId: 'browser-usb3',
+          captureBackend: 'browser-auto',
+          selection: { deviceId: 'mf:browser-auto', formatId: '', modeId: 'mode' },
+        },
+      },
+    });
+
+    expect(readCaptureProfileConfig(mixedProfiles)).toEqual({
+      ...DEFAULT_CAPTURE_PROFILE_CONFIG,
+      captureBackend: 'browser-auto',
+      nativeCaptureProfiles: {
+        browserAuto: {
+          nativeDeviceId: 'mf:browser-auto',
+          nativeDeviceLabel: 'USB3 Video',
+          browserDeviceId: 'browser-usb3',
+          captureBackend: 'browser-auto',
+        },
+      },
+    });
+    writeCaptureProfilePatch(mixedProfiles, { lastDeviceId: undefined });
   });
 });

@@ -1,6 +1,6 @@
 # 配置 Schema
 
-> 最后更新: 2026-02-28
+> 最后更新: 2026-09-03
 > 定义文件: `src/shared/types.ts`
 
 ## AppConfig
@@ -23,11 +23,40 @@ interface AppConfig {
 
   // 设备
   lastDeviceId: string | null;  // 上次选择的设备 ID
+  lastNativeDeviceId?: string;  // 上次选择的 Media Foundation 设备 ID
+  captureBackend: 'browser-auto' | 'gstreamer-mf';
+  nativeCaptureSelection?: NativeCaptureSelection;
+  nativeCaptureProfiles: Record<string, NativeCaptureProfile>;
 
   // 向后兼容字段（迁移后删除）
   claudeApiKey?: string;
   claudeModel?: string;
   claudeBaseUrl?: string;
+}
+```
+
+## CaptureProfileConfig
+
+该结构独立保存到 `D:\ProgramData\ScreenCode\capture-profile.json`。写入采用采集字段白名单，禁止包含
+`providerConfigs`、`apiProviders` 或 API Key。
+
+```typescript
+interface CaptureProfileConfig {
+  version: 1;
+  migrationComplete: boolean;
+  lastDeviceId: string | null;
+  lastNativeDeviceId?: string;
+  captureBackend: 'browser-auto' | 'gstreamer-mf';
+  nativeCaptureSelection?: NativeCaptureSelection;
+  nativeCaptureProfiles: Record<string, NativeCaptureProfile>;
+}
+
+interface NativeCaptureProfile {
+  nativeDeviceId: string;
+  nativeDeviceLabel: string;
+  browserDeviceId: string;
+  captureBackend: 'browser-auto' | 'gstreamer-mf';
+  selection?: NativeCaptureSelection;
 }
 ```
 
@@ -80,7 +109,9 @@ interface ApiProvider {
   compressionWidth: 768,
   compressionQuality: 85,
   fullscreenToolbarAutoHide: false,
-  lastDeviceId: null
+  lastDeviceId: null,
+  captureBackend: 'gstreamer-mf',
+  nativeCaptureProfiles: {}
 }
 ```
 

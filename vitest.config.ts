@@ -28,6 +28,7 @@ export default defineConfig({
         'src/shared/nativeCapture.ts',
         'src/main/capture/nativeSidecarProtocol.ts',
         'src/main/capture/nativeSidecarManager.ts',
+        'src/main/config/captureProfile.ts',
       ],
       thresholds: {
         lines: 80,

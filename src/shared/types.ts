@@ -65,6 +65,26 @@ export interface NativeCaptureSelection {
   modeId: string;
 }
 
+/** 单张采集卡上次使用的浏览器设备映射与精确协议。 */
+export interface NativeCaptureProfile {
+  nativeDeviceId: string;
+  nativeDeviceLabel: string;
+  browserDeviceId: string;
+  captureBackend: CaptureBackend;
+  selection?: NativeCaptureSelection;
+}
+
+/** 仅包含采集相关字段的独立缓存文件结构。 */
+export interface CaptureProfileConfig {
+  version: 1;
+  migrationComplete: boolean;
+  lastDeviceId: string | null;
+  lastNativeDeviceId?: string;
+  captureBackend: CaptureBackend;
+  nativeCaptureSelection?: NativeCaptureSelection;
+  nativeCaptureProfiles: Record<string, NativeCaptureProfile>;
+}
+
 export interface NativeNegotiatedMode {
   formatId: string;
   width: number;
@@ -269,6 +289,8 @@ export interface AppConfig {
   fullscreenToolbarAutoHide: boolean;
   captureBackend: CaptureBackend;
   nativeCaptureSelection?: NativeCaptureSelection;
+  lastNativeDeviceId?: string;
+  nativeCaptureProfiles: Record<string, NativeCaptureProfile>;
   ffmpegPath?: string;
 
   // 显示分辨率配置
@@ -342,6 +364,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   captureQualityStrategy: 'quality',
   fullscreenToolbarAutoHide: false,
   captureBackend: 'gstreamer-mf',
+  nativeCaptureProfiles: {},
   ffmpegPath: '',
 };
 

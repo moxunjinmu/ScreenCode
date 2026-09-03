@@ -1,11 +1,17 @@
 # 配置系统
 
-> 最后更新: 2026-02-28
+> 最后更新: 2026-09-03
 > 文件: `src/main/config/store.ts`
 
 ## 存储方案
 
-使用 `electron-store<AppConfig>` 持久化配置，默认值来自 `DEFAULT_CONFIG`（定义在 `src/shared/types.ts`）。
+配置继续通过统一 IPC 读写，但主进程按字段拆分到两个 `electron-store`：
+
+- 通用配置保存在 Electron `userData/config.json`，包括供应商、图像质量与界面设置
+- 采集卡配置保存在 `D:\ProgramData\ScreenCode\capture-profile.json`，仅包含设备映射、采集后端和精确模式
+
+拆分逻辑位于 `src/main/config/captureProfile.ts`。采集文件采用白名单写入，完整 `AppConfig` 中的 API Key
+和供应商信息不会进入 D 盘采集缓存。
 
 ## API
 
@@ -31,12 +37,14 @@ Settings 保存 → CONFIG_SET (invoke)
 
 ## 配置迁移
 
-`migrateConfig()` 处理旧格式到新格式的自动迁移：
+`migrateConfig()` 处理以下单次迁移：
 
 - 旧格式: 单一 `claudeApiKey` / `claudeModel` 字段
 - 新格式: `activeProvider` + `providerConfigs` 多供应商结构
+- 旧 C 盘配置中的 `lastDeviceId`、`captureBackend`、`nativeCaptureSelection`
+- 新 D 盘独立采集缓存及按原生设备保存的 `nativeCaptureProfiles`
 
-迁移在应用启动时自动执行，迁移后删除旧字段。
+迁移在应用启动时自动执行；D 盘写入完成后删除 C 盘旧采集字段，供应商和界面配置保持不变。
 
 ## 配置 Schema
 
