@@ -3,8 +3,12 @@ import { DEFAULT_CONFIG } from '@shared/types';
 import { FullscreenToolbarVisibilityController } from './fullscreenToolbarVisibility';
 
 describe('全屏截图菜单自动隐藏', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it('默认关闭自动隐藏以保持现有行为', () => {
     expect(DEFAULT_CONFIG.fullscreenToolbarAutoHide).toBe(false);

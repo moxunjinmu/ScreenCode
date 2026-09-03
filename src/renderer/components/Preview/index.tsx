@@ -11,12 +11,14 @@ import {
   PRESET_SCALES,
   type CaptureBackend,
   type EncodedImage,
+  DEFAULT_CONFIG,
 } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import RegionCaptureOverlay from './RegionCaptureOverlay';
 import { PreviewClickController } from './previewClickController';
 import Select from '../Select';
 import { connectNativePreview } from '../../capture/nativeWebRtcPreview';
+import { FullscreenToolbarVisibilityController } from './fullscreenToolbarVisibility';
 
 interface PreviewProps {
   isFullscreen?: boolean;
@@ -25,6 +27,7 @@ interface PreviewProps {
 
 // 防抖延迟（ms），低于此时间内的双击会取消之前的单击截图
 const CAPTURE_DEBOUNCE_MS = 300;
+const FULLSCREEN_TOOLBAR_HIDE_DELAY_MS = 2_500;
 
 const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscreen }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -34,6 +37,18 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
   }
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [fullscreenToolbarAutoHide, setFullscreenToolbarAutoHide] = useState(
+    DEFAULT_CONFIG.fullscreenToolbarAutoHide,
+  );
+  const [isFullscreenToolbarVisible, setFullscreenToolbarVisible] = useState(true);
+  const [isFullscreenToolbarInteracting, setFullscreenToolbarInteracting] = useState(false);
+  const fullscreenToolbarControllerRef = useRef<FullscreenToolbarVisibilityController | null>(null);
+  if (!fullscreenToolbarControllerRef.current) {
+    fullscreenToolbarControllerRef.current = new FullscreenToolbarVisibilityController(
+      FULLSCREEN_TOOLBAR_HIDE_DELAY_MS,
+      setFullscreenToolbarVisible,
+    );
+  }
 
   const {
     devices,
@@ -76,6 +91,34 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     setNativeStatus(status);
     if (status.phase === 'error' && status.error) setError(status.error);
   }), [setNativeStatus]);
+
+  useEffect(() => {
+    let isActive = true;
+    void electronAPI.getConfig().then((config) => {
+      if (isActive) setFullscreenToolbarAutoHide(config.fullscreenToolbarAutoHide);
+    });
+    const unsubscribe = electronAPI.onConfigChanged((config) => {
+      setFullscreenToolbarAutoHide(config.fullscreenToolbarAutoHide);
+    });
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    fullscreenToolbarControllerRef.current?.setAutoHideActive(
+      isFullscreen && Boolean(stream) && fullscreenToolbarAutoHide,
+    );
+  }, [fullscreenToolbarAutoHide, isFullscreen, stream]);
+
+  useEffect(() => {
+    fullscreenToolbarControllerRef.current?.setHeldVisible(
+      isFullscreenToolbarInteracting || isRegionCapture || isHighQualityCapturing,
+    );
+  }, [isFullscreenToolbarInteracting, isHighQualityCapturing, isRegionCapture]);
+
+  useEffect(() => () => fullscreenToolbarControllerRef.current?.dispose(), []);
 
   useEffect(() => {
     if (
@@ -565,6 +608,8 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
 
       <div
         className={`preview-stage flex-1 min-h-0 overflow-hidden flex items-center justify-center relative${isFullscreen ? ' is-fullscreen' : ''}${stream ? ' has-stream' : ''}`}
+        onPointerMove={() => fullscreenToolbarControllerRef.current?.notifyActivity()}
+        onPointerDown={() => fullscreenToolbarControllerRef.current?.notifyActivity()}
         onDoubleClick={handleDoubleClick}
       >
         {error && (
@@ -639,7 +684,18 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
         )}
 
         {isFullscreen && stream && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 overlay">
+          <div
+            className={`fullscreen-capture-menu absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 overlay${isFullscreenToolbarVisible ? ' is-visible' : ' is-hidden'}`}
+            data-state={isFullscreenToolbarVisible ? 'visible' : 'hidden'}
+            onPointerEnter={() => setFullscreenToolbarInteracting(true)}
+            onPointerLeave={() => setFullscreenToolbarInteracting(false)}
+            onFocusCapture={() => setFullscreenToolbarInteracting(true)}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                setFullscreenToolbarInteracting(false);
+              }
+            }}
+          >
             <button
               onClick={() => void toggleRegionCapture()}
               disabled={isHighQualityCapturing}

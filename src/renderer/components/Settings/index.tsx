@@ -407,6 +407,28 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
           </div>
 
           <div className="card p-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-medium mb-1">全屏体验</h3>
+                <p className="hint">开启后，底部截图菜单在无操作 2.5 秒后自动隐藏，移动鼠标即可恢复。</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={config.fullscreenToolbarAutoHide}
+                aria-label="全屏时自动隐藏截图菜单"
+                className={`settings-switch${config.fullscreenToolbarAutoHide ? ' is-on' : ''}`}
+                onClick={() => handleAppConfigChange(
+                  'fullscreenToolbarAutoHide',
+                  !config.fullscreenToolbarAutoHide,
+                )}
+              >
+                <span className="settings-switch-thumb" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+
+          <div className="card p-3">
             <button
               onClick={() => setShowJsonEditor(!showJsonEditor)}
               className="text-sm text-accent-text hover:text-accent flex items-center gap-2"

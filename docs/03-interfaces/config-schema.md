@@ -19,6 +19,7 @@ interface AppConfig {
   maxFrames: number;            // Ring Buffer 最大帧数，默认 8
   compressionWidth: number;     // 压缩目标宽度，默认 768
   compressionQuality: number;   // JPEG 质量，默认 85
+  fullscreenToolbarAutoHide: boolean; // 全屏截图菜单是否在无活动 2.5 秒后自动隐藏，默认 false
 
   // 设备
   lastDeviceId: string | null;  // 上次选择的设备 ID
@@ -78,6 +79,7 @@ interface ApiProvider {
   maxFrames: 8,
   compressionWidth: 768,
   compressionQuality: 85,
+  fullscreenToolbarAutoHide: false,
   lastDeviceId: null
 }
 ```

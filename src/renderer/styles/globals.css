@@ -943,6 +943,23 @@ body.is-resizing-pane {
   background: #090a08;
 }
 
+.fullscreen-capture-menu {
+  transition:
+    opacity var(--motion-state) ease-out,
+    transform var(--motion-state) var(--ease-out);
+}
+
+.fullscreen-capture-menu.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 6px);
+}
+
+.fullscreen-capture-menu.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .preview-stage video {
   transition: opacity var(--motion-state) ease-out;
 }
@@ -955,6 +972,39 @@ body.is-resizing-pane {
 .preview-empty-state .hint,
 .preview-error-state .hint {
   color: #a6a89f;
+}
+
+.settings-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 24px;
+  padding: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-3);
+  transition:
+    background-color var(--motion-control) ease-out,
+    border-color var(--motion-control) ease-out;
+}
+
+.settings-switch.is-on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.settings-switch-thumb {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.24);
+  transition: transform var(--motion-control) var(--ease-standard);
+}
+
+.settings-switch.is-on .settings-switch-thumb {
+  transform: translateX(18px);
 }
 
 .frame-queue {

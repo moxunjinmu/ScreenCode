@@ -266,6 +266,7 @@ export interface AppConfig {
   compressionQuality: number;
   aiImageQuality: AiImageQuality;
   captureQualityStrategy: CaptureQualityStrategy;
+  fullscreenToolbarAutoHide: boolean;
   captureBackend: CaptureBackend;
   nativeCaptureSelection?: NativeCaptureSelection;
   ffmpegPath?: string;
@@ -339,6 +340,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   compressionQuality: 95,
   aiImageQuality: 'original',
   captureQualityStrategy: 'quality',
+  fullscreenToolbarAutoHide: false,
   captureBackend: 'gstreamer-mf',
   ffmpegPath: '',
 };
