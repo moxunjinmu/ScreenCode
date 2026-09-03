@@ -26,12 +26,6 @@ if (process.platform === 'win32') {
   }
 }
 
-// Squirrel 安装/更新/卸载事件：直接退出，不创建窗口
-const SQUIRREL_EVENTS = ['--squirrel-install', '--squirrel-updated', '--squirrel-uninstall', '--squirrel-obsolete'];
-if (process.platform === 'win32' && process.argv.some((arg) => SQUIRREL_EVENTS.includes(arg))) {
-  app.quit();
-}
-
 // 单实例锁：第二个实例直接退出，聚焦已有窗口
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {

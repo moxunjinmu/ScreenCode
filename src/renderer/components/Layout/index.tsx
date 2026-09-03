@@ -12,6 +12,7 @@ import { useAppStore } from "../../store/appStore";
 import { useCaptureStore } from "../../store/captureStore";
 import { useUIStore, WorkspaceView } from "../../store/uiStore";
 import { useTheme } from "../../providers/ThemeProvider";
+import { APP_VERSION, formatAppLabel } from "@shared/appMetadata";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -50,10 +51,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {!isFullscreenPreview && (
         <>
           <header className="topbar select-none">
-            <div className="brand-lockup" aria-label="ScreenCode 1.1.1">
+            <div className="brand-lockup" aria-label={formatAppLabel()}>
               <span className="brand-mark" aria-hidden="true" />
               <span className="brand-name">ScreenCode</span>
-              <span className="version-badge">v1.1.1</span>
+              <span className="version-badge">v{APP_VERSION}</span>
             </div>
 
             <div className="topbar-actions">
