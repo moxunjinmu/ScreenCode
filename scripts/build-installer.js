@@ -8,12 +8,7 @@ const packageMetadata = JSON.parse(
   fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'),
 );
 const packagedAppPath = path.join(projectRoot, 'out', 'ScreenCode-win32-x64');
-const builderExecutable = path.join(
-  projectRoot,
-  'node_modules',
-  '.bin',
-  process.platform === 'win32' ? 'electron-builder.cmd' : 'electron-builder',
-);
+const builderCli = require.resolve('electron-builder/out/cli/cli.js');
 
 /** 使用本地时区生成安装器产物日期，保持文件名稳定且容易辨认。 */
 function buildDate(now = new Date()) {
@@ -32,15 +27,12 @@ function sha256(filePath) {
 if (!fs.existsSync(packagedAppPath)) {
   throw new Error(`找不到 Forge 打包目录：${packagedAppPath}`);
 }
-if (!fs.existsSync(builderExecutable)) {
-  throw new Error(`找不到 electron-builder：${builderExecutable}`);
-}
-
 const date = buildDate();
 const artifactName = `ScreenCode-${packageMetadata.version}-${date}-Setup.exe`;
 const builderResult = spawnSync(
-  builderExecutable,
+  process.execPath,
   [
+    builderCli,
     '--win',
     'nsis',
     '--x64',
@@ -51,7 +43,6 @@ const builderResult = spawnSync(
     cwd: projectRoot,
     env: { ...process.env, BUILD_DATE: date },
     stdio: 'inherit',
-    shell: process.platform === 'win32',
   },
 );
 
