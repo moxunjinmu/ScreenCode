@@ -91,4 +91,57 @@ describe('采集设备加载', () => {
       },
     });
   });
+
+  it('浏览器设备 ID 变化后按原生设备名恢复 D 盘缓存的精确模式', async () => {
+    const currentNativeDevice: NativeCaptureDevice = {
+      ...nativeDevice,
+      id: 'mf:usb3-video-current',
+    };
+    mocks.enumerateNativeCaptureDevices.mockResolvedValue([currentNativeDevice]);
+    mocks.getConfig.mockResolvedValue({
+      ...DEFAULT_CONFIG,
+      lastDeviceId: 'browser-usb3-old',
+      lastNativeDeviceId: 'mf:usb3-video-old',
+      captureBackend: 'gstreamer-mf',
+      nativeCaptureSelection: {
+        deviceId: 'mf:usb3-video-old',
+        formatId: 'YUY2',
+        modeId: 'YUY2:2560x1440:50/1',
+      },
+      nativeCaptureProfiles: {
+        'mf:usb3-video-old': {
+          nativeDeviceId: 'mf:usb3-video-old',
+          nativeDeviceLabel: 'USB3 Video',
+          browserDeviceId: 'browser-usb3-old',
+          captureBackend: 'gstreamer-mf',
+          selection: {
+            deviceId: 'mf:usb3-video-old',
+            formatId: 'YUY2',
+            modeId: 'YUY2:2560x1440:50/1',
+          },
+        },
+      },
+    });
+    const enumerateDevices = vi.fn().mockResolvedValue([{
+      deviceId: 'browser-usb3-current',
+      groupId: 'group-usb3-current',
+      kind: 'videoinput',
+      label: 'USB3 Video (345f:2133)',
+      toJSON: () => ({}),
+    }]);
+    vi.stubGlobal('navigator', { mediaDevices: { enumerateDevices } });
+
+    await useCaptureStore.getState().loadDevices();
+
+    expect(useCaptureStore.getState()).toMatchObject({
+      selectedDeviceId: 'browser-usb3-current',
+      selectedDeviceType: 'videoinput',
+      captureBackend: 'gstreamer-mf',
+      nativeSelection: {
+        deviceId: 'mf:usb3-video-current',
+        formatId: 'YUY2',
+        modeId: 'YUY2:2560x1440:50/1',
+      },
+    });
+  });
 });
