@@ -689,8 +689,8 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
             data-state={isFullscreenToolbarVisible ? 'visible' : 'hidden'}
             onPointerEnter={() => setFullscreenToolbarInteracting(true)}
             onPointerLeave={() => setFullscreenToolbarInteracting(false)}
-            onFocusCapture={() => setFullscreenToolbarInteracting(true)}
-            onBlurCapture={(event) => {
+            onFocus={() => setFullscreenToolbarInteracting(true)}
+            onBlur={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {
                 setFullscreenToolbarInteracting(false);
               }
