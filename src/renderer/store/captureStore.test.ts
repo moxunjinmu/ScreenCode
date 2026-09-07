@@ -92,6 +92,154 @@ describe('采集设备加载', () => {
     });
   });
 
+  it('原生探测期间点击已缓存设备不会把精确协议覆盖为浏览器自动', async () => {
+    let resolveNative!: (devices: NativeCaptureDevice[]) => void;
+    mocks.enumerateNativeCaptureDevices.mockReturnValue(new Promise((resolve) => {
+      resolveNative = resolve;
+    }));
+    const cachedConfig = {
+      ...DEFAULT_CONFIG,
+      lastDeviceId: 'browser-usb3',
+      lastNativeDeviceId: nativeDevice.id,
+      captureBackend: 'gstreamer-mf' as const,
+      nativeCaptureSelection: {
+        deviceId: nativeDevice.id,
+        formatId: 'YUY2',
+        modeId: 'YUY2:2560x1440:50/1',
+      },
+      nativeCaptureProfiles: {
+        [nativeDevice.id]: {
+          nativeDeviceId: nativeDevice.id,
+          nativeDeviceLabel: nativeDevice.label,
+          browserDeviceId: 'browser-usb3',
+          captureBackend: 'gstreamer-mf' as const,
+          selection: {
+            deviceId: nativeDevice.id,
+            formatId: 'YUY2',
+            modeId: 'YUY2:2560x1440:50/1',
+          },
+        },
+      },
+    };
+    mocks.getConfig.mockResolvedValue(cachedConfig);
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        enumerateDevices: vi.fn().mockResolvedValue([{
+          deviceId: 'browser-usb3',
+          groupId: 'group-usb3',
+          kind: 'videoinput',
+          label: 'USB3 Video (345f:2133)',
+          toJSON: () => ({}),
+        }]),
+      },
+    });
+
+    const loading = useCaptureStore.getState().loadDevices();
+    await vi.waitFor(() => expect(useCaptureStore.getState().devices).toHaveLength(2));
+    await useCaptureStore.getState().selectDevice('browser-usb3', 'videoinput');
+
+    expect(mocks.setConfig).toHaveBeenLastCalledWith({ lastDeviceId: 'browser-usb3' });
+
+    resolveNative([nativeDevice]);
+    await loading;
+    expect(useCaptureStore.getState()).toMatchObject({
+      selectedDeviceId: 'browser-usb3',
+      captureBackend: 'gstreamer-mf',
+      nativeSelection: cachedConfig.nativeCaptureSelection,
+    });
+    expect(mocks.setConfig).toHaveBeenLastCalledWith(expect.objectContaining({
+      captureBackend: 'gstreamer-mf',
+      nativeCaptureSelection: cachedConfig.nativeCaptureSelection,
+    }));
+  });
+
+  it('原生 Caps 尚未返回时先从 D 盘档案展示缓存的格式分辨率和帧率', async () => {
+    let resolveNative!: (devices: NativeCaptureDevice[]) => void;
+    mocks.enumerateNativeCaptureDevices.mockReturnValue(new Promise((resolve) => {
+      resolveNative = resolve;
+    }));
+    mocks.getConfig.mockResolvedValue({
+      ...DEFAULT_CONFIG,
+      lastDeviceId: 'browser-usb3',
+      lastNativeDeviceId: nativeDevice.id,
+      captureBackend: 'gstreamer-mf',
+      nativeCaptureSelection: {
+        deviceId: nativeDevice.id,
+        formatId: 'YUY2',
+        modeId: 'YUY2:2560x1440:50/1',
+      },
+      nativeCaptureProfiles: {
+        [nativeDevice.id]: {
+          nativeDeviceId: nativeDevice.id,
+          nativeDeviceLabel: nativeDevice.label,
+          browserDeviceId: 'browser-usb3',
+          captureBackend: 'gstreamer-mf',
+          selection: {
+            deviceId: nativeDevice.id,
+            formatId: 'YUY2',
+            modeId: 'YUY2:2560x1440:50/1',
+          },
+          capabilities: nativeDevice,
+        },
+      },
+    });
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        enumerateDevices: vi.fn().mockResolvedValue([{
+          deviceId: 'browser-usb3',
+          groupId: 'group-usb3',
+          kind: 'videoinput',
+          label: 'USB3 Video (345f:2133)',
+          toJSON: () => ({}),
+        }]),
+      },
+    });
+
+    const loading = useCaptureStore.getState().loadDevices();
+    await vi.waitFor(() => expect(useCaptureStore.getState().devices).toHaveLength(2));
+
+    expect(useCaptureStore.getState()).toMatchObject({
+      nativeDiscoveryPhase: 'loading',
+      selectedDeviceId: 'browser-usb3',
+      captureBackend: 'gstreamer-mf',
+      nativeDevices: [nativeDevice],
+    });
+
+    resolveNative([nativeDevice]);
+    await loading;
+  });
+
+  it('原生枚举临时失败时保留浏览器设备和精确协议首选配置', async () => {
+    mocks.enumerateNativeCaptureDevices.mockRejectedValue(new Error('sidecar unavailable'));
+    mocks.getConfig.mockResolvedValue({
+      ...DEFAULT_CONFIG,
+      lastDeviceId: 'browser-usb3',
+      captureBackend: 'gstreamer-mf',
+    });
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        enumerateDevices: vi.fn().mockResolvedValue([{
+          deviceId: 'browser-usb3',
+          groupId: 'group-usb3',
+          kind: 'videoinput',
+          label: 'USB3 Video (345f:2133)',
+          toJSON: () => ({}),
+        }]),
+      },
+    });
+
+    await useCaptureStore.getState().loadDevices();
+
+    expect(useCaptureStore.getState()).toMatchObject({
+      selectedDeviceId: 'browser-usb3',
+      selectedDeviceType: 'videoinput',
+      nativeDiscoveryPhase: 'failed',
+    });
+    expect(mocks.setConfig).not.toHaveBeenCalledWith(expect.objectContaining({
+      captureBackend: 'browser-auto',
+    }));
+  });
+
   it('浏览器设备 ID 变化后按原生设备名恢复 D 盘缓存的精确模式', async () => {
     const currentNativeDevice: NativeCaptureDevice = {
       ...nativeDevice,
