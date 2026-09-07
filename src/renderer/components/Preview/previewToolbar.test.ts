@@ -1,5 +1,8 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { NativeCaptureStatus } from '@shared/types';
+import CaptureToolbar from './CaptureToolbar';
 import {
   resolveToolbarResolution,
   toggleToolbarPanel,
@@ -49,5 +52,26 @@ describe('简约采集工具栏', () => {
     ['display', 'capture', 'capture'],
   ])('面板从 %s 点击 %s 后切换为 %s', (current, requested, expected) => {
     expect(toggleToolbarPanel(current, requested)).toBe(expected);
+  });
+
+  it('默认工具栏不渲染浮层中的 FPS、编码器或验证文字', () => {
+    const markup = renderToStaticMarkup(React.createElement(CaptureToolbar, {
+      deviceControl: React.createElement('span', null, 'USB3 Video'),
+      captureSettings: React.createElement('span', null, '30 FPS · H264 · 已验证'),
+      displaySettings: React.createElement('span', null, '100%'),
+      resolutionLabel: '2560×1440',
+      hasSelectedDevice: true,
+      hasStream: true,
+      isCapturing: true,
+      isLoading: false,
+      isRegionCapture: false,
+      isPreparingRegion: false,
+      onStartStop: () => undefined,
+      onRegionCapture: () => undefined,
+      onFullscreen: () => undefined,
+    }));
+
+    expect(markup).toContain('2560×1440');
+    expect(markup).not.toMatch(/FPS|H264|VP8|已验证/);
   });
 });

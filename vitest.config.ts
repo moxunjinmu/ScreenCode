@@ -19,6 +19,7 @@ export default defineConfig({
         'src/renderer/capture/captureOrchestrator.ts',
         'src/renderer/capture/nativeWebRtcPreview.ts',
         'src/renderer/components/Preview/fullscreenToolbarVisibility.ts',
+        'src/renderer/components/Preview/previewToolbar.ts',
         'src/main/capture/ffmpegCapture.ts',
         'src/main/processor/imageCompressor.ts',
         'src/main/processor/captureImageProcessor.ts',

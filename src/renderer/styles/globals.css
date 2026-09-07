@@ -882,56 +882,164 @@ body.is-resizing-pane {
 
 .capture-toolbar {
   z-index: 2;
-  display: grid;
-  min-height: 56px;
-  padding: 12px 16px;
-  background: var(--surface-1);
+  display: flex;
+  flex: 0 0 48px;
+  align-items: center;
+  min-height: 48px;
+  padding: var(--space-2) var(--space-4);
+  background:
+    linear-gradient(180deg, var(--top-sheen), transparent 100%),
+    var(--surface-1);
   border-bottom: 1px solid var(--border);
 }
 
 .capture-control-row,
-.capture-controls,
-.capture-toolbar-secondary {
+.capture-toolbar-actions {
   display: flex;
   align-items: center;
 }
 
 .capture-control-row {
+  width: 100%;
   min-width: 0;
-  gap: 8px;
-  overflow-x: auto;
+  gap: var(--space-2);
 }
 
-.capture-controls,
-.capture-toolbar-secondary {
-  gap: 8px;
+.capture-device-slot {
+  flex: 0 1 clamp(180px, 26vw, 300px);
+  min-width: 150px;
 }
 
-.capture-controls {
-  min-width: 0;
-  overflow-x: auto;
-  padding-bottom: 1px;
+.capture-device-slot .select-root,
+.capture-device-select {
+  width: 100%;
 }
 
-.capture-toolbar-secondary {
-  min-width: 0;
-  color: var(--text-muted);
+.capture-toolbar-button,
+.capture-toolbar-icon-button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 10px;
   font-size: 12px;
-  overflow-x: auto;
   white-space: nowrap;
 }
 
-.capture-device-select {
-  width: clamp(170px, 22vw, 260px);
+.capture-toolbar-button.is-active {
+  color: var(--accent-text);
+  background: var(--accent-subtle);
+  border-color: var(--accent-border);
+}
+
+.capture-toolbar-icon-button {
+  width: 32px;
+  padding: 0;
+}
+
+.capture-resolution-readout {
   flex: 0 0 auto;
+  padding: 0 var(--space-1);
+  color: var(--text-muted);
+  font-family: "Cascadia Code", "SF Mono", Consolas, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
-.capture-resolution-select {
-  min-width: 96px;
+.capture-loading-icon {
+  flex: 0 0 auto;
+  color: var(--accent-text);
+  animation: captureLoadingSpin 900ms linear infinite;
 }
 
-.capture-scale-select {
-  min-width: 84px;
+@keyframes captureLoadingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.capture-toolbar-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.capture-toolbar-actions {
+  flex: 0 0 auto;
+  gap: var(--space-1);
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.capture-toolbar-actions > .btn,
+.capture-toolbar-actions > .btn-primary {
+  min-height: 30px;
+}
+
+.capture-toolbar-actions > .btn {
+  background: transparent;
+  border-color: transparent;
+}
+
+.capture-toolbar-actions > .btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: transparent;
+}
+
+.capture-toolbar-popover {
+  z-index: 70;
+  width: min(360px, calc(100vw - 16px));
+  max-height: min(480px, var(--radix-popover-content-available-height));
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  transform-origin: var(--radix-popover-content-transform-origin);
+  animation: capturePopoverEnter var(--motion-state) var(--ease-out) both;
+}
+
+.display-settings-popover {
+  width: min(288px, calc(100vw - 16px));
+}
+
+@keyframes capturePopoverEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+}
+
+.capture-popover-title {
+  margin-bottom: var(--space-3);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 680;
+  letter-spacing: -0.01em;
+}
+
+.capture-popover-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-2);
+}
+
+.capture-popover-field {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.capture-popover-field .select-root {
+  width: 100%;
+}
+
+.capture-popover-field .select-trigger {
+  background: var(--surface-2);
 }
 
 .preview-stage {
@@ -1393,16 +1501,23 @@ body.is-resizing-pane {
   }
 
   .capture-toolbar {
+    flex-basis: 46px;
     min-height: 46px;
-    padding: 8px;
+    padding: var(--space-2);
   }
 
-  .capture-toolbar-secondary label {
+  .capture-toolbar-button {
+    width: 32px;
+    padding: 0;
+  }
+
+  .capture-toolbar-button-label {
     display: none;
   }
 
-  .capture-toolbar-secondary {
-    min-height: 30px;
+  .capture-device-slot {
+    flex: 1 1 180px;
+    max-width: 300px;
   }
 
   .frame-queue {
@@ -1435,18 +1550,13 @@ body.is-resizing-pane {
     display: none;
   }
 
-  .capture-controls {
-    width: 100%;
+  .capture-device-slot {
+    min-width: 128px;
   }
 
-  .capture-device-select {
-    min-width: 150px;
-    flex: 1 1 auto;
-  }
-
-  .capture-resolution-select,
-  .capture-scale-select {
-    display: none;
+  .capture-resolution-readout {
+    padding: 0;
+    font-size: 11px;
   }
 
   .code-result-header,

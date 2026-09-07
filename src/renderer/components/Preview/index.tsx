@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Camera, Crop, Maximize2, Minimize2 } from 'lucide-react';
+import { Camera, Crop, Minimize2 } from 'lucide-react';
 import { useCaptureStore } from '../../store/captureStore';
 import { useUIStore } from '../../store/uiStore';
 import { useFrameStore } from '../../store/frameStore';
@@ -19,6 +19,8 @@ import { PreviewClickController } from './previewClickController';
 import Select from '../Select';
 import { connectNativePreview } from '../../capture/nativeWebRtcPreview';
 import { FullscreenToolbarVisibilityController } from './fullscreenToolbarVisibility';
+import CaptureToolbar from './CaptureToolbar';
+import { resolveToolbarResolution } from './previewToolbar';
 
 interface PreviewProps {
   isFullscreen?: boolean;
@@ -64,7 +66,6 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     setNativeStatus,
     isCapturing,
     stream,
-    captureSettings,
     isHighQualityCapturing,
     startCapture,
     stopCapture,
@@ -80,7 +81,6 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
   const [sourceResolution, setSourceResolution] = useState<{ width: number; height: number } | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<string>('source');  // 'source' 或分辨率索引
   const [selectedScale, setSelectedScale] = useState<number>(1.0);
-  const [effectiveFrameRate, setEffectiveFrameRate] = useState<number | null>(null);
   const [regionSource, setRegionSource] = useState<{
     image: EncodedImage;
     source: 'yuy2' | 'native' | 'preview';
@@ -202,32 +202,6 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     };
   }, [stream]);
 
-  // 使用实际呈现回调持续测量有效 FPS，避免把轨道配置值误认为真实有效帧率。
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !stream || typeof video.requestVideoFrameCallback !== 'function') {
-      setEffectiveFrameRate(null);
-      return undefined;
-    }
-
-    let callbackId = 0;
-    let firstFrameTime = 0;
-    let frameCount = 0;
-    const measure = (now: number) => {
-      if (firstFrameTime === 0) firstFrameTime = now;
-      frameCount += 1;
-      const elapsed = now - firstFrameTime;
-      if (elapsed >= 2_000) {
-        setEffectiveFrameRate(Math.max(0, (frameCount - 1) * 1_000 / elapsed));
-        firstFrameTime = now;
-        frameCount = 1;
-      }
-      callbackId = video.requestVideoFrameCallback(measure);
-    };
-    callbackId = video.requestVideoFrameCallback(measure);
-    return () => video.cancelVideoFrameCallback(callbackId);
-  }, [stream, isHighQualityCapturing]);
-
   // 绑定视频流到 video 元素
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -301,6 +275,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
   const modesAtSelectedResolution = selectedNativeFormat?.modes.filter(
     (mode) => mode.width === selectedNativeMode?.width && mode.height === selectedNativeMode?.height,
   ) ?? [];
+  const toolbarResolution = resolveToolbarResolution(nativeStatus, sourceResolution);
 
   const handleBackendChange = async (backend: string) => {
     setError(null);
@@ -446,22 +421,24 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
   return (
     <div className={`preview-workspace h-full min-h-0 flex flex-col relative${isFullscreen ? ' is-fullscreen' : ''}`}>
       {!isFullscreen && (
-        <div className="capture-toolbar">
-          <div className="capture-control-row">
-            <div className="capture-controls">
-              <Select
-                value={selectedDeviceId || ''}
-                options={devices.map((device) => ({ value: device.id, label: device.name }))}
-                onChange={(deviceId) => {
-                  if (deviceId) void handleDeviceChange(deviceId);
-                }}
-                placeholder="选择设备..."
-                className="capture-device-select text-sm"
-                title="采集设备"
-                ariaLabel="采集设备"
-              />
-
-              {selectedDeviceType === 'videoinput' && (
+        <CaptureToolbar
+          deviceControl={(
+            <Select
+              value={selectedDeviceId || ''}
+              options={devices.map((device) => ({ value: device.id, label: device.name }))}
+              onChange={(deviceId) => {
+                if (deviceId) void handleDeviceChange(deviceId);
+              }}
+              placeholder="选择设备..."
+              className="capture-device-select text-sm"
+              title="采集设备"
+              ariaLabel="采集设备"
+            />
+          )}
+          captureSettings={selectedDeviceType === 'videoinput' ? (
+            <div className="capture-popover-fields">
+              <label className="capture-popover-field">
+                <span>采集方式</span>
                 <Select
                   value={captureBackend}
                   options={[
@@ -475,105 +452,58 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                   ariaLabel="采集后端"
                   title="精确协议由 GStreamer Media Foundation 实际协商"
                 />
-              )}
+              </label>
 
               {captureBackend === 'gstreamer-mf' && selectedNativeFormat && selectedNativeMode && (
                 <>
-                  <Select
-                    value={selectedNativeFormat.id}
-                    options={selectedNativeDevice?.formats.map((format) => ({
-                      value: format.id,
-                      label: format.label,
-                    })) ?? []}
-                    onChange={(formatId) => void handleNativeFormatChange(formatId)}
-                    className="capture-format-select text-sm"
-                    ariaLabel="原始采集协议"
-                    title="采集卡真实输入格式"
-                  />
-                  <Select
-                    value={`${selectedNativeMode.width}x${selectedNativeMode.height}`}
-                    options={nativeResolutions.map((resolution) => ({
-                      value: `${resolution.width}x${resolution.height}`,
-                      label: `${resolution.width}×${resolution.height}`,
-                    }))}
-                    onChange={(resolution) => void handleNativeResolutionChange(resolution)}
-                    className="capture-native-resolution-select text-sm"
-                    ariaLabel="原始采集分辨率"
-                  />
-                  <Select
-                    value={selectedNativeMode.id}
-                    options={modesAtSelectedResolution.map((mode) => ({
-                      value: mode.id,
-                      label: `${Number((mode.frameRateNumerator / mode.frameRateDenominator).toFixed(2))} FPS${mode.verified ? ' · 已验证' : ''}`,
-                    }))}
-                    onChange={(modeId) => void setNativeSelection(selectedNativeFormat.id, modeId)}
-                    className="capture-native-fps-select text-sm"
-                    ariaLabel="原始采集帧率"
-                  />
-                </>
-              )}
-
-              {selectedDeviceId && (
-                <button
-                  onClick={handleStartStop}
-                  className="btn px-3 py-1 text-sm"
-                >
-                  {isCapturing ? '暂停预览' : '恢复预览'}
-                </button>
-              )}
-
-              {isLoading && (
-                <span className="chip">正在连接设备...</span>
-              )}
-
-              {captureBackend === 'gstreamer-mf' && nativeStatus.phase === 'streaming' && (
-                <span className="chip" title="来自 GStreamer 实际协商结果">
-                  {nativeStatus.negotiated?.formatId}
-                  {' '}{nativeStatus.negotiated?.width}×{nativeStatus.negotiated?.height}
-                  {nativeStatus.measuredFps ? ` · ${nativeStatus.measuredFps.toFixed(1)} FPS` : ''}
-                  {nativeStatus.previewCodec ? ` · ${nativeStatus.previewCodec} 预览` : ''}
-                  {nativeStatus.verified ? ' · 已验证' : ''}
-                </span>
-              )}
-
-              {stream && (
-                <>
-                  <button
-                    onClick={() => void toggleRegionCapture()}
-                    disabled={isHighQualityCapturing}
-                    className={`${isRegionCapture ? 'btn-primary' : 'btn'} px-3 py-1 text-sm`}
-                    title="快捷键: Ctrl+Shift+R"
-                  >
-                    <Crop size={14} />
-                    {isHighQualityCapturing ? '准备无损选区…' : isRegionCapture ? '取消区域截取' : '区域截取'}
-                  </button>
-                  <button
-                    onClick={handleDoubleClick}
-                    className="btn p-1"
-                    title="全屏预览"
-                  >
-                    <Maximize2 size={14} />
-                  </button>
+                  <label className="capture-popover-field">
+                    <span>原始格式</span>
+                    <Select
+                      value={selectedNativeFormat.id}
+                      options={selectedNativeDevice?.formats.map((format) => ({
+                        value: format.id,
+                        label: format.label,
+                      })) ?? []}
+                      onChange={(formatId) => void handleNativeFormatChange(formatId)}
+                      className="capture-format-select text-sm"
+                      ariaLabel="原始采集协议"
+                      title="采集卡真实输入格式"
+                    />
+                  </label>
+                  <label className="capture-popover-field">
+                    <span>采集分辨率</span>
+                    <Select
+                      value={`${selectedNativeMode.width}x${selectedNativeMode.height}`}
+                      options={nativeResolutions.map((resolution) => ({
+                        value: `${resolution.width}x${resolution.height}`,
+                        label: `${resolution.width}×${resolution.height}`,
+                      }))}
+                      onChange={(resolution) => void handleNativeResolutionChange(resolution)}
+                      className="capture-native-resolution-select text-sm"
+                      ariaLabel="原始采集分辨率"
+                    />
+                  </label>
+                  <label className="capture-popover-field">
+                    <span>采集帧率</span>
+                    <Select
+                      value={selectedNativeMode.id}
+                      options={modesAtSelectedResolution.map((mode) => ({
+                        value: mode.id,
+                        label: `${Number((mode.frameRateNumerator / mode.frameRateDenominator).toFixed(2))} FPS${mode.verified ? ' · 已验证' : ''}`,
+                      }))}
+                      onChange={(modeId) => void setNativeSelection(selectedNativeFormat.id, modeId)}
+                      className="capture-native-fps-select text-sm"
+                      ariaLabel="原始采集帧率"
+                    />
+                  </label>
                 </>
               )}
             </div>
-
-            {stream && sourceResolution && (
-              <div className="capture-toolbar-secondary">
-                <span
-                  className="chip"
-                  title="由视频轨道实际设置与视频源固有尺寸确认"
-                >
-                  实际 {sourceResolution.width}×{sourceResolution.height}
-                  {captureSettings?.frameRate
-                    ? ` · 轨道 ${Number(captureSettings.frameRate.toFixed(2))} FPS`
-                    : ''}
-                  {effectiveFrameRate
-                    ? ` · 有效 ${Number(effectiveFrameRate.toFixed(1))} FPS`
-                    : ''}
-                </span>
-
-                <label className="text-sm text-muted">显示尺寸</label>
+          ) : undefined}
+          displaySettings={stream && sourceResolution ? (
+            <div className="capture-popover-fields display-popover-fields">
+              <label className="capture-popover-field">
+                <span>预览尺寸</span>
                 <Select
                   value={selectedPreset}
                   options={[
@@ -588,8 +518,9 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                   title={`源分辨率 ${sourceResolution.width}×${sourceResolution.height}`}
                   ariaLabel="预览显示尺寸"
                 />
-
-                <label className="text-sm text-muted">缩放</label>
+              </label>
+              <label className="capture-popover-field">
+                <span>画面缩放</span>
                 <Select
                   value={String(selectedScale)}
                   options={PRESET_SCALES.map((scale) => ({
@@ -600,10 +531,20 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                   className="capture-scale-select text-sm"
                   ariaLabel="预览缩放"
                 />
-              </div>
-            )}
-          </div>
-        </div>
+              </label>
+            </div>
+          ) : undefined}
+          resolutionLabel={toolbarResolution}
+          hasSelectedDevice={Boolean(selectedDeviceId)}
+          hasStream={Boolean(stream)}
+          isCapturing={isCapturing}
+          isLoading={isLoading}
+          isRegionCapture={isRegionCapture}
+          isPreparingRegion={isHighQualityCapturing}
+          onStartStop={() => void handleStartStop()}
+          onRegionCapture={() => void toggleRegionCapture()}
+          onFullscreen={handleDoubleClick}
+        />
       )}
 
       <div
