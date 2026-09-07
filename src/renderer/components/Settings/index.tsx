@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { splitCaptureProfilePatch } from '@shared/captureConfig';
 import {
   ApiProvider,
   ProviderConfig,
   DEFAULT_PROVIDERS,
   type AiImageQuality,
   type AppConfig,
-  type CaptureQualityStrategy,
 } from '@shared/types';
 import { AI_IMAGE_QUALITY_PROFILES } from '@shared/imageQuality';
 import { electronAPI } from '../../lib/electronApi';
@@ -95,7 +95,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     setConfig(updatedConfig);
 
     // 保存激活的供应商
-    await electronAPI.setConfig(updatedConfig);
+    await electronAPI.setConfig({ activeProvider: providerId });
   };
 
   // 当输入框改变时，同步更新 config 和 JSON
@@ -159,7 +159,7 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
     setIsSaving(true);
     try {
-      await electronAPI.setConfig(config);
+      await electronAPI.setConfig(splitCaptureProfilePatch(config).appPatch);
       setIsSaved(true);
       setTimeout(() => {
         setIsSaved(false);
@@ -366,23 +366,6 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
             <h3 className="text-sm font-medium mb-1">采集与 AI 图片质量</h3>
             <p className="hint mb-3">整帧和区域截图按所选档位入队；AI 对相同档位不重复编码，默认最高画质。</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm text-muted mb-1">默认预览策略</label>
-                <Select
-                  value={config.captureQualityStrategy}
-                  options={[
-                    { value: 'quality', label: '画质优先（30 FPS）' },
-                    { value: 'smooth', label: '流畅优先（最高标称 FPS）' },
-                  ]}
-                  onChange={(value) => handleAppConfigChange(
-                    'captureQualityStrategy',
-                    value as CaptureQualityStrategy,
-                  )}
-                  className="w-full text-sm"
-                  ariaLabel="默认预览策略"
-                />
-              </div>
-
               <div>
                 <label className="block text-sm text-muted mb-1">截图与发送给 AI 的图片质量</label>
                 <Select

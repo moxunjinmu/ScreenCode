@@ -1,6 +1,6 @@
 # 配置 Schema
 
-> 最后更新: 2026-09-03
+> 最后更新: 2026-09-07
 > 定义文件: `src/shared/types.ts`
 
 ## AppConfig
@@ -40,6 +40,11 @@ interface AppConfig {
 该结构独立保存到 `D:\ProgramData\ScreenCode\capture-profile.json`。写入采用采集字段白名单，禁止包含
 `providerConfigs`、`apiProviders` 或 API Key。
 
+v1.1.8 只写入最后使用的一套采集卡档案；`nativeCaptureProfiles` 保留字典形状以兼容旧文件，
+但新写入最多一个条目。采集卡后端固定为 `gstreamer-mf`，`browser-auto` 联合类型只用于旧配置读取。
+`capabilities` 是最近一次枚举的结构化快照，用于启动时预先展示格式、分辨率和 FPS；只有本次枚举
+确认后的模式才能用于启动，读取快照不会触发管线执行。
+
 ```typescript
 interface CaptureProfileConfig {
   version: 1;
@@ -57,6 +62,7 @@ interface NativeCaptureProfile {
   browserDeviceId: string;
   captureBackend: 'browser-auto' | 'gstreamer-mf';
   selection?: NativeCaptureSelection;
+  capabilities?: NativeCaptureDevice;
 }
 ```
 

@@ -1,6 +1,6 @@
 # 配置系统
 
-> 最后更新: 2026-09-03
+> 最后更新: 2026-09-07
 > 文件: `src/main/config/store.ts`
 
 ## 存储方案
@@ -8,10 +8,14 @@
 配置继续通过统一 IPC 读写，但主进程按字段拆分到两个 `electron-store`：
 
 - 通用配置保存在 Electron `userData/config.json`，包括供应商、图像质量与界面设置
-- 采集卡配置保存在 `D:\ProgramData\ScreenCode\capture-profile.json`，仅包含设备映射、采集后端和精确模式
+- 采集卡配置保存在 `D:\ProgramData\ScreenCode\capture-profile.json`，仅保存最后使用的一套设备映射、
+  精确模式（格式/分辨率/FPS）及枚举能力快照
 
 拆分逻辑位于 `src/main/config/captureProfile.ts`。采集文件采用白名单写入，完整 `AppConfig` 中的 API Key
 和供应商信息不会进入 D 盘采集缓存。
+
+白名单复用于 `src/shared/captureConfig.ts`，设置页保存时只提交 `appPatch`，切换供应商只提交
+`activeProvider`。采集偏好由采集页独占更新，避免旧设置副本覆盖正在使用的新参数。
 
 ## API
 

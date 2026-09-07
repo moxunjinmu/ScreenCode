@@ -7,6 +7,8 @@ import type {
   NativeCaptureProfile,
   NativeCaptureSelection,
 } from '@shared/types';
+import { CAPTURE_PROFILE_KEYS, splitCaptureProfilePatch } from '@shared/captureConfig';
+export { isCaptureProfileKey, splitCaptureProfilePatch } from '@shared/captureConfig';
 
 export const CAPTURE_PROFILE_DIRECTORY = 'D:\\ProgramData\\ScreenCode';
 export const CAPTURE_PROFILE_NAME = 'capture-profile';
@@ -18,16 +20,6 @@ export const DEFAULT_CAPTURE_PROFILE_CONFIG: CaptureProfileConfig = {
   captureBackend: 'gstreamer-mf',
   nativeCaptureProfiles: {},
 };
-
-const CAPTURE_PROFILE_KEYS = [
-  'lastDeviceId',
-  'lastNativeDeviceId',
-  'captureBackend',
-  'nativeCaptureSelection',
-  'nativeCaptureProfiles',
-] as const satisfies ReadonlyArray<keyof AppConfig>;
-
-const CAPTURE_PROFILE_KEY_SET = new Set<keyof AppConfig>(CAPTURE_PROFILE_KEYS);
 
 export interface ConfigStoreLike {
   get(key: string, defaultValue?: unknown): unknown;
@@ -140,29 +132,6 @@ function normalizeProfiles(value: unknown): Record<string, NativeCaptureProfile>
     };
   });
   return profiles;
-}
-
-/** 判断 AppConfig 字段是否必须分流到 D 盘采集缓存。 */
-export function isCaptureProfileKey(key: keyof AppConfig): boolean {
-  return CAPTURE_PROFILE_KEY_SET.has(key);
-}
-
-/** 将配置补丁拆分，避免供应商密钥进入采集缓存。 */
-export function splitCaptureProfilePatch(config: Partial<AppConfig>): {
-  appPatch: Partial<AppConfig>;
-  capturePatch: Partial<CaptureProfileConfig>;
-} {
-  const appPatch: Partial<AppConfig> = {};
-  const capturePatch: Partial<CaptureProfileConfig> = {};
-  Object.entries(config).forEach(([rawKey, value]) => {
-    const key = rawKey as keyof AppConfig;
-    if (isCaptureProfileKey(key)) {
-      Object.assign(capturePatch, { [key]: value });
-    } else {
-      Object.assign(appPatch, { [key]: value });
-    }
-  });
-  return { appPatch, capturePatch };
 }
 
 /** 从独立存储读取并校验缓存，损坏字段不会进入采集管线。 */

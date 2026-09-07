@@ -1,37 +1,38 @@
 # 采集引擎与帧处理
 
-> 最后更新: 2026-09-03
+> 最后更新: 2026-09-07
 > 目录: `src/main/capture/`, `src/main/processor/`
 
 ## 采集模块 (`src/main/capture/`)
 
 ### 设备与能力枚举
 
-- “浏览器自动”继续使用 `navigator.mediaDevices.enumerateDevices()`；屏幕/窗口采集保留原路径
+- 设备入口使用 `navigator.mediaDevices.enumerateDevices()`；采集卡统一采用 Windows x64 精确采集，
+  v1.1.8 移除“浏览器自动/采集方式”选择。屏幕/窗口仍为原有未完成功能
 - Windows x64 的“GStreamer 精确格式”由 Rust sidecar 使用 `GstDeviceMonitor` 枚举
   Media Foundation 设备及离散 Caps
-- 原生下拉框按“后端 → 格式 → 分辨率 → 帧率”联动，只允许提交本次枚举返回的设备、格式和模式 ID
+- 原生下拉框按“格式 → 分辨率 → 帧率”联动，只允许提交本次枚举返回的设备、格式和模式 ID
 - 默认从 YUY2 候选中验证不低于 30 FPS 的高质量档；短时实测达到目标帧率 95% 才标记“已验证”
-- 没有 YUY2 或原生运行时不可用时保留浏览器自动模式，精确格式启动失败不会静默更换格式
+- 没有 YUY2 时在已枚举的其他原生格式中优先选择已验证、高分辨率模式；运行时不可用时明确报错并可重试
 
 ### 精确协议恢复
 
-- 每张采集卡的浏览器设备标识、Media Foundation 设备 ID、规范化名称、后端和精确模式独立保存到
+- 最后使用的一套浏览器设备标识、Media Foundation 设备 ID、规范化名称、精确模式与 Caps 快照保存到
   `D:\ProgramData\ScreenCode\capture-profile.json`
 - 重启时先按原生设备 ID 恢复；Chromium 或驱动更新导致 ID 变化时，再按去除 VID:PID 后的设备名匹配
 - 从档案恢复的设备 ID 会重映射到本次枚举结果，但格式和模式必须再次通过当前 Caps 校验
-- 模式已失效时使用设备当前最高有效 YUY2 默认模式；不会把缓存中的任意 Caps 或管线参数交给 sidecar
+- 模式已失效时使用设备当前原生默认高画质模式，YUY2 优先；不会把缓存中的任意管线参数交给 sidecar
 - 设备与模式恢复后复用 Preview 现有自动启动逻辑，不维护第二套连接状态
+- `nativeDiscoveryPhase` 区分加载、就绪和失败；缓存先展示，模式调整和启动必须等待本次枚举就绪
+- 重复初始化合并为一次枚举；探测期间点击设备只记录待恢复设备。临时错误不覆写缓存，失败提供重新探测
+- 旧多设备档案可读取；成功保存时仅保留当前一个档案。旧 `browser-auto` 标志不再影响采集卡启动
+- 参数更新即时持久化后才启动新模式；通用设置保存过滤采集字段，避免旧配置反向覆盖
 
 ### 视频流管理
 
-- `startCapture()`: 根据设备类型获取 MediaStream
-  - `videoinput` → `getUserMedia({ video: { deviceId } })` 打开指定设备一次
-  - 通过 `getCapabilities()` 获取能力范围，并根据设置中的画质策略生成候选模式
-  - 默认“画质优先”：分辨率优先，同分辨率优先尝试 `30/29.97/25/24 FPS`，避免选择只有标称值、
-    实际仍约 30 帧的 `60 FPS` 档位；“流畅优先”仍按帧率降序
-  - 通过 `applyConstraints()` 逐档应用严格宽、高、帧率约束；支持时使用 `resizeMode: none`
-  - 通过 `getSettings()` 记录实际生效参数，严格模式均失败时保留理想值或浏览器默认流
+- `startCapture()`: 根据设备类型启动采集
+  - `videoinput` → 校验本次枚举已经就绪及模式仍存在，再调用 `startNativeCapture(selection)`
+  - 启动失败保留参数并报错，不调用 `getUserMedia`
   - `screen` → desktopCapturer（待实现）
 - `gstreamer-mf` → `mfvideosrc + capsfilter + tee`
   - 原始分支：`appsink max-buffers=1 drop=true`，仅在 sidecar 内保存最新原始帧
@@ -40,9 +41,11 @@
   - Renderer 使用官方 `gstwebrtc-api` 3.0.0 客户端连接 `127.0.0.1` 随机信令端口
   - IPC 只承载控制、状态及按需 PNG；连续原始帧不经过 Electron IPC
 - `stopCapture()`: 停止所有 track，通知主进程
-- `captureFrame()`: 原生模式请求最新原始帧 PNG；浏览器自动模式直接截取当前 `<video>` 固有尺寸
+- `captureFrame()`: 请求最新原始帧 PNG；失败时原有预览帧兜底路径会明确提示
 
-### 最高质量模式协商 (`src/renderer/capture/highQualityCapture.ts`)
+### 历史浏览器模式协商 (`src/renderer/capture/highQualityCapture.ts`)
+
+以下模块作为旧路径保留，v1.1.8 采集卡不再调用；当前工具栏只显示纯文本分辨率。
 
 浏览器不会公开 UVC 采集卡完整的离散输出模式表，因此协商器将设备能力上限与常见标准档位组合，
 通过严格约束逐档验证。默认排序策略为像素总数降序，同分辨率下优先稳定的 30 FPS 档；设置页可以
@@ -55,7 +58,7 @@
 
 能力边界：Chromium WebRTC 不能选择 UVC 的 MJPEG/YUY2/NV12 等像素格式，也不能保证能力范围的宽、
 高、帧率上限属于同一个离散模式。因此精确格式改由 GStreamer/Media Foundation 协商；浏览器自动模式
-仍用于通用兼容和非 Windows 平台。
+自 v1.1.8 起不再出现在采集卡活动路径；当前精确采集限定 Windows x64。
 
 ### 原生格式高保真截图
 

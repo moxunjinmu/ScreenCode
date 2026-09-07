@@ -119,7 +119,19 @@ set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ && npm run package
 electron_mirror=https://npmmirror.com/mirrors/electron/
 ```
 
-### 本地缓存
+### 采集参数界面回归测试（v1.1.8）
+
+执行 `npm run test:e2e`，使用本机 Chrome（可通过 `PLAYWRIGHT_CHANNEL=msedge` 改用 Edge），
+启动独立 Vite 测试端口 `127.0.0.1:52010`。测试通过模拟硬件/IPC 边界验证真实 Store、Preview 和 Radix
+下拉框，覆盖缓存先展示、自动连接、格式/分辨率/FPS 选择、弹层层级、键盘选择与重载恢复。
+截图和失败追踪文件保存在项目 `out/e2e-results`。该测试不代替真实采集卡安装后冷启动验收。
+
+### 依赖缓存
+
+本机优先使用 D 盘时，将 `TEMP`、`TMP` 设为 `D:\ProgramData\ScreenCode\build-temp` 后执行构建，
+`ELECTRON_CACHE`、`ELECTRON_BUILDER_CACHE` 和 npm cache 可放入项目 `.tools`。Electron Packager
+会复制整个项目作为打包输入，因此临时目录不能位于项目自身的子目录，否则会报“Cannot copy ...
+to a subdirectory of itself”。最终安装器由构建脚本复制到项目根目录。
 
 Electron 二进制文件缓存位置：
 - **Windows**: `%LOCALAPPDATA%/electron/Cache/`
@@ -132,7 +144,7 @@ Electron 二进制文件缓存位置：
 
 | 平台 | 支持状态 | 打包 Maker |
 |------|----------|------------|
-| Windows (x64) | 主要目标 | Squirrel (exe 安装器) |
+| Windows (x64) | 主要目标 | NSIS（支持选择安装目录的 EXE 安装器） |
 | macOS | 开发环境 | ZIP |
 | Linux | 未测试 | Deb / RPM |
 

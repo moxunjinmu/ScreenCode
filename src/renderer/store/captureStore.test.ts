@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   startCapture: vi.fn(),
   stopNativeCapture: vi.fn(),
   stopCapture: vi.fn(),
+  captureNativeSnapshot: vi.fn(),
+  processCapturedImage: vi.fn(),
 }));
 
 vi.mock('../lib/electronApi', () => ({
@@ -21,6 +23,8 @@ vi.mock('../lib/electronApi', () => ({
     startCapture: mocks.startCapture,
     stopNativeCapture: mocks.stopNativeCapture,
     stopCapture: mocks.stopCapture,
+    captureNativeSnapshot: mocks.captureNativeSnapshot,
+    processCapturedImage: mocks.processCapturedImage,
   },
 }));
 
@@ -52,7 +56,7 @@ const nativeDevice: NativeCaptureDevice = {
 
 describe('采集设备加载', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     useCaptureStore.setState({
       devices: [],
       nativeDevices: [],
@@ -63,6 +67,10 @@ describe('采集设备加载', () => {
       nativeDiscoveryPhase: 'idle',
       isCapturing: false,
       stream: null,
+      currentFrame: null,
+      videoElement: null,
+      isHighQualityCapturing: false,
+      nativeStatus: { phase: 'idle', verified: false },
     });
   });
 
@@ -475,5 +483,119 @@ describe('采集设备加载', () => {
     });
     await expect(useCaptureStore.getState().startCapture()).rejects.toThrow('探测');
     expect(mocks.startNativeCapture).not.toHaveBeenCalled();
+  });
+
+  it('浏览器暂未提供设备名称时按已保存的设备 ID 对应原生能力', async () => {
+    mocks.getConfig.mockResolvedValue({
+      ...DEFAULT_CONFIG, lastDeviceId: 'browser-usb3', lastNativeDeviceId: nativeDevice.id,
+      nativeCaptureProfiles: {
+        [nativeDevice.id]: {
+          nativeDeviceId: nativeDevice.id, nativeDeviceLabel: nativeDevice.label,
+          browserDeviceId: 'browser-usb3', captureBackend: 'gstreamer-mf',
+          selection: { deviceId: nativeDevice.id, formatId: 'YUY2', modeId: 'YUY2:2560x1440:50/1' },
+        },
+      },
+    });
+    mocks.enumerateNativeCaptureDevices.mockResolvedValue([nativeDevice]);
+    vi.stubGlobal('navigator', { mediaDevices: { enumerateDevices: vi.fn().mockResolvedValue([
+      { deviceId: 'browser-usb3', kind: 'videoinput', label: '' },
+    ]) } });
+    await useCaptureStore.getState().loadDevices();
+    expect(useCaptureStore.getState().nativeSelection?.deviceId).toBe(nativeDevice.id);
+  });
+
+  it('只有 MJPEG 的原生设备也能默认选择其真实模式', async () => {
+    const mjpeg = {
+      ...nativeDevice,
+      formats: [{
+        id: 'MJPEG', label: 'MJPEG', mediaType: 'image/jpeg',
+        modes: [{ ...nativeDevice.formats[0].modes[0], id: 'MJPEG:2560x1440:30/1', frameRateNumerator: 30 }],
+      }],
+    };
+    mocks.getConfig.mockResolvedValue({ ...DEFAULT_CONFIG, lastDeviceId: 'browser-usb3' });
+    mocks.enumerateNativeCaptureDevices.mockResolvedValue([mjpeg]);
+    vi.stubGlobal('navigator', { mediaDevices: { enumerateDevices: vi.fn().mockResolvedValue([
+      { deviceId: 'browser-usb3', kind: 'videoinput', label: nativeDevice.label },
+    ]) } });
+    await useCaptureStore.getState().loadDevices();
+    expect(useCaptureStore.getState().nativeSelection).toEqual({
+      deviceId: nativeDevice.id, formatId: 'MJPEG', modeId: 'MJPEG:2560x1440:30/1',
+    });
+  });
+
+  it('重复初始化共用一次原生枚举，不重复启动检测', async () => {
+    let release!: (devices: NativeCaptureDevice[]) => void;
+    mocks.enumerateNativeCaptureDevices.mockReturnValue(new Promise((resolve) => { release = resolve; }));
+    mocks.getConfig.mockResolvedValue(DEFAULT_CONFIG);
+    vi.stubGlobal('navigator', { mediaDevices: { enumerateDevices: vi.fn().mockResolvedValue([]) } });
+    const first = useCaptureStore.getState().loadDevices();
+    const second = useCaptureStore.getState().loadDevices();
+    release([]);
+    await Promise.all([first, second]);
+    expect(mocks.enumerateNativeCaptureDevices).toHaveBeenCalledTimes(1);
+    expect(useCaptureStore.getState().selectedDeviceId).toBeNull();
+    expect(mocks.setConfig).not.toHaveBeenCalled();
+  });
+
+  it('精确采集启动失败保留所选格式且不启动浏览器采集', async () => {
+    const selection = { deviceId: nativeDevice.id, formatId: 'YUY2', modeId: 'YUY2:2560x1440:50/1' };
+    const getUserMedia = vi.fn();
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } });
+    useCaptureStore.setState({
+      selectedDeviceId: 'browser-usb3', selectedDeviceType: 'videoinput', captureBackend: 'gstreamer-mf',
+      nativeDiscoveryPhase: 'ready', nativeDevices: [nativeDevice], nativeSelection: selection,
+    });
+    mocks.startNativeCapture.mockRejectedValue(new Error('设备被占用'));
+    await expect(useCaptureStore.getState().startCapture()).rejects.toThrow('设备被占用');
+    expect(useCaptureStore.getState().nativeSelection).toEqual(selection);
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(mocks.setConfig).not.toHaveBeenCalled();
+  });
+
+  it('启动及停止使用同一精确模式，暂停不会清空保存的参数', async () => {
+    const selection = { deviceId: nativeDevice.id, formatId: 'YUY2', modeId: 'YUY2:2560x1440:50/1' };
+    useCaptureStore.setState({
+      selectedDeviceId: 'browser-usb3', selectedDeviceType: 'videoinput', captureBackend: 'gstreamer-mf',
+      nativeDiscoveryPhase: 'ready', nativeDevices: [nativeDevice], nativeSelection: selection,
+    });
+    await useCaptureStore.getState().startCapture();
+    expect(mocks.startNativeCapture).toHaveBeenCalledWith(selection);
+    expect(useCaptureStore.getState().isCapturing).toBe(true);
+    await useCaptureStore.getState().stopCapture();
+    expect(useCaptureStore.getState()).toMatchObject({ isCapturing: false, nativeSelection: selection });
+    expect(mocks.setConfig).not.toHaveBeenCalled();
+  });
+
+  it('精确截图从当前原始帧生成图片，截图期间不重启采集或改写配置', async () => {
+    const snapshot = { data: 'raw-png', mimeType: 'image/png', width: 2560, height: 1440, sourceFormat: 'YUY2' };
+    mocks.captureNativeSnapshot.mockResolvedValue(snapshot);
+    mocks.processCapturedImage.mockImplementation(async ({ image }) => image);
+    mocks.getConfig.mockResolvedValue(DEFAULT_CONFIG);
+    useCaptureStore.setState({ isCapturing: true, captureBackend: 'gstreamer-mf' });
+    const outcome = await useCaptureStore.getState().captureFrame();
+    expect(outcome).toMatchObject({ image: snapshot, source: 'native', sourceFormat: 'YUY2' });
+    expect(useCaptureStore.getState()).toMatchObject({ currentFrame: 'raw-png', isHighQualityCapturing: false });
+    expect(mocks.stopNativeCapture).not.toHaveBeenCalled();
+    expect(mocks.startNativeCapture).not.toHaveBeenCalled();
+    expect(mocks.setConfig).not.toHaveBeenCalled();
+  });
+
+  it('图片处理失败仍返回原始 PNG 并提示，不影响采集参数', async () => {
+    const snapshot = { data: 'raw-png', mimeType: 'image/png', width: 2560, height: 1440, sourceFormat: 'YUY2' };
+    mocks.captureNativeSnapshot.mockResolvedValue(snapshot);
+    mocks.processCapturedImage.mockRejectedValue(new Error('图片处理失败'));
+    mocks.getConfig.mockResolvedValue(DEFAULT_CONFIG);
+    useCaptureStore.setState({ isCapturing: true, captureBackend: 'gstreamer-mf' });
+    const outcome = await useCaptureStore.getState().captureFrame();
+    expect(outcome?.image).toEqual(snapshot);
+    expect(outcome?.warning).toContain('保留采集原图');
+  });
+
+  it('原始截图失败且没有预览帧时明确报错并退出截图中状态', async () => {
+    mocks.captureNativeSnapshot.mockRejectedValue(new Error('没有原始帧'));
+    mocks.getConfig.mockResolvedValue(DEFAULT_CONFIG);
+    useCaptureStore.setState({ isCapturing: true, captureBackend: 'gstreamer-mf' });
+    await expect(useCaptureStore.getState().captureFrame()).rejects.toThrow('没有原始帧');
+    expect(useCaptureStore.getState().isHighQualityCapturing).toBe(false);
   });
 });

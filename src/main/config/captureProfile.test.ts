@@ -204,4 +204,19 @@ describe('采集卡精确协议独立缓存', () => {
     });
     writeCaptureProfilePatch(mixedProfiles, { lastDeviceId: undefined });
   });
+
+  it('Caps 缓存精确保留 60000/1001 帧率，不因分子超过 10000 丢失模式', () => {
+    const fractional = structuredClone(capabilities);
+    fractional.formats[0].modes[0].frameRateNumerator = 60000;
+    fractional.formats[0].modes[0].frameRateDenominator = 1001;
+    const store = new MemoryStore({ nativeCaptureProfiles: {
+      [selection.deviceId]: {
+        nativeDeviceId: selection.deviceId, nativeDeviceLabel: 'USB3 Video',
+        browserDeviceId: 'browser-usb3', captureBackend: 'gstreamer-mf',
+        capabilities: fractional,
+      },
+    } });
+    expect(readCaptureProfileConfig(store).nativeCaptureProfiles[selection.deviceId].capabilities)
+      .toEqual(fractional);
+  });
 });

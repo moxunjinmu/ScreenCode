@@ -394,7 +394,8 @@ code,
   }
 
   .select-popover {
-    z-index: 60;
+    /* 子选择列表必须高于采集参数浮层（70）。 */
+    z-index: 80;
     min-width: var(--radix-select-trigger-width);
     max-height: var(--radix-select-content-available-height);
     overflow: hidden;

@@ -37,10 +37,16 @@ function capturePreviewFrame(videoElement: HTMLVideoElement): EncodedImage | nul
 function matchNativeDevice(
   browserDevice: Device | undefined,
   nativeDevices: NativeCaptureDevice[],
+  profiles: Record<string, NativeCaptureProfile> = {},
 ): NativeCaptureDevice | null {
   if (!browserDevice) return null;
+  if (browserDevice.type !== 'videoinput') return null;
+  const profile = cachedProfileForBrowserDevice(browserDevice, profiles);
+  const byId = nativeDevices.find((device) => device.id === profile?.nativeDeviceId);
+  if (byId) return byId;
   const label = normalizeCaptureDeviceLabel(browserDevice.name);
-  return nativeDevices.find((device) => normalizeCaptureDeviceLabel(device.label) === label) ?? null;
+  const matches = nativeDevices.filter((device) => normalizeCaptureDeviceLabel(device.label) === label);
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function selectionForDevice(
@@ -53,10 +59,19 @@ function selectionForDevice(
       ? { ...configured, deviceId: device.id }
       : configured;
     if (isNativeSelectionSupported(device, candidate)) return candidate;
-    console.warn('[Capture] 缓存的精确模式已不在当前设备 Caps 中，改用最高有效 YUY2');
+    console.warn('[Capture] 缓存的精确模式已不在当前设备 Caps 中，改用当前原生默认模式');
   }
   const mode = selectDefaultNativeMode(device);
-  return mode ? { deviceId: device.id, formatId: 'YUY2', modeId: mode.id } : null;
+  if (mode) return { deviceId: device.id, formatId: 'YUY2', modeId: mode.id };
+  // 只有 MJPEG/NV12 等格式的设备仍在原生路径选择，不再落入浏览器自动。
+  const fallback = device.formats.flatMap((format) => format.modes.map((item) => ({ format, mode: item })))
+    .sort((left, right) => Number(right.mode.verified) - Number(left.mode.verified)
+      || right.mode.width * right.mode.height - left.mode.width * left.mode.height
+      || right.mode.frameRateNumerator / right.mode.frameRateDenominator
+        - left.mode.frameRateNumerator / left.mode.frameRateDenominator)[0];
+  return fallback
+    ? { deviceId: device.id, formatId: fallback.format.id, modeId: fallback.mode.id }
+    : null;
 }
 
 function profileForDevice(
@@ -198,13 +213,13 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       stream,
       stopCapture,
       devices,
-      nativeDevices,
-      nativeDiscoveryPhase,
     } = get();
     if (isCapturing || stream) await stopCapture();
     const browserDevice = devices.find((device) => device.id === deviceId);
     if (!browserDevice || browserDevice.type !== deviceType) throw new Error('所选设备不在当前设备列表中');
     const config = await electronAPI.getConfig();
+    // await 期间原生枚举可能已完成，必须使用此刻的能力和阶段，避免回写旧快照。
+    const { nativeDevices, nativeDiscoveryPhase } = get();
     const configuredProfiles = config.nativeCaptureProfiles ?? {};
     if (deviceType === 'videoinput' && nativeDiscoveryPhase !== 'ready') {
       const cachedProfile = cachedProfileForBrowserDevice(
@@ -232,7 +247,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
     }
 
     const nativeDevice = deviceType === 'videoinput'
-      ? matchNativeDevice(browserDevice, nativeDevices)
+      ? matchNativeDevice(browserDevice, nativeDevices, configuredProfiles)
       : null;
     const profile = nativeDevice
       ? profileForDevice(nativeDevice, configuredProfiles)
@@ -337,7 +352,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
     }
 
     const loadTask = (async () => {
-      set({ nativeDiscoveryPhase: 'loading' });
+      set({ nativeDiscoveryPhase: 'loading', nativeStatus: { phase: 'idle', verified: false } });
       const nativeDevicesPromise = electronAPI.enumerateNativeCaptureDevices()
         .then((devices) => ({ devices, error: null as unknown }))
         .catch((error: unknown) => {
@@ -420,7 +435,7 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       const currentState = get();
       const selectedDeviceId = currentState.selectedDeviceId ?? config.lastDeviceId;
       let selectedDevice = videoDevices.find((device) => device.id === selectedDeviceId);
-      let nativeDevice = matchNativeDevice(selectedDevice, nativeResult.devices);
+      let nativeDevice = matchNativeDevice(selectedDevice, nativeResult.devices, configuredProfiles);
       if (!nativeDevice && !selectedDevice) {
         const preferredProfile = config.lastNativeDeviceId
           ? configuredProfiles[config.lastNativeDeviceId]
@@ -468,7 +483,13 @@ export const useCaptureStore = create<CaptureState>((set, get) => ({
       }
     })().catch((error) => {
       console.error('Failed to load devices:', error);
-      set({ nativeDiscoveryPhase: 'failed' });
+      set({
+        nativeDiscoveryPhase: 'failed',
+        nativeStatus: {
+          phase: 'error', verified: false,
+          error: `采集配置恢复失败：${error instanceof Error ? error.message : String(error)}`,
+        },
+      });
     });
 
     activeDeviceLoad = loadTask;

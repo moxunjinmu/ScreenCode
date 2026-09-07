@@ -188,6 +188,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
           }, captureBackend === 'gstreamer-mf' ? 30_000 : 5_000);
         }
       } catch (err) {
+        if (cancelled) return;
         const errorMessage = err instanceof Error ? err.message : '启动视频捕获失败';
         setError(errorMessage);
         setIsLoading(false);

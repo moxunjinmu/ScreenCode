@@ -27,9 +27,12 @@ export default defineConfig({
         'src/renderer/capture/regionKeyboard.ts',
         'src/shared/imageQuality.ts',
         'src/shared/nativeCapture.ts',
+        'src/shared/captureConfig.ts',
         'src/main/capture/nativeSidecarProtocol.ts',
         'src/main/capture/nativeSidecarManager.ts',
         'src/main/config/captureProfile.ts',
+        'src/renderer/store/captureStore.ts',
+        'src/renderer/components/Select/index.tsx',
       ],
       thresholds: {
         lines: 80,
