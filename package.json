@@ -55,6 +55,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.17.1",
     "@radix-ui/react-popover": "^1.1.23",
+    "@radix-ui/react-select": "^2.3.7",
     "electron-store": "^8.1.0",
     "lucide-react": "^1.28.0",
     "openai": "^6.25.0",

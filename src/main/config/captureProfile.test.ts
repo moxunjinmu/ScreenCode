@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AppConfig, CaptureProfileConfig } from '@shared/types';
+import type { AppConfig, CaptureProfileConfig, NativeCaptureDevice } from '@shared/types';
 import {
   CAPTURE_PROFILE_DIRECTORY,
   DEFAULT_CAPTURE_PROFILE_CONFIG,
@@ -37,6 +37,26 @@ const selection = {
   deviceId: 'mf:usb3-video',
   formatId: 'YUY2',
   modeId: 'YUY2:2560x1440:50/1',
+};
+
+const capabilities: NativeCaptureDevice = {
+  id: selection.deviceId,
+  label: 'USB3 Video',
+  backend: 'gstreamer-mf',
+  formats: [{
+    id: 'YUY2',
+    label: 'YUY2 4:2:2',
+    mediaType: 'video/x-raw',
+    modes: [{
+      id: selection.modeId,
+      width: 2560,
+      height: 1440,
+      frameRateNumerator: 50,
+      frameRateDenominator: 1,
+      advertised: true,
+      verified: true,
+    }],
+  }],
 };
 
 describe('采集卡精确协议独立缓存', () => {
@@ -120,6 +140,7 @@ describe('采集卡精确协议独立缓存', () => {
           browserDeviceId: 'browser-usb3',
           captureBackend: 'gstreamer-mf',
           selection,
+          capabilities,
         },
       },
     };
@@ -164,6 +185,7 @@ describe('采集卡精确协议独立缓存', () => {
           browserDeviceId: 'browser-usb3',
           captureBackend: 'browser-auto',
           selection: { deviceId: 'mf:browser-auto', formatId: '', modeId: 'mode' },
+          capabilities: { ...capabilities, id: 'another-device' },
         },
       },
     });

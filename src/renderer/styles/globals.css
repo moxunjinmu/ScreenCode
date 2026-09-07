@@ -334,7 +334,7 @@ code,
     box-shadow: 0 0 0 2px var(--accent-subtle);
   }
 
-  /* 自定义下拉（Select 组件），触发器与 .input 同源 */
+  /* Radix Select 薄封装，触发器与 .input 同源 */
   .select-root {
     position: relative;
   }
@@ -362,7 +362,7 @@ code,
     border-color: var(--border-strong);
   }
 
-  .select-trigger.is-open {
+  .select-trigger[data-state='open'] {
     border-color: var(--accent-border);
     box-shadow: 0 0 0 2px var(--accent-subtle);
   }
@@ -372,7 +372,7 @@ code,
     cursor: not-allowed;
   }
 
-  .select-trigger.is-placeholder .select-trigger-label {
+  .select-trigger[data-placeholder] .select-trigger-label {
     color: var(--text-dim);
   }
 
@@ -383,26 +383,32 @@ code,
     white-space: nowrap;
   }
 
-  .select-trigger > svg {
+  .select-trigger-icon {
     flex: 0 0 auto;
     color: var(--text-dim);
     transition: transform var(--motion-control) ease-out;
   }
 
-  .select-trigger.is-open > svg {
+  .select-trigger[data-state='open'] .select-trigger-icon {
     transform: rotate(180deg);
   }
 
   .select-popover {
-    position: fixed;
     z-index: 60;
-    overflow-y: auto;
-    padding: 4px;
+    min-width: var(--radix-select-trigger-width);
+    max-height: var(--radix-select-content-available-height);
+    overflow: hidden;
     background: var(--surface-1);
     border: 1px solid var(--border-strong);
     border-radius: var(--r-sm);
     box-shadow: var(--shadow-md);
     animation: selectEnter var(--motion-control) var(--ease-out) both;
+  }
+
+  .select-viewport {
+    max-height: min(240px, var(--radix-select-content-available-height));
+    padding: 4px;
+    overflow-y: auto;
   }
 
   @keyframes selectEnter {
@@ -423,6 +429,8 @@ code,
     text-align: left;
     white-space: nowrap;
     border-radius: 4px;
+    outline: none;
+    user-select: none;
   }
 
   .select-option-label {
@@ -432,17 +440,26 @@ code,
     text-overflow: ellipsis;
   }
 
-  .select-option.is-active {
+  .select-option[data-highlighted] {
     background: var(--row-hover);
   }
 
-  .select-option.is-selected {
+  .select-option[data-state='checked'] {
     color: var(--accent-text);
     background: var(--accent-subtle);
   }
 
-  .select-option > svg {
+  .select-option-indicator {
     flex: 0 0 auto;
+  }
+
+  .select-scroll-button {
+    display: flex;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    background: var(--surface-1);
   }
 
   .chip {
@@ -1024,6 +1041,13 @@ body.is-resizing-pane {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3) var(--space-2);
+}
+
+.capture-discovery-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .capture-popover-field {

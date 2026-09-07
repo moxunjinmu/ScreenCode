@@ -48,14 +48,6 @@ const CaptureToolbar: React.FC<CaptureToolbarProps> = ({
 }) => {
   const [activePanel, setActivePanel] = useState<ToolbarPanel>(null);
 
-  // Select 的选项列表也使用 Portal；点击该列表时不能让外层 Radix Popover 提前关闭。
-  const preserveNestedSelect = (event: Event) => {
-    const target = event.target;
-    if (target instanceof Element && target.closest('.select-popover')) {
-      event.preventDefault();
-    }
-  };
-
   const setPanelOpen = (panel: Exclude<ToolbarPanel, null>, open: boolean) => {
     setActivePanel((current) => (open ? toggleToolbarPanel(current, panel) : null));
   };
@@ -92,7 +84,6 @@ const CaptureToolbar: React.FC<CaptureToolbarProps> = ({
                 align="start"
                 sideOffset={8}
                 collisionPadding={8}
-                onInteractOutside={preserveNestedSelect}
               >
                 <div className="capture-popover-title">采集参数</div>
                 {captureSettings}
@@ -182,7 +173,6 @@ const CaptureToolbar: React.FC<CaptureToolbarProps> = ({
                   align="end"
                   sideOffset={8}
                   collisionPadding={8}
-                  onInteractOutside={preserveNestedSelect}
                 >
                   <div className="capture-popover-title">显示设置</div>
                   {displaySettings}

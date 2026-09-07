@@ -403,6 +403,7 @@ describe('采集设备加载', () => {
   it('切换精确模式时按当前采集卡写入独立设备档案', async () => {
     mocks.getConfig.mockResolvedValue(DEFAULT_CONFIG);
     useCaptureStore.setState({
+      nativeDiscoveryPhase: 'ready',
       nativeDevices: [nativeDevice],
       selectedDeviceId: 'browser-usb3',
       selectedDeviceType: 'videoinput',

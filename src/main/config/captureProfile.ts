@@ -1,4 +1,12 @@
-import type { AppConfig, CaptureProfileConfig, NativeCaptureProfile, NativeCaptureSelection } from '@shared/types';
+import type {
+  AppConfig,
+  CaptureProfileConfig,
+  NativeCaptureDevice,
+  NativeCaptureFormat,
+  NativeCaptureMode,
+  NativeCaptureProfile,
+  NativeCaptureSelection,
+} from '@shared/types';
 
 export const CAPTURE_PROFILE_DIRECTORY = 'D:\\ProgramData\\ScreenCode';
 export const CAPTURE_PROFILE_NAME = 'capture-profile';
@@ -43,6 +51,68 @@ function normalizeSelection(value: unknown): NativeCaptureSelection | undefined 
   return deviceId && formatId && modeId ? { deviceId, formatId, modeId } : undefined;
 }
 
+function normalizePositiveInteger(value: unknown, maximum: number): number | undefined {
+  return Number.isInteger(value) && Number(value) > 0 && Number(value) <= maximum
+    ? Number(value)
+    : undefined;
+}
+
+/** 校验磁盘中的 Caps 快照，缓存永远不能成为任意 sidecar 参数入口。 */
+function normalizeCapabilities(
+  value: unknown,
+  expectedDeviceId: string,
+): NativeCaptureDevice | undefined {
+  if (!isRecord(value)) return undefined;
+  const id = normalizeOptionalString(value.id);
+  const label = normalizeOptionalString(value.label);
+  if (id !== expectedDeviceId || !label || value.backend !== 'gstreamer-mf') return undefined;
+  if (!Array.isArray(value.formats)) return undefined;
+
+  const formats: NativeCaptureFormat[] = value.formats.slice(0, 32).flatMap((candidate) => {
+    if (!isRecord(candidate)) return [];
+    const formatId = normalizeOptionalString(candidate.id);
+    const formatLabel = normalizeOptionalString(candidate.label);
+    const mediaType = candidate.mediaType;
+    if (
+      !formatId
+      || !formatLabel
+      || (mediaType !== 'video/x-raw' && mediaType !== 'image/jpeg')
+      || !Array.isArray(candidate.modes)
+    ) return [];
+
+    const modes: NativeCaptureMode[] = candidate.modes.slice(0, 512).flatMap((mode) => {
+      if (!isRecord(mode)) return [];
+      const modeId = normalizeOptionalString(mode.id);
+      const width = normalizePositiveInteger(mode.width, 16_384);
+      const height = normalizePositiveInteger(mode.height, 16_384);
+      const frameRateNumerator = normalizePositiveInteger(mode.frameRateNumerator, 1_000_000);
+      const frameRateDenominator = normalizePositiveInteger(mode.frameRateDenominator, 1_000_000);
+      if (
+        !modeId
+        || !width
+        || !height
+        || !frameRateNumerator
+        || !frameRateDenominator
+        || typeof mode.advertised !== 'boolean'
+        || typeof mode.verified !== 'boolean'
+      ) return [];
+      return [{
+        id: modeId,
+        width,
+        height,
+        frameRateNumerator,
+        frameRateDenominator,
+        advertised: mode.advertised,
+        verified: mode.verified,
+      }];
+    });
+    if (modes.length === 0) return [];
+    return [{ id: formatId, label: formatLabel, mediaType, modes }];
+  });
+  if (formats.length === 0) return undefined;
+  return { id, label, backend: 'gstreamer-mf', formats };
+}
+
 function normalizeProfiles(value: unknown): Record<string, NativeCaptureProfile> {
   if (!isRecord(value)) return {};
   const profiles: Record<string, NativeCaptureProfile> = {};
@@ -59,12 +129,14 @@ function normalizeProfiles(value: unknown): Record<string, NativeCaptureProfile>
       || (captureBackend !== 'browser-auto' && captureBackend !== 'gstreamer-mf')
     ) return;
     const selection = normalizeSelection(candidate.selection);
+    const capabilities = normalizeCapabilities(candidate.capabilities, nativeDeviceId);
     profiles[key] = {
       nativeDeviceId,
       nativeDeviceLabel,
       browserDeviceId,
       captureBackend,
       ...(selection ? { selection } : {}),
+      ...(capabilities ? { capabilities } : {}),
     };
   });
   return profiles;

@@ -72,6 +72,8 @@ export interface NativeCaptureProfile {
   browserDeviceId: string;
   captureBackend: CaptureBackend;
   selection?: NativeCaptureSelection;
+  /** 最近一次已由 sidecar 枚举并验证结构的 Caps 快照，仅用于启动阶段展示。 */
+  capabilities?: NativeCaptureDevice;
 }
 
 /** 仅包含采集相关字段的独立缓存文件结构。 */

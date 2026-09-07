@@ -9,7 +9,6 @@ import {
   DisplayResolution,
   PRESET_RESOLUTIONS,
   PRESET_SCALES,
-  type CaptureBackend,
   type EncodedImage,
   DEFAULT_CONFIG,
 } from '@shared/types';
@@ -59,9 +58,10 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     selectedDeviceType,
     captureBackend,
     nativeSelection,
+    nativeDiscoveryPhase,
     nativeStatus,
     selectDevice,
-    setCaptureBackend,
+    loadDevices,
     setNativeSelection,
     setNativeStatus,
     isCapturing,
@@ -73,6 +73,11 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     setStream,
     setVideoElement,
   } = useCaptureStore();
+
+  const isDiscovering = nativeDiscoveryPhase === 'idle' || nativeDiscoveryPhase === 'loading';
+  useEffect(() => {
+    if (nativeStatus.phase === 'error' && nativeStatus.error) setError(nativeStatus.error);
+  }, [nativeStatus.phase, nativeStatus.error]);
 
   const { isRegionCapture, setRegionCapture, isFullscreenPreview, setFullscreenPreview, displayResolution, setDisplayResolution } = useUIStore();
   const { addFrame } = useFrameStore();
@@ -141,8 +146,16 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
 
   // 当选择设备后自动开始捕获
   useEffect(() => {
+    let cancelled = false;
+    let checkStream: ReturnType<typeof setInterval> | undefined;
+    let connectionTimeout: ReturnType<typeof setTimeout> | undefined;
     const startVideoStream = async () => {
       if (!selectedDeviceId) return;
+      if (
+        selectedDeviceType === 'videoinput'
+        && captureBackend === 'gstreamer-mf'
+        && nativeDiscoveryPhase !== 'ready'
+      ) return;
 
       setIsLoading(true);
       setError(null);
@@ -151,19 +164,21 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
         if (selectedDeviceType === 'videoinput') {
           // 启动视频捕获
           await startCapture();
+          if (cancelled) return;
 
           // 等待 stream 更新
-          const checkStream = setInterval(() => {
+          checkStream = setInterval(() => {
             const currentStream = useCaptureStore.getState().stream;
             if (currentStream && videoRef.current) {
               videoRef.current.srcObject = currentStream;
               clearInterval(checkStream);
+              clearTimeout(connectionTimeout);
               setIsLoading(false);
             }
           }, 100);
 
           // 超时处理
-          setTimeout(() => {
+          connectionTimeout = setTimeout(() => {
             clearInterval(checkStream);
             const connectedStream = useCaptureStore.getState().stream;
             if (!connectedStream && captureBackend === 'gstreamer-mf') {
@@ -182,12 +197,15 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
     startVideoStream();
 
     return () => {
-      // 清理
+      cancelled = true;
+      clearInterval(checkStream);
+      clearTimeout(connectionTimeout);
     };
   }, [
     selectedDeviceId,
     selectedDeviceType,
     captureBackend,
+    nativeDiscoveryPhase,
     nativeSelection?.formatId,
     nativeSelection?.modeId,
     startCapture,
@@ -277,19 +295,19 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
   ) ?? [];
   const toolbarResolution = resolveToolbarResolution(nativeStatus, sourceResolution);
 
-  const handleBackendChange = async (backend: string) => {
+  const changeNativeMode = async (formatId: string, modeId: string) => {
     setError(null);
     try {
-      await setCaptureBackend(backend as CaptureBackend);
-    } catch (backendError) {
-      setError(backendError instanceof Error ? backendError.message : String(backendError));
+      await setNativeSelection(formatId, modeId);
+    } catch (selectionError) {
+      setError(selectionError instanceof Error ? selectionError.message : String(selectionError));
     }
   };
 
   const handleNativeFormatChange = async (formatId: string) => {
     const format = selectedNativeDevice?.formats.find((item) => item.id === formatId);
     const mode = format?.modes.find((item) => item.verified) ?? format?.modes[0];
-    if (mode) await setNativeSelection(formatId, mode.id);
+    if (mode) await changeNativeMode(formatId, mode.id);
   };
 
   const handleNativeResolutionChange = async (resolution: string) => {
@@ -301,18 +319,27 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
         right.frameRateNumerator / right.frameRateDenominator -
         left.frameRateNumerator / left.frameRateDenominator);
     const mode = modes.find((item) => item.verified) ?? modes[0];
-    if (mode) await setNativeSelection(selectedNativeFormat.id, mode.id);
+    if (mode) await changeNativeMode(selectedNativeFormat.id, mode.id);
   };
 
   const handleDeviceChange = async (deviceId: string) => {
     const device = devices.find(d => d.id === deviceId);
     if (device) {
       setError(null);
-      await selectDevice(deviceId, device.type);
+      try {
+        await selectDevice(deviceId, device.type);
+      } catch (selectionError) {
+        setError(selectionError instanceof Error ? selectionError.message : String(selectionError));
+      }
     }
   };
 
   const handleStartStop = async () => {
+    if (nativeDiscoveryPhase === 'failed') {
+      setError(null);
+      await loadDevices();
+      return;
+    }
     if (isCapturing) {
       await stopCapture();
       if (videoRef.current) {
@@ -437,29 +464,20 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
           )}
           captureSettings={selectedDeviceType === 'videoinput' ? (
             <div className="capture-popover-fields">
-              <label className="capture-popover-field">
-                <span>采集方式</span>
-                <Select
-                  value={captureBackend}
-                  options={[
-                    { value: 'browser-auto', label: '浏览器自动' },
-                    ...(nativeSelection
-                      ? [{ value: 'gstreamer-mf', label: '精确协议' }]
-                      : []),
-                  ]}
-                  onChange={(backend) => void handleBackendChange(backend)}
-                  className="capture-backend-select text-sm"
-                  ariaLabel="采集后端"
-                  title="精确协议由 GStreamer Media Foundation 实际协商"
-                />
-              </label>
-
+              {isDiscovering && <p className="capture-discovery-note" role="status">正在连接采集卡，已保存的参数将在确认后自动应用…</p>}
+              {nativeDiscoveryPhase === 'failed' && (
+                <button type="button" className="btn" onClick={() => void loadDevices()}>重新探测采集卡</button>
+              )}
+              {nativeDiscoveryPhase === 'ready' && !selectedNativeMode && (
+                <p className="capture-discovery-note">当前设备没有可用的精确模式，请检查采集卡连接。</p>
+              )}
               {captureBackend === 'gstreamer-mf' && selectedNativeFormat && selectedNativeMode && (
                 <>
                   <label className="capture-popover-field">
                     <span>原始格式</span>
                     <Select
                       value={selectedNativeFormat.id}
+                      disabled={nativeDiscoveryPhase !== 'ready'}
                       options={selectedNativeDevice?.formats.map((format) => ({
                         value: format.id,
                         label: format.label,
@@ -474,6 +492,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                     <span>采集分辨率</span>
                     <Select
                       value={`${selectedNativeMode.width}x${selectedNativeMode.height}`}
+                      disabled={nativeDiscoveryPhase !== 'ready'}
                       options={nativeResolutions.map((resolution) => ({
                         value: `${resolution.width}x${resolution.height}`,
                         label: `${resolution.width}×${resolution.height}`,
@@ -487,11 +506,12 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
                     <span>采集帧率</span>
                     <Select
                       value={selectedNativeMode.id}
+                      disabled={nativeDiscoveryPhase !== 'ready'}
                       options={modesAtSelectedResolution.map((mode) => ({
                         value: mode.id,
                         label: `${Number((mode.frameRateNumerator / mode.frameRateDenominator).toFixed(2))} FPS${mode.verified ? ' · 已验证' : ''}`,
                       }))}
-                      onChange={(modeId) => void setNativeSelection(selectedNativeFormat.id, modeId)}
+                      onChange={(modeId) => void changeNativeMode(selectedNativeFormat.id, modeId)}
                       className="capture-native-fps-select text-sm"
                       ariaLabel="原始采集帧率"
                     />
@@ -538,7 +558,7 @@ const Preview: React.FC<PreviewProps> = ({ isFullscreen = false, onToggleFullscr
           hasSelectedDevice={Boolean(selectedDeviceId)}
           hasStream={Boolean(stream)}
           isCapturing={isCapturing}
-          isLoading={isLoading}
+          isLoading={isLoading || isDiscovering}
           isRegionCapture={isRegionCapture}
           isPreparingRegion={isHighQualityCapturing}
           onStartStop={() => void handleStartStop()}
